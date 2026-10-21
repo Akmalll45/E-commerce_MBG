@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katalog Mobil Bekas Garasi</title>
+    <!-- Memanggil CSS Bootstrap 5 dari CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <!-- Navigasi Bar Sederhana -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">🚗 Mobil Bekas Garasi (MBG)</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-4 fw-bold">Katalog Mobil Tersedia</h2>
+        
+        <div class="row">
+            <!-- Memulai Looping Data Mobil dari Django -->
+            {% for mobil in katalog_mobil %}
+            <div class="col-md-4 mb-4">
+                
+                <!-- Komponen Card Bootstrap -->
+                <div class="card h-100 shadow-sm border-0">
+                    
+                    <!-- Menampilkan Gambar -->
+                    {% if mobil.image %}
+                        <img src="{{ mobil.image.url }}" class="card-img-top" alt="{{ mobil.name }}" style="height: 250px; object-fit: cover;">
+                    {% else %}
+                        <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 250px;">
+                            <span>Tidak ada foto</span>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">{{ mobil.name }}</h5>
+                        <h6 class="card-subtitle mb-3 text-success fw-bold">Rp {{ mobil.price|floatformat:0|intcomma }}</h6>
+                        
+                        <!-- Badge untuk Tahun dan Transmisi -->
+                        <div class="d-flex justify-content-start gap-2 mb-3">
+                            <span class="badge bg-secondary"><i class="bi bi-calendar"></i> Tahun: {{ mobil.tahun }}</span>
+                            <span class="badge bg-primary">Transmisi: {{ mobil.transmisi }}</span>
+                        </div>
+                        
+                        <!-- Memotong deskripsi panjang menjadi 15 kata saja -->
+                        <p class="card-text text-muted" style="font-size: 0.9rem;">
+                            {{ mobil.description|truncatewords:15 }}
+                        </p>
+                    </div>
+                    
+                    <div class="card-footer bg-white border-top-0 pb-3">
+                        <a href="#" class="btn btn-outline-success w-100 fw-bold">Hubungi via WhatsApp</a>
+                    </div>
+                </div>
+                
+            </div>
+            
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-warning text-center" role="alert">
+                    Katalog masih kosong. Belum ada mobil yang tersedia saat ini.
+                </div>
+            </div>
+            {% endfor %}
+            
+        </div>
+    </div>
+
+    <!-- Memanggil JavaScript Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
