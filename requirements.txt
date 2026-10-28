@@ -1,5 +1,5 @@
 asgiref==3.12.1
-Django==6.1.2
+Django==5.2.18
 gunicorn==26.2.0
 PyMySQL==1.2.3
 pillow==13.0.0
