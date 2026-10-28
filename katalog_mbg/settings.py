@@ -29,6 +29,12 @@ ALLOWED_HOSTS = os.environ.get(
     'localhost,127.0.0.1'
 ).split(',')
 
+RENDER_EXTERNAL_HOSTNAME = os.environ.get(
+    'RENDER_EXTERNAL_HOSTNAME'
+)
+
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 
@@ -169,3 +175,14 @@ MESSAGE_TAGS = {
 # Pengaturan untuk menyimpan file gambar/media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Gunakan TLS terverifikasi untuk database cloud.
+# Koneksi MySQL lokal tetap menggunakan konfigurasi biasa.
+if os.environ.get('DB_HOST'):
+    DATABASES['default']['OPTIONS'].update({
+        'ssl_mode': 'VERIFY_IDENTITY',
+        'ssl': {
+            'ca': '/etc/ssl/certs/ca-certificates.crt',
+        },
+    })
