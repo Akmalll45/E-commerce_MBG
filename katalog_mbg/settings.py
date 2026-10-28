@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-2f(lx=z%z2y#q6&^b)+=a%o*l@31!_vb+a46j7myn^r#^5*(be
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -77,11 +77,11 @@ WSGI_APPLICATION = 'katalog_mbg.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'db_mbg',    # Nama database untuk e-commerce MBG kamu
-        'USER': 'root',      # Username default XAMPP/MySQL
-        'PASSWORD': 'PasswordBaru123',      # Biarkan kosong jika kamu pakai XAMPP bawaan
+        'NAME': 'django_db_name',
+        'USER': 'django_user',
+        'PASSWORD': 'djangopassword',
         'HOST': '127.0.0.1',
-        'PORT': '3306',
+        'PORT': '3308', 
     }
 }
 
@@ -108,9 +108,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'id'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Makassar'
 
 USE_I18N = True
 
@@ -134,6 +134,21 @@ MAILERS = {
 
 
 AUTH_USER_MODEL = 'toko.CustomUser'
+
+# Auth URLs
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard_user'
+LOGOUT_REDIRECT_URL = 'beranda'
+
+# Django Messages Bootstrap 5 mapping
+from django.contrib.messages import constants as messages_constants
+MESSAGE_TAGS = {
+    messages_constants.DEBUG: 'secondary',
+    messages_constants.INFO: 'info',
+    messages_constants.SUCCESS: 'success',
+    messages_constants.WARNING: 'warning',
+    messages_constants.ERROR: 'danger',
+}
 
 # Pengaturan untuk menyimpan file gambar/media
 MEDIA_URL = '/media/'

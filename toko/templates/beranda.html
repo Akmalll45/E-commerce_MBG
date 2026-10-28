@@ -4,74 +4,1800 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Katalog Mobil Bekas Garasi</title>
-    <!-- Memanggil CSS Bootstrap 5 dari CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+    <title>MBG — Mobil Bekas Garasi Makassar | 100% Lulus 150 Titik Inspeksi</title>
 
-    <!-- Navigasi Bar Sederhana -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <!-- Google Fonts: Montserrat (Heading) & Inter (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <!-- AOS.js — Animate On Scroll -->
+    <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+    <style>
+        /* ═══════════════════════════════════════════════════════
+           MBG PREMIUM DESIGN SYSTEM — Lead UI/UX Architect
+           ═══════════════════════════════════════════════════════ */
+        :root {
+            --mbg-navy:        #080D1A;
+            --mbg-deep:        #0C1222;
+            --mbg-slate:       #131B2E;
+            --mbg-blue:        #2563EB;
+            --mbg-blue-glow:   rgba(37, 99, 235, 0.35);
+            --mbg-sky:         #38BDF8;
+            --mbg-gold:        #F59E0B;
+            --mbg-gold-light:  #FDE68A;
+            --mbg-emerald:     #10B981;
+            --mbg-emerald-bg:  rgba(16, 185, 129, 0.08);
+            --mbg-red:         #EF4444;
+            --mbg-surface:     #F8FAFC;
+            --mbg-card:        #FFFFFF;
+            --radius-xl:       20px;
+            --radius-lg:       16px;
+            --radius-md:       12px;
+            --shadow-card:     0 4px 24px -4px rgba(8, 13, 26, 0.06);
+            --shadow-hover:    0 20px 40px -8px rgba(8, 13, 26, 0.14);
+            --shadow-glass:    0 16px 48px -8px rgba(8, 13, 26, 0.12);
+            --glass-bg:        rgba(255, 255, 255, 0.78);
+            --glass-border:    rgba(255, 255, 255, 0.60);
+            --transition-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* ── Base ────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--mbg-surface);
+            color: #334155;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: -0.025em;
+        }
+
+        ::selection {
+            background: var(--mbg-blue);
+            color: #fff;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        /* ── Top Ticker Bar ──────────────────────── */
+        .top-ticker {
+            background: var(--mbg-navy);
+            color: #94A3B8;
+            font-size: 0.80rem;
+            letter-spacing: 0.01em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.45rem 0;
+        }
+        .top-ticker a { color: #CBD5E1; text-decoration: none !important; transition: color .2s; }
+        .top-ticker a:hover { color: #fff; }
+        .top-ticker .separator { color: #334155; margin: 0 .65rem; }
+
+        /* ── Navbar Utama MBG (Desktop & Mobile) ───── */
+        .navbar-mbg {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: saturate(180%) blur(16px);
+            -webkit-backdrop-filter: saturate(180%) blur(16px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            min-height: 76px;
+            padding: 0;
+            transition: box-shadow .3s ease, background .3s ease;
+        }
+        .navbar-mbg.scrolled {
+            box-shadow: 0 6px 30px rgba(8, 13, 26, 0.08);
+            background: rgba(255, 255, 255, 0.98);
+        }
+        .navbar-mbg > .container {
+    min-height: 76px;
+    max-width: 1320px;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+        /* ── Logo Brand MBG ───────────────────────── */
+        .brand-lockup {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none !important;
+            flex-shrink: 0;
+        }
+        .brand-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--mbg-blue) 0%, #1D4ED8 100%);
+            border-radius: 12px;
+            display: grid; place-items: center;
+            color: #fff; font-size: 1.25rem;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            flex-shrink: 0;
+        }
+        .brand-text .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 1.35rem;
+            color: var(--mbg-navy); line-height: 1.1;
+            letter-spacing: -0.025em;
+            white-space: nowrap;
+        }
+        .brand-text .brand-sub {
+            font-size: 0.70rem; font-weight: 700;
+            color: #64748B; text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        /* ── Menu Navigasi Desktop ────────────────── */
+        .navbar-mbg #desktopNav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-grow: 1;
+            gap: 1.25rem;
+            min-width: 0;
+        }
+        .navbar-mbg .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin: 0 auto !important;
+            flex-shrink: 1;
+        }
+        .nav-link {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 600 !important;
+            font-size: 14.5px !important;
+            color: #334155 !important;
+            padding: 0.55rem 0.85rem !important;
+            border-radius: 10px;
+            transition: all .2s ease;
+            white-space: nowrap;
+            text-decoration: none !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--mbg-blue) !important;
+            background: rgba(37, 99, 235, 0.07);
+            text-decoration: none !important;
+        }
+
+        /* Dropdown Styling */
+        .navbar-mbg .dropdown-menu {
+            border-radius: 14px;
+            box-shadow: 0 10px 30px -4px rgba(8, 13, 26, 0.12);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 0.5rem;
+        }
+        .navbar-mbg .dropdown-item {
+            font-size: 0.88rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.55rem 0.85rem;
+            transition: all 0.15s ease;
+        }
+        .navbar-mbg .dropdown-item:hover {
+            background: rgba(37, 99, 235, 0.06);
+            color: var(--mbg-blue);
+        }
+
+        /* ── Tombol Aksi Desktop (Tinggi 44–48px) ──── */
+        .nav-actions-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-shrink: 0;
+        }
+        .nav-actions-wrap a, .nav-actions-wrap button {
+            text-decoration: none !important;
+        }
+
+        .btn-nav-auth-login {
+            height: 46px;
+            padding: 0 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--mbg-blue) !important;
+            background: rgba(37, 99, 235, 0.06);
+            border: 1.5px solid rgba(37, 99, 235, 0.25);
+            border-radius: 999px;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .btn-nav-auth-login:hover {
+            background: rgba(37, 99, 235, 0.12);
+            border-color: var(--mbg-blue);
+            color: #1D4ED8 !important;
+            transform: translateY(-1px);
+        }
+        .btn-nav-auth-register {
+            height: 46px;
+            padding: 0 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #FFFFFF !important;
+            background: #080D1A;
+            border: 1.5px solid #080D1A;
+            border-radius: 999px;
+            text-decoration: none !important;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(8, 13, 26, 0.15);
+            transition: all 0.2s ease;
+        }
+        .btn-nav-auth-register:hover {
+            background: #1E293B;
+            border-color: #1E293B;
+            color: #FFFFFF !important;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(8, 13, 26, 0.22);
+        }
+        .btn-nav-auth-user {
+            height: 46px;
+            padding: 0 1.15rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            border-radius: 999px;
+            border: 1.5px solid #E2E8F0;
+            background: #FFFFFF;
+            color: #080D1A;
+            transition: all 0.2s ease;
+        }
+        .btn-nav-auth-user:hover {
+            border-color: var(--mbg-blue);
+            background: #F8FAFC;
+        }
+
+        /* Tombol Booking Cek Unit (Bebas Garis Bawah Total) */
+        .btn-nav-cta,
+        .btn-nav-cta:link,
+        .btn-nav-cta:visited,
+        .btn-nav-cta:hover,
+        .btn-nav-cta:focus,
+        .btn-nav-cta:active,
+        .btn-nav-cta * {
+            text-decoration: none !important;
+            text-decoration-line: none !important;
+        }
+        .btn-nav-cta {
+            background: linear-gradient(135deg, var(--mbg-blue) 0%, #1D4ED8 100%);
+            color: #FFFFFF !important;
+            font-weight: 700;
+            border: none;
+            border-radius: 999px;
+            height: 46px;
+            padding: 0 1.35rem;
+            font-size: 0.88rem;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            transition: all 0.25s var(--transition-snappy);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .btn-nav-cta:hover {
+            background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px var(--mbg-blue-glow);
+            color: #FFFFFF !important;
+            text-decoration: none !important;
+        }
+        .btn-nav-cta:focus-visible {
+            outline: 2px solid var(--mbg-sky);
+            outline-offset: 3px;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
+        }
+
+        /* ── Tombol Hamburger Mobile ──────────────── */
+        .btn-hamburger-mbg {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            border: 1.5px solid #E2E8F0;
+            background: #FFFFFF;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--mbg-navy);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+        .btn-hamburger-mbg:hover {
+            background: #F8FAFC;
+            border-color: var(--mbg-blue);
+            color: var(--mbg-blue);
+        }
+        .btn-hamburger-mbg:focus-visible {
+            outline: 2px solid var(--mbg-blue);
+            outline-offset: 2px;
+        }
+
+        /* ── Offcanvas Mobile Menu ───────────────── */
+        .offcanvas-mbg {
+            background: #090D16;
+            color: #F8FAFC;
+            width: 320px !important;
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .offcanvas-link {
+            color: #94A3B8 !important;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.75rem 1rem !important;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            text-decoration: none !important;
+        }
+        .offcanvas-link:hover, .offcanvas-link.active {
+            color: #FFFFFF !important;
+            background: rgba(37, 99, 235, 0.18);
+        }
+        .offcanvas-link i {
+            width: 24px;
+            font-size: 1rem;
+        }
+
+        /* ── Hero Banner ─────────────────────────── */
+        .hero {
+            position: relative;
+            background: linear-gradient(165deg, #080D1A 0%, #0F1B38 45%, #131B2E 100%);
+            padding: 5.5rem 0 7rem 0;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.18) 0%, transparent 70%);
+            top: -15%; right: -5%;
+            pointer-events: none;
+        }
+        .hero::after {
+            content: '';
+            position: absolute;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.10) 0%, transparent 70%);
+            bottom: -10%; left: 5%;
+            pointer-events: none;
+        }
+        .hero-grid-overlay {
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+        .hero-bottom-fade {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+            background: linear-gradient(to top, var(--mbg-surface), transparent);
+            pointer-events: none;
+        }
+        .hero-promo-pill {
+            display: inline-flex; align-items: center; gap: .5rem;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.30);
+            color: var(--mbg-gold-light);
+            padding: .45rem 1.1rem;
+            border-radius: 999px;
+            font-size: .82rem; font-weight: 700;
+            letter-spacing: .01em;
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.15); }
+            50%      { box-shadow: 0 0 24px 4px rgba(245, 158, 11, 0.10); }
+        }
+        .hero-title {
+            font-size: clamp(2.1rem, 4.5vw, 3.5rem);
+            font-weight: 900; line-height: 1.12;
+            color: #FFFFFF;
+        }
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, #60A5FA 0%, var(--mbg-sky) 50%, #34D399 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-subtitle {
+            font-size: 1.08rem; line-height: 1.7;
+            color: #94A3B8; max-width: 580px;
+        }
+        .trust-chip {
+            display: inline-flex; align-items: center; gap: .4rem;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            padding: .45rem .9rem;
+            border-radius: var(--radius-md);
+            font-size: .78rem; font-weight: 500; color: #CBD5E1;
+            transition: all .2s ease;
+        }
+        .trust-chip:hover {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .hero-inspect-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: var(--radius-xl);
+            padding: 1.75rem;
+            color: #E2E8F0;
+        }
+        .hero-inspect-card .check-item {
+            display: flex; align-items: center; gap: .55rem;
+            padding: .35rem 0; font-size: .85rem; color: #CBD5E1;
+        }
+        .hero-inspect-card .check-item i { color: var(--mbg-emerald); font-size: .8rem; }
+
+        /* ── Glassmorphism Filter Bar ─────────────── */
+        .filter-float {
+            margin-top: -3.5rem;
+            position: relative; z-index: 30;
+        }
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-glass);
+            padding: 1.85rem;
+        }
+        .filter-heading {
+            font-size: 1.05rem; font-weight: 800;
+            color: var(--mbg-navy);
+        }
+        .filter-label {
+            font-size: .72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .06em;
+            color: #64748B; margin-bottom: .3rem;
+        }
+        .form-control, .form-select {
+            border-radius: var(--radius-md);
+            border: 1.5px solid #E2E8F0;
+            padding: .62rem .9rem;
+            font-size: .88rem; font-weight: 500;
+            color: #1E293B;
+            background-color: rgba(255, 255, 255, 0.85);
+            transition: all .2s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--mbg-blue);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+            background-color: #fff;
+        }
+        .input-group-text {
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            border: 1.5px solid #E2E8F0; border-right: none;
+            background: rgba(255, 255, 255, 0.50);
+            color: #94A3B8;
+        }
+        .input-group .form-control { border-left: none; }
+        .chip-tag {
+            font-size: .75rem; font-weight: 600;
+            padding: .28rem .7rem; border-radius: 999px;
+            border: 1px solid #CBD5E1; color: #475569;
+            background: transparent;
+            transition: all .2s ease; cursor: pointer;
+        }
+        .chip-tag:hover {
+            background: var(--mbg-blue); color: #fff;
+            border-color: var(--mbg-blue);
+        }
+        .btn-filter-apply {
+            background: var(--mbg-blue); color: #fff;
+            font-weight: 700; font-size: .85rem;
+            border: none; border-radius: 999px;
+            padding: .5rem 1.5rem;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            transition: all .25s var(--transition-snappy);
+        }
+        .btn-filter-apply:hover {
+            background: #1D4ED8;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px var(--mbg-blue-glow);
+            color: #fff;
+        }
+
+        /* ── Section Headings ───────────────────── */
+        .section-label {
+            font-size: .76rem; font-weight: 800;
+            letter-spacing: .08em; text-transform: uppercase;
+            color: var(--mbg-blue);
+            display: inline-flex; align-items: center; gap: .4rem;
+        }
+        .section-label::before {
+            content: ''; display: inline-block;
+            width: 24px; height: 3px;
+            background: var(--mbg-blue); border-radius: 4px;
+        }
+        .section-heading {
+            font-size: 1.85rem; font-weight: 800;
+            color: var(--mbg-navy); line-height: 1.25;
+        }
+
+        /* ── Product Card — Elegan & High-Trust ─── */
+        .card-product-premium {
+            background: var(--mbg-card);
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            display: flex; flex-direction: column; height: 100%;
+            box-shadow: var(--shadow-card);
+            transition: transform .35s var(--transition-snappy),
+                        box-shadow .35s var(--transition-snappy),
+                        border-color .35s ease;
+        }
+        .card-product-premium:hover {
+            transform: translateY(-8px);
+            border-color: #CBD5E1;
+            box-shadow: var(--shadow-hover);
+        }
+
+        /* Foto Mobil: Rasio Proporsional & Sudut Melengkung Halus Atas */
+        .card-product-img-wrapper {
+            position: relative;
+            width: 100%; height: 235px;
+            overflow: hidden;
+            border-top-left-radius: var(--radius-lg);
+            border-top-right-radius: var(--radius-lg);
+            background: #0C1222;
+        }
+        .card-product-img-wrapper img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform .5s var(--transition-snappy);
+        }
+        .card-product-premium:hover .card-product-img-wrapper img {
+            transform: scale(1.06);
+        }
+        .card-product-img-wrapper::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 60px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+            pointer-events: none;
+        }
+        .no-photo-placeholder {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1E293B, #0F172A);
+            color: #64748B;
+        }
+
+        /* Badge Promo: "Subsidi DP" Melayang di Sudut Gambar */
+        .badge-promo-floating {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            color: #FFFFFF;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 5px 11px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+            letter-spacing: 0.02em;
+            z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .badge-seller-floating {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(8, 13, 26, 0.75);
+            backdrop-filter: blur(8px);
+            color: #F1F5F9;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 5px 9px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Badge Kepercayaan: "Lulus 150 Titik Inspeksi" Eksklusif (Emas/Hijau Premium) */
+        .badge-inspeksi-exclusive {
+            background: linear-gradient(135deg, #ECFDF5 0%, #FFFBEB 100%);
+            color: #065F46;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
+        }
+        .badge-inspeksi-exclusive i {
+            color: #D97706; /* Aksen Emas Eksklusif */
+        }
+
+        /* Konten Card */
+        .card-body-content {
+            padding: 1.35rem;
+            display: flex; flex-direction: column; flex-grow: 1;
+        }
+        .card-car-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.1rem; font-weight: 800;
+            color: var(--mbg-navy); line-height: 1.3;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .car-desc {
+            font-size: .82rem; line-height: 1.55;
+            color: #64748B; flex-grow: 1;
+        }
+
+        /* Info Singkat Baris: Tahun, Transmisi, Jarak Tempuh */
+        .specs-mini-bar {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 0.55rem 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.76rem;
+            color: #64748B;
+            margin-bottom: 0.85rem;
+        }
+        .specs-mini-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+        }
+        .specs-mini-item strong {
+            color: #1E293B;
+        }
+        .specs-mini-item i {
+            color: var(--mbg-blue);
+            font-size: 0.75rem;
+        }
+
+        /* Teks Harga Normal */
+        .price-label {
+            font-size: .70rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em;
+            color: #94A3B8;
+        }
+        .price-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.4rem; font-weight: 900;
+            color: var(--mbg-navy); line-height: 1.2;
+        }
+        .price-note {
+            font-size: .70rem; color: #94A3B8;
+        }
+
+        /* Tombol CTA Penuh "Booking Cek Unit" dengan Efek Membesar (Scale Hover) */
+        .btn-cta-booking {
+            background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+            color: #FFFFFF !important;
+            font-weight: 700;
+            font-size: 0.92rem;
+            padding: 0.72rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: none;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            transition: transform 0.25s var(--transition-snappy), box-shadow 0.25s ease, background 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            width: 100%;
+        }
+        .btn-cta-booking:hover {
+            transform: scale(1.03);
+            background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+            box-shadow: 0 8px 22px var(--mbg-blue-glow);
+            color: #FFFFFF !important;
+        }
+        .btn-cta-booking:active {
+            transform: scale(0.98);
+        }
+        .btn-cta-wa {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1.5px solid rgba(16, 185, 129, 0.30);
+            color: var(--mbg-emerald) !important;
+            font-weight: 600; border-radius: var(--radius-md);
+            padding: .52rem 1rem; font-size: .84rem;
+            transition: all .25s var(--transition-snappy);
+            display: flex; align-items: center; justify-content: center; gap: .4rem;
+            text-decoration: none;
+        }
+        .btn-cta-wa:hover {
+            background: var(--mbg-emerald);
+            color: #fff !important;
+            border-color: var(--mbg-emerald);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+        }
+
+        /* ── Feature / Value Prop Section ─────── */
+        .features-section {
+            background: #FFFFFF;
+            border-top: 1px solid #E2E8F0;
+        }
+        .feature-card {
+            background: var(--mbg-surface);
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            height: 100%;
+            transition: all .3s var(--transition-snappy);
+            position: relative; overflow: hidden;
+        }
+        /* .feature-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--mbg-blue), var(--mbg-sky));
+            opacity: 0; transition: opacity .3s ease;
+        } */
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px -6px rgba(8, 13, 26, 0.08);
+            border-color: #CBD5E1;
+        }
+        /* .feature-card:hover::before { opacity: 1; } */
+        .feature-icon {
+            width: 52px; height: 52px;
+            border-radius: var(--radius-md);
+            display: grid; place-items: center;
+            font-size: 1.3rem; margin-bottom: 1.1rem;
+        }
+
+        /* ── C2C / Titip Jual Banner ─────────── */
+        .c2c-banner {
+            background: linear-gradient(135deg, #080D1A 0%, #1E3A8A 100%);
+            border-radius: var(--radius-xl);
+            padding: 3rem;
+            position: relative; overflow: hidden;
+        }
+        .c2c-banner::before {
+            content: ''; position: absolute;
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+            top: -20%; right: -5%;
+        }
+        .c2c-info-box {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem; text-align: center;
+        }
+
+        /* ── Location Section ────────────────── */
+        .loc-detail-item {
+            display: flex; align-items: flex-start; gap: .85rem;
+            margin-bottom: 1.1rem;
+        }
+        .loc-icon-box {
+            width: 44px; height: 44px; flex-shrink: 0;
+            border-radius: var(--radius-md);
+            display: grid; place-items: center; font-size: 1rem;
+        }
+        .map-mockup {
+            background: linear-gradient(135deg, #1E293B, #0F172A);
+            border-radius: var(--radius-lg);
+            overflow: hidden; height: 100%; min-height: 280px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #fff; text-align: center; padding: 2rem;
+            position: relative;
+        }
+        .map-mockup::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* ── Footer Startup MBG ───────────────── */
+        .footer-mbg-startup {
+            background: var(--mbg-navy);
+            color: #94A3B8;
+            padding: 4.5rem 0 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .footer-mbg-startup h5 {
+            color: #FFFFFF; font-size: .95rem; font-weight: 700;
+            margin-bottom: 1.25rem; letter-spacing: -0.01em;
+        }
+        .footer-link-item {
+            display: inline-block;
+            color: #94A3B8; text-decoration: none;
+            margin-bottom: .5rem; font-size: .88rem;
+            transition: color .2s, transform .2s;
+        }
+        .footer-link-item:hover { color: #FFFFFF; transform: translateX(3px); }
+        .social-btn {
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            display: inline-grid; place-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94A3B8; font-size: .9rem;
+            transition: all .2s ease;
+            text-decoration: none;
+        }
+        .social-btn:hover {
+            background: var(--mbg-blue); color: #fff;
+            border-color: var(--mbg-blue);
+            transform: translateY(-2px);
+        }
+
+        /* ── Empty State ─────────────────────── */
+        .empty-state {
+            background: #fff;
+            border-radius: var(--radius-xl);
+            padding: 4rem 2rem;
+            box-shadow: var(--shadow-card);
+        }
+        .empty-state-icon {
+            width: 80px; height: 80px;
+            border-radius: 999px;
+            background: var(--mbg-surface);
+            display: grid; place-items: center;
+            margin: 0 auto 1.25rem;
+            font-size: 2rem; color: #94A3B8;
+        }
+        .card-divider {
+            border: none;
+            border-top: 1px solid #F1F5F9;
+            margin: .75rem 0;
+        }
+
+        /* ── Responsive ──────────────────────── */
+        /* ═══ NAVBAR FLUID FIT — semua item tetap tampil, ukuran ikut lebar layar ═══ */
+@media (min-width: 1200px) {
+
+    /* 1em di navbar = 16px di layar lebar, mengecil halus sampai ±13px di 1200px */
+    .navbar-mbg {
+        font-size: clamp(13px, 1.1vw, 16px);
+        min-height: 4.75em;
+    }
+    .navbar-mbg > .container {
+        max-width: 1440px;
+        min-height: 4.75em;
+        padding-left: 1em;
+        padding-right: 1em;
+        gap: 1em;
+    }
+
+    /* Brand */
+    .navbar-mbg .brand-lockup { gap: .65em; }
+    .navbar-mbg .brand-icon {
+        font-size: 1.15em;
+        width: 2.4em;
+        height: 2.4em;
+    }
+    .navbar-mbg .brand-text .brand-name { font-size: 1.3em; }
+    .navbar-mbg .brand-text .brand-sub {
+        font-size: .68em;
+        letter-spacing: .05em;
+    }
+
+    /* Menu */
+    .navbar-mbg #desktopNav { gap: 1em; }
+    .navbar-mbg .navbar-nav { gap: .15em; }
+    .navbar-mbg .nav-link {
+        font-size: .9em !important;
+        padding: .55em .6em !important;
+        gap: .35em;
+    }
+
+    /* Tombol Masuk / Daftar / User / Booking */
+    .navbar-mbg .nav-actions-wrap { gap: .45em; }
+    .navbar-mbg .btn-nav-auth-login,
+    .navbar-mbg .btn-nav-auth-register,
+    .navbar-mbg .btn-nav-auth-user,
+    .navbar-mbg .btn-nav-cta {
+        font-size: .86em;
+        height: 3.3em;
+        padding: 0 1.05em;
+        gap: .5em;
+    }
+}
+    </style>
+</head>
+<body>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  1. TOP TICKER BAR (Makassar & O2O Info) ║
+         ╚══════════════════════════════════════════╝ -->
+    
+    <!-- ╔══════════════════════════════════════════╗
+         ║  2. NAVBAR & HAMBURGER OFFCANVAS         ║
+         ╚══════════════════════════════════════════╝ -->
+    <nav class="navbar navbar-expand-xl navbar-mbg sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="#">🚗 Mobil Bekas Garasi (MBG)</a>
+            <!-- Brand Logo -->
+            <a class="brand-lockup" href="{% url 'beranda' %}" aria-label="Beranda MBG Makassar">
+                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">MBG</div>
+                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                </div>
+            </a>
+
+            <!-- Desktop Menu (Breakpoint >= 1200px) -->
+            <div class="collapse navbar-collapse d-none d-xl-flex" id="desktopNav">
+                <ul class="navbar-nav mx-auto mb-0 align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#katalog"><i class="fa-solid fa-car"></i> Katalog Mobil</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa-solid fa-sliders"></i> Layanan &amp; Transaksi
+                        </a>
+                        <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="desktopLayananDropdown" style="border-radius: 14px; min-width: 230px; padding: 0.5rem;">
+                            <li>
+                                <a class="dropdown-item py-2 px-3 rounded-3 d-flex align-items-center gap-2" href="#simulasi-kredit">
+                                    <div class="bg-success bg-opacity-10 text-success rounded-2 p-1.5"><i class="fa-solid fa-calculator"></i></div>
+                                    <div>
+                                        <div class="fw-bold" style="font-size: 0.88rem;">Simulasi Kredit</div>
+                                        <small class="text-muted" style="font-size: 0.72rem;">Hitung estimasi cicilan OTR</small>
+                                    </div>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item py-2 px-3 rounded-3 d-flex align-items-center gap-2" href="#status-transaksi">
+                                    <div class="bg-primary bg-opacity-10 text-primary rounded-2 p-1.5"><i class="fa-solid fa-receipt"></i></div>
+                                    <div>
+                                        <div class="fw-bold" style="font-size: 0.88rem;">Cek Status Transaksi</div>
+                                        <small class="text-muted" style="font-size: 0.72rem;">Pantau status booking &amp; DP</small>
+                                    </div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- Desktop Shortcut Action & Auth State (Tinggi 44–48px) -->
+                <div class="nav-actions-wrap">
+                    {% if user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                <span>{{ user.first_name|default:user.username }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius: 14px; font-size: 0.88rem; min-width: 210px;">
+                                <li><h6 class="dropdown-header">Halo, {{ user.username }}</h6></li>
+                                {% if user.is_staff or user.is_superuser %}
+                                    <li><a class="dropdown-item fw-bold text-warning" href="{% url 'dashboard_admin' %}"><i class="fa-solid fa-gauge-high me-2 text-warning"></i> Panel Admin MBG</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'profil_admin' %}"><i class="fa-solid fa-user-shield me-2 text-muted"></i> Profil Admin</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li><a class="dropdown-item fw-semibold" href="{% url 'dashboard_user' %}"><i class="fa-solid fa-gauge me-2 text-primary"></i> Dashboard Pelanggan</a></li>
+                                <li><a class="dropdown-item" href="{% url 'profil_user' %}"><i class="fa-solid fa-user-gear me-2 text-muted"></i> Profil Saya</a></li>
+                                <li><a class="dropdown-item" href="{% url 'ubah_password_user' %}"><i class="fa-solid fa-key me-2 text-muted"></i> Ubah Password</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Keluar</a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn-nav-auth-login">
+                            <i class="fa-solid fa-right-to-bracket"></i> Masuk
+                        </a>
+                        <a href="{% url 'register' %}" class="btn-nav-auth-register">
+                            <i class="fa-solid fa-user-plus"></i> Daftar
+                        </a>
+                    {% endif %}
+                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn-nav-cta">
+                        <i class="fa-solid fa-calendar-check"></i> <span>Booking Cek Unit</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mobile Action & Hamburger Button (< 1200px) -->
+            <div class="d-flex align-items-center gap-2 d-xl-none">
+                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn btn-primary rounded-pill px-3 fw-bold d-none d-sm-inline-flex align-items-center gap-1.5 shadow-sm text-decoration-none" style="font-size: 0.84rem; height: 44px;">
+                    <i class="fa-solid fa-calendar-check"></i> Booking Unit
+                </a>
+                <button class="btn-hamburger-mbg" 
+                        type="button" 
+                        data-bs-toggle="offcanvas" 
+                        data-bs-target="#mbgOffcanvasNavbar" 
+                        aria-controls="mbgOffcanvasNavbar"
+                        aria-expanded="false"
+                        aria-label="Buka Menu Navigasi MBG">
+                    <i class="fa-solid fa-bars fs-5"></i>
+                </button>
+            </div>
         </div>
     </nav>
 
-    <div class="container">
-        <h2 class="mb-4 fw-bold">Katalog Mobil Tersedia</h2>
+    <!-- OFFCANVAS MENU RESPONTIF (Muncul saat hamburger diklik) -->
+    <div class="offcanvas offcanvas-end offcanvas-mbg" tabindex="-1" id="mbgOffcanvasNavbar" aria-labelledby="mbgOffcanvasLabel">
+        <div class="offcanvas-header border-bottom border-secondary border-opacity-25 py-3 px-3.5">
+            <div class="d-flex align-items-center gap-2.5">
+                <div class="brand-icon" style="width: 42px; height: 42px; font-size: 1.1rem; border-radius: 10px;">
+                    <i class="fa-solid fa-car-side"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold text-white mb-0" id="mbgOffcanvasLabel">MBG Makassar</h6>
+                    <small class="text-white-50" style="font-size: 0.72rem;">Mobil Bekas Garasi</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup Menu"></button>
+        </div>
         
-        <div class="row">
-            <!-- Memulai Looping Data Mobil dari Django -->
-            {% for mobil in katalog_mobil %}
-            <div class="col-md-4 mb-4">
-                
-                <!-- Komponen Card Bootstrap -->
-                <div class="card h-100 shadow-sm border-0">
-                    
-                    <!-- Menampilkan Gambar -->
-                    {% if mobil.image %}
-                        <img src="{{ mobil.image.url }}" class="card-img-top" alt="{{ mobil.name }}" style="height: 250px; object-fit: cover;">
-                    {% else %}
-                        <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 250px;">
-                            <span>Tidak ada foto</span>
+        <div class="offcanvas-body d-flex flex-column justify-content-between p-3.5">
+            <div>
+                <!-- User Status / Login Buttons -->
+                {% if user.is_authenticated %}
+                    <div class="p-3 rounded-3 mb-3" style="background: rgba(37, 99, 235, 0.14); border: 1px solid rgba(37, 99, 235, 0.3);">
+                        <div class="d-flex align-items-center gap-2.5 mb-2.5">
+                            <i class="fa-solid fa-circle-user text-primary fs-3"></i>
+                            <div>
+                                <div class="fw-bold text-white">{{ user.first_name|default:user.username }}</div>
+                                <small class="text-white-50" style="font-size: 0.72rem;">{% if user.is_staff or user.is_superuser %}Administrator MBG{% else %}Pelanggan Terverifikasi{% endif %}</small>
+                            </div>
                         </div>
-                    {% endif %}
-                    
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold">{{ mobil.name }}</h5>
-                        <h6 class="card-subtitle mb-3 text-success fw-bold">Rp {{ mobil.price|floatformat:0|intcomma }}</h6>
-                        
-                        <!-- Badge untuk Tahun dan Transmisi -->
-                        <div class="d-flex justify-content-start gap-2 mb-3">
-                            <span class="badge bg-secondary"><i class="bi bi-calendar"></i> Tahun: {{ mobil.tahun }}</span>
-                            <span class="badge bg-primary">Transmisi: {{ mobil.transmisi }}</span>
+                        <div class="d-flex gap-2">
+                            {% if user.is_staff or user.is_superuser %}
+                                <a href="{% url 'dashboard_admin' %}" class="btn btn-sm btn-warning w-100 fw-bold py-1.5" style="font-size: 0.78rem;">Panel Admin</a>
+                            {% endif %}
+                            <a href="{% url 'dashboard_user' %}" class="btn btn-sm btn-primary w-100 fw-bold py-1.5" style="font-size: 0.78rem;">Dashboard</a>
+                            <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger w-50 fw-bold py-1.5" style="font-size: 0.78rem;">Keluar</a>
                         </div>
-                        
-                        <!-- Memotong deskripsi panjang menjadi 15 kata saja -->
-                        <p class="card-text text-muted" style="font-size: 0.9rem;">
-                            {{ mobil.description|truncatewords:15 }}
-                        </p>
                     </div>
-                    
-                    <div class="card-footer bg-white border-top-0 pb-3">
-                        <a href="#" class="btn btn-outline-success w-100 fw-bold">Hubungi via WhatsApp</a>
+                {% else %}
+                    <div class="d-flex gap-2 mb-3">
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary w-50 rounded-pill fw-bold py-2.5 d-flex align-items-center justify-content-center gap-1.5 text-decoration-none" style="font-size: 0.88rem; height: 44px;">
+                            <i class="fa-solid fa-right-to-bracket"></i> Masuk
+                        </a>
+                        <a href="{% url 'register' %}" class="btn btn-primary w-50 rounded-pill fw-bold py-2.5 text-white d-flex align-items-center justify-content-center gap-1.5 text-decoration-none shadow-sm" style="font-size: 0.88rem; height: 44px;">
+                            <i class="fa-solid fa-user-plus"></i> Daftar
+                        </a>
                     </div>
-                </div>
-                
+                {% endif %}
+
+                <!-- Primary Menu Navigasi MBG (Semua Menu) -->
+                <span class="text-uppercase text-secondary fw-bold d-block mb-2.5 px-2" style="font-size: 0.70rem; letter-spacing: 0.08em;">Menu Navigasi MBG</span>
+                <ul class="nav flex-column gap-1.5 mb-4">
+                    <li class="nav-item">
+                        <a class="offcanvas-link active" href="{% url 'beranda' %}" data-bs-dismiss="offcanvas">
+                            <i class="fa-solid fa-house text-primary me-2.5"></i> Beranda
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="offcanvas-link" href="#katalog" data-bs-dismiss="offcanvas">
+                            <i class="fa-solid fa-car text-info me-2.5"></i> Katalog Mobil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="offcanvas-link" href="#titip-jual" data-bs-dismiss="offcanvas">
+                            <i class="fa-solid fa-hand-holding-dollar text-warning me-2.5"></i> Jual Mobil Saya (Titip-Jual)
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="offcanvas-link" href="#simulasi-kredit" data-bs-dismiss="offcanvas">
+                            <i class="fa-solid fa-calculator text-success me-2.5"></i> Simulasi Kredit
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="offcanvas-link" href="#status-transaksi" data-bs-dismiss="offcanvas">
+                            <i class="fa-solid fa-receipt text-primary me-2.5"></i> Cek Status Transaksi
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- Prominent CTA Button in Mobile Offcanvas -->
+                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" 
+                   target="_blank" 
+                   class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm d-flex align-items-center justify-content-center gap-2 mb-3 text-decoration-none"
+                   style="height: 48px; font-size: 0.92rem; background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); border: none;">
+                    <i class="fa-solid fa-calendar-check"></i> Booking Cek Unit Sekarang
+                </a>
             </div>
-            
-            {% empty %}
-            <div class="col-12">
-                <div class="alert alert-warning text-center" role="alert">
-                    Katalog masih kosong. Belum ada mobil yang tersedia saat ini.
+
+            <!-- Bagian Bawah Offcanvas: Info Showroom & CS WhatsApp -->
+            <div class="pt-3 border-top border-secondary border-opacity-25 mt-3">
+                <div class="p-3 rounded-3 mb-2.5" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <small class="text-white-50 d-block mb-1"><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom Makassar</small>
+                    <div class="fw-bold text-white small">Jl. A.P. Pettarani No. 88</div>
+                    <small class="text-white-50" style="font-size: 0.72rem;">08.30 – 18.00 WITA Setiap Hari</small>
                 </div>
+                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20konsultasi%20cek%20unit" 
+                   target="_blank" 
+                   class="btn btn-success w-100 fw-bold py-2.5 rounded-pill shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none"
+                   style="height: 46px; font-size: 0.90rem;">
+                    <i class="fa-brands fa-whatsapp fs-5"></i> Hubungi CS WhatsApp
+                </a>
             </div>
-            {% endfor %}
-            
         </div>
     </div>
 
-    <!-- Memanggil JavaScript Bootstrap -->
+    <!-- Feedback Flash Messages -->
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm py-2.5 px-3 mb-2" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
+                    {% if message.tags == 'success' %}
+                        <i class="fa-solid fa-circle-check text-success me-2"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}
+                        <i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info text-info me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <header class="hero">
+        <div class="hero-grid-overlay"></div>
+        <div class="hero-bottom-fade"></div>
+
+        <div class="container position-relative" style="z-index: 2;">
+            <div class="row align-items-center gy-5">
+                <!-- Left Column -->
+                <div class="col-lg-7 text-center text-lg-start" data-aos="fade-right" data-aos-duration="700">
+                    <!-- Promo Tag Sulsel -->
+                    <div class="mb-3">
+                        <span class="hero-promo-pill">
+                            <i class="fa-solid fa-bolt text-warning"></i>
+                            <span>PROMO MAKASSAR — Subsidi DP s/d Rp 15 Juta khusus KTP Sulsel!</span>
+                        </span>
+                    </div>
+
+                    <h1 class="hero-title mb-3">
+                        Mobil Bekas Berkualitas,<br>
+                        <span class="gradient-text">100% Lulus 150 Titik Inspeksi</span><br>
+                        Transparan &amp; Terpercaya di Makassar
+                    </h1>
+
+                    <p class="hero-subtitle mb-4 mx-auto mx-lg-0">
+                        Platform <strong style="color:#E2E8F0;">Online-to-Offline (O2O)</strong> terpercaya di Makassar. Telusuri katalog, pilih unit idaman, lalu <em>Booking Cek Unit &amp; Test Drive</em> langsung di Showroom Garasi kami tanpa biaya siluman.
+                    </p>
+
+                    <!-- CTA -->
+                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start mb-4">
+                        <a href="#katalog" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
+                            <i class="fa-solid fa-magnifying-glass"></i> Jelajahi Unit Tersedia
+                        </a>
+                        <a href="#titip-jual" class="btn btn-outline-light btn-lg rounded-pill px-4 fw-semibold d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
+                            <i class="fa-solid fa-gauge-high"></i> Titip Jual Cepat
+                        </a>
+                    </div>
+
+                    <!-- Trust Chips -->
+                    <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
+                        <div class="trust-chip"><i class="fa-solid fa-shield-halved text-success"></i> Bebas Tabrak &amp; Banjir</div>
+                        <div class="trust-chip"><i class="fa-solid fa-file-circle-check text-info"></i> Dokumen Asli Samsat</div>
+                        <div class="trust-chip"><i class="fa-solid fa-store text-warning"></i> Showroom Makassar</div>
+                        <div class="trust-chip"><i class="fa-solid fa-rotate-left text-success"></i> Garansi 5 Hari</div>
+                    </div>
+                </div>
+
+                <!-- Right Column — Inspection Info Card -->
+                <div class="col-lg-5 d-none d-lg-block" data-aos="fade-left" data-aos-duration="700" data-aos-delay="150">
+                    <div class="hero-inspect-card">
+                        <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                            <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--mbg-emerald),#059669);display:grid;place-items:center;">
+                                <i class="fa-solid fa-clipboard-check text-white fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-white" style="font-size:.95rem;">Sertifikasi MBG Garasi</h6>
+                                <small style="color:#64748B;">Standar Inspeksi 150 Titik</small>
+                            </div>
+                        </div>
+                        <p class="small mb-3" style="color:#94A3B8;">Setiap unit diperiksa oleh mekanik independen bersertifikasi:</p>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Kompresi &amp; Ruang Mesin</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Transmisi &amp; Kaki-kaki</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Keaslian Odometer Digital</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Bebas Karat Air Laut / Banjir</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Validasi BPKB &amp; STNK Asli Samsat</div>
+
+                        <div class="mt-3 p-2 text-center rounded-3" style="background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.20);">
+                            <small class="fw-bold" style="color:#93C5FD;"><i class="fa-solid fa-location-dot me-1"></i> Siap Test Drive di Pettarani, Makassar</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  4. GLASSMORPHISM FLOATING FILTER BAR     ║
+         ╚══════════════════════════════════════════╝ -->
+    <section class="container filter-float" data-aos="fade-up" data-aos-duration="600">
+        <div class="glass-card">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+                <div>
+                    <h5 class="filter-heading mb-0"><i class="fa-solid fa-sliders text-primary me-2"></i>Cari &amp; Filter Mobil Idaman</h5>
+                    <p class="text-muted small mb-0 mt-1">Temukan mobil keluarga, city car, atau SUV terbaik di Makassar sesuai budget Anda.</p>
+                </div>
+                <span class="badge rounded-pill fw-semibold px-3 py-2" style="background:rgba(37,99,235,0.08);color:var(--mbg-blue);border:1px solid rgba(37,99,235,0.15);font-size:.76rem;">
+                    <i class="fa-solid fa-check-double me-1"></i> Harga Transparan OTR Makassar
+                </span>
+            </div>
+
+            <form onsubmit="return false;">
+                <div class="row g-2 g-md-3">
+                    <div class="col-12 col-md-4">
+                        <label class="filter-label"><i class="fa-solid fa-magnifying-glass me-1"></i> Kata Kunci</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" style="font-size:.8rem;"></i></span>
+                            <input type="text" class="form-control" placeholder="Ketik Avanza, Innova, HR-V, Fortuner…">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="filter-label"><i class="fa-solid fa-car me-1"></i> Merek</label>
+                        <select class="form-select">
+                            <option selected>Semua Merek</option>
+                            <option>Toyota</option>
+                            <option>Honda</option>
+                            <option>Mitsubishi</option>
+                            <option>Daihatsu</option>
+                            <option>Suzuki</option>
+                            <option>Hyundai</option>
+                            <option>Nissan</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="filter-label"><i class="fa-solid fa-money-bill-wave me-1"></i> Rentang Harga</label>
+                        <select class="form-select">
+                            <option selected>Semua Harga</option>
+                            <option>&lt; Rp 150 Juta</option>
+                            <option>Rp 150 – 250 Juta</option>
+                            <option>Rp 250 – 350 Juta</option>
+                            <option>&gt; Rp 350 Juta</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="filter-label"><i class="fa-solid fa-gears me-1"></i> Transmisi</label>
+                        <select class="form-select">
+                            <option selected>Semua</option>
+                            <option>Automatic (AT)</option>
+                            <option>Manual (MT)</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="filter-label"><i class="fa-solid fa-store me-1"></i> Tipe Penjual</label>
+                        <select class="form-select">
+                            <option selected>Semua Unit</option>
+                            <option>Garasi MBG (B2C)</option>
+                            <option>Titip-Jual (C2C)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tags + Apply -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid rgba(0,0,0,0.06);">
+                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                        <span class="small text-muted me-1">Populer:</span>
+                        <button type="button" class="chip-tag">MPV 7-Seater</button>
+                        <button type="button" class="chip-tag">City Car Irit</button>
+                        <button type="button" class="chip-tag">SUV Tangguh</button>
+                        <button type="button" class="chip-tag">DP Ringan Sulsel</button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="reset" class="btn btn-sm btn-light text-muted fw-semibold px-3 rounded-pill">Reset</button>
+                        <button type="button" class="btn-filter-apply">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i> Terapkan Filter
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════════════╗
+         ║  5. AREA KATALOG PRODUK: "Rekomendasi Mobil Bekas Pilihan"       ║
+         ║     (PRODUCT GRID DENGAN LOGIKA DJANGO 100% DIPERTAHANKAN)       ║
+         ╚══════════════════════════════════════════════════════════════════╝ -->
+    <main class="container py-5" id="katalog">
+        
+        <!-- Header Katalog -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 pb-3" style="border-bottom:1px solid #E2E8F0;" data-aos="fade-up">
+            <div>
+                <span class="section-label"><i class="fa-solid fa-badge-check"></i> Unit Terverifikasi MBG</span>
+                <h2 class="section-heading mt-1 mb-1">Rekomendasi Mobil Bekas Pilihan</h2>
+                <p class="text-muted mb-0" style="font-size:.9rem;">Unit terbaik di Garasi Makassar — 100% lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
+            </div>
+            <div class="mt-3 mt-md-0 d-flex align-items-center gap-2">
+                <span class="small text-muted fw-semibold" style="white-space:nowrap;">Urutkan:</span>
+                <select class="form-select form-select-sm" style="width:auto;border-radius:var(--radius-md);">
+                    <option>Terbaru Ditambahkan</option>
+                    <option>Harga: Rendah → Tinggi</option>
+                    <option>Harga: Tinggi → Rendah</option>
+                    <option>Tahun: Paling Baru</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- GRID BOOTSTRAP: 3 Kolom di Desktop, 1 Kolom di Mobile -->
+        <!-- ▸▸▸ ATURAN MUTLAK: SELURUH TAG TEMPLATE DJANGO DIPERTAHANKAN UTUH ◂◂◂ -->
+        <div class="row g-4">
+            {% for mobil in katalog_mobil %}
+            <div class="col-12 col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
+
+                <!-- SATU KOTAK MOBIL (PRODUCT CARD) ELEGAN, MODERN & HIGH-TRUST -->
+                <div class="card-product-premium">
+                    
+                    <!-- 1. Foto Mobil: Rasio Proporsional & Sudut Melengkung Halus Bagian Atas -->
+                    <div class="card-product-img-wrapper">
+                        {% if mobil.gambar_utama %}
+                            <a href="{% url 'detail_produk' mobil.id %}">
+                                <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy">
+                            </a>
+                        {% else %}
+                            <div class="no-photo-placeholder">
+                                <i class="fa-regular fa-image" style="font-size:2.5rem;margin-bottom:.5rem;"></i>
+                                <span style="font-size:.82rem;">Foto unit dalam proses</span>
+                            </div>
+                        {% endif %}
+
+                        <!-- Badge Promo: Label kecil "Subsidi DP" melayang di sudut gambar -->
+                        <div class="badge-promo-floating">
+                            <i class="fa-solid fa-fire-flame-curved"></i> Subsidi DP
+                        </div>
+
+                        <!-- Tag Garasi MBG Certified / Tipe Penjual -->
+                        <div class="badge-seller-floating">
+                            <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display|default:"Garasi MBG" }}
+                        </div>
+                    </div>
+
+                    <!-- 2. Konten Bodi Card -->
+                    <div class="card-body-content">
+                        
+                        <!-- Badge Kepercayaan: Ganti Rating Bintang dengan "Lulus 150 Titik Inspeksi" (Eksklusif Emas/Hijau) -->
+                        <div class="mb-2">
+                            <span class="badge-inspeksi-exclusive">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Lulus 150 Titik Inspeksi</span>
+                            </span>
+                        </div>
+
+                        <!-- Teks: Nama / Merek Mobil (Tebal & Jelas) -->
+                        <h3 class="card-car-title mb-2" title="{{ mobil.nama }}">
+                            <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">
+                                {{ mobil.nama }}
+                            </a>
+                        </h3>
+
+                        <!-- Info Singkat: Baris Kecil untuk Tahun, Transmisi (AT/MT), dan Jarak Tempuh -->
+                        <div class="specs-mini-bar">
+                            <div class="specs-mini-item">
+                                <i class="fa-regular fa-calendar"></i>
+                                <span>Tahun: <strong>{{ mobil.tahun }}</strong></span>
+                            </div>
+                            <span class="text-secondary opacity-50">|</span>
+                            <div class="specs-mini-item">
+                                <i class="fa-solid fa-gears"></i>
+                                <span><strong>{{ mobil.get_transmisi_display }}</strong></span>
+                            </div>
+                            <span class="text-secondary opacity-50">|</span>
+                            <div class="specs-mini-item">
+                                <i class="fa-solid fa-gauge-high"></i>
+                                <span><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Deskripsi Singkat Mobil -->
+                        <p class="car-desc mb-2">
+                            {{ mobil.deskripsi_singkat }}
+                        </p>
+
+                        <hr class="card-divider">
+
+                        <!-- Teks: Harga Normal (Jelas & Menonjol) -->
+                        <div class="mb-3">
+                            <span class="price-label d-block">Harga OTR Makassar:</span>
+                            <div class="price-value">
+                                Rp {{ mobil.harga|intcomma }}
+                            </div>
+                            {% if mobil.harga_promo %}
+                                <div class="text-danger small fw-bold">
+                                    <i class="fa-solid fa-tag me-1"></i> Promo DP Khusus: Rp {{ mobil.harga_promo|intcomma }}
+                                </div>
+                            {% else %}
+                                <span class="price-note">*Tersedia opsi Cash / Kredit DP Ringan</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Tombol Call-to-Action (CTA) Penuh: Arahkan ke {% url 'detail_produk' mobil.id %} -->
+                        <div class="d-flex flex-column gap-2 mt-auto">
+                            <!-- CTA Utama Penuh (Warna Cerah Gradient Kontras + Scale Hover) -->
+                            <a href="{% url 'detail_produk' mobil.id %}"
+                               class="btn-cta-booking">
+                                <i class="fa-solid fa-calendar-check"></i>
+                                <span>Booking Cek Unit</span>
+                            </a>
+
+                            <!-- CTA Tambahan WhatsApp Konsultasi -->
+                            <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma }})%20masih%20tersedia?%20Bisa%20minta%20info%20detail%20dan%20laporan%20inspeksinya?"
+                               target="_blank"
+                               class="btn-cta-wa">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <span>Tanya Detail Unit via WA</span>
+                            </a>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            {% empty %}
+            <!-- Kondisi jika tidak ada mobil tersedia -->
+            <div class="col-12 py-4">
+                <div class="empty-state text-center">
+                    <div class="empty-state-icon">
+                        <i class="fa-solid fa-car-side"></i>
+                    </div>
+                    <h4 class="fw-bold mb-2" style="color:var(--mbg-navy);">Katalog Masih Kosong</h4>
+                    <p class="text-muted mb-4 mx-auto" style="max-width:420px;">Belum ada unit yang tersedia saat ini di Garasi MBG. Silakan hubungi tim kami untuk memesan atau menitipkan mobil Anda.</p>
+                    <a href="https://wa.me/6281234567890" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
+                        <i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  6. VALUE PROPOSITION — 4 Keunggulan MBG  ║
+         ╚══════════════════════════════════════════╝ -->
+    <section class="features-section py-5" id="inspeksi">
+        <div class="container">
+            <div class="text-center mb-5" data-aos="fade-up">
+                <span class="section-label">Keunggulan Standar MBG</span>
+                <h2 class="section-heading mt-2">Standar Baru Membeli Mobil Bekas di Makassar</h2>
+                <p class="text-muted mx-auto mt-2" style="max-width:560px;">Kami menghilangkan rasa cemas membeli mobil bekas dengan proses O2O transparan dan sertifikasi inspeksi independen.</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="0">
+                    <div class="feature-card">
+                        <div class="feature-icon bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-clipboard-check"></i></div>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">150 Titik Inspeksi</h5>
+                        <p class="text-muted small mb-0">Pemeriksaan ketat pada mesin, transmisi, sasis, rem &amp; kelistrikan. Laporan hasil terbuka tanpa ditutup-tutupi.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-card">
+                        <div class="feature-icon bg-success bg-opacity-10 text-success"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Bebas Banjir &amp; Tabrak</h5>
+                        <p class="text-muted small mb-0">Jaminan mutlak unit bukan bekas terendam air laut/banjir Makassar dan sasis bebas kecelakaan berat.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-card">
+                        <div class="feature-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-store"></i></div>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Showroom O2O Offline</h5>
+                        <p class="text-muted small mb-0">Pilih mobil di website, langsung booking jadwal untuk cek fisik &amp; test drive di Garasi Jl. Pettarani Makassar.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
+                    <div class="feature-card">
+                        <div class="feature-icon bg-info bg-opacity-10 text-info"><i class="fa-solid fa-file-shield"></i></div>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Dokumen Tervalidasi</h5>
+                        <p class="text-muted small mb-0">BPKB, STNK &amp; Faktur divalidasi keasliannya di Samsat Sulsel. Proses balik nama dibantu tuntas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  7. SEKSI TITIP-JUAL C2C & CALLOUT        ║
+         ╚══════════════════════════════════════════╝ -->
+    <section class="py-5" style="background:var(--mbg-surface);" id="titip-jual">
+        <div class="container" data-aos="fade-up">
+            <div class="c2c-banner text-white">
+                <div class="row align-items-center gy-4">
+                    <div class="col-lg-7 position-relative" style="z-index:2;">
+                        <span class="badge bg-warning text-dark fw-bold px-3 py-2 rounded-pill mb-3" style="font-size:.78rem;">
+                            <i class="fa-solid fa-handshake-angle me-1"></i> Layanan Titip-Jual C2C Makassar
+                        </span>
+                        <h3 class="fw-bold mb-3" style="font-size:1.75rem;line-height:1.25;">Jual Mobil Anda Tanpa Ribet di Garasi MBG</h3>
+                        <p style="color:#94A3B8;" class="mb-4">
+                            Dapatkan harga terbaik tanpa pusing meladeni calon pembeli yang tidak serius. Mobil Anda akan diinspeksi, difoto profesional, dan dipamerkan langsung di showroom Garasi Makassar serta website kami.
+                        </p>
+                        <div class="d-flex flex-wrap gap-3">
+                            <a href="https://wa.me/6281234567890?text=Halo%20MBG,%20saya%20ingin%20titip%20jual%20mobil%20saya%20di%20Garasi%20Makassar" target="_blank"
+                               class="btn btn-warning fw-bold px-4 py-2.5 rounded-pill text-dark">
+                                <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Konsultasi Titip Jual Mobil
+                            </a>
+                            <a href="#lokasi" class="btn btn-outline-light px-4 py-2.5 rounded-pill fw-medium">
+                                <i class="fa-solid fa-location-dot me-1"></i>Kunjungi Garasi Kami
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-lg-5" data-aos="zoom-in" data-aos-delay="150">
+                        <div class="c2c-info-box">
+                            <i class="fa-solid fa-trophy text-warning" style="font-size:2.5rem;"></i>
+                            <h5 class="text-white fw-bold mt-3 mb-2">Cepat, Aman &amp; Transparan</h5>
+                            <p class="small mb-0" style="color:#94A3B8;">Ratusan pemilik mobil di Makassar &amp; Gowa telah mempercayakan penjualan mobilnya kepada tim MBG.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  8. SEKSI SIMULASI KREDIT & STATUS INFO   ║
+         ╚══════════════════════════════════════════╝ -->
+    <section class="py-5 bg-white border-top border-bottom" id="simulasi-kredit">
+        <div class="container">
+            <div class="row align-items-center gy-4">
+                <div class="col-lg-6" data-aos="fade-right">
+                    <span class="section-label"><i class="fa-solid fa-calculator"></i> Finansial &amp; Pembiayaan</span>
+                    <h2 class="section-heading mt-2 mb-3">Simulasi Kredit Mobil Fleksibel</h2>
+                    <p class="text-muted mb-4">
+                        Dapatkan estimasi cicilan bulanan ringan dengan DP bersahabat melalui mitra leasing terpercaya (BCA Finance, Mandiri Tunas Finance, Adira Finance, OTO, &amp; Syariah).
+                    </p>
+                    <div class="d-flex flex-column gap-2.5 mb-4">
+                        <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-light border border-light-subtle">
+                            <i class="fa-solid fa-percent text-primary fs-4"></i>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">Bunga Kompetitif Mulai 3.5% / Tahun</h6>
+                                <small class="text-muted">Tenor fleksibel 1 hingga 5 tahun sesuai kemampuan</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-light border border-light-subtle">
+                            <i class="fa-solid fa-bolt text-warning fs-4"></i>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">Proses Approval Cepat 1x24 Jam</h6>
+                                <small class="text-muted">Dibantu tim finance MBG hingga unit serah terima</small>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20konsultasi%20simulasi%20kredit%20mobil%20bekas" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
+                        <i class="fa-brands fa-whatsapp me-2"></i>Hitung Simulasi via WhatsApp
+                    </a>
+                </div>
+
+                <div class="col-lg-6" id="status-transaksi" data-aos="fade-left">
+                    <div class="p-4 p-md-5 rounded-4 text-white" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); border: 1px solid rgba(255,255,255,0.1);">
+                        <span class="badge bg-primary px-3 py-1.5 rounded-pill mb-3"><i class="fa-solid fa-receipt me-1"></i> Layanan O2O Tracking</span>
+                        <h4 class="fw-bold text-white mb-2">Cek Status Booking &amp; Transaksi</h4>
+                        <p class="text-white-50 small mb-4">
+                            Sudah melakukan booking cek unit atau transaksi titip-jual di Garasi MBG Makassar? Masukkan kode booking atau nomor handphone Anda:
+                        </p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" placeholder="Contoh: MBG-2026-XXXX" style="background:#fff;">
+                            <button class="btn btn-primary fw-bold px-3" type="button" onclick="alert('Layanan pengecekan otomatis terhubung dengan sistem WhatsApp CS MBG.');">
+                                <i class="fa-solid fa-search me-1"></i> Cek Status
+                            </button>
+                        </div>
+                        <small class="text-white-50"><i class="fa-solid fa-circle-info text-info me-1"></i> Hubungi CS kami jika lupa nomor resi booking unit.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  9. LOKASI GARASI O2O MAKASSAR            ║
+         ╚══════════════════════════════════════════╝ -->
+    <section class="py-5 bg-white" id="lokasi">
+        <div class="container">
+            <div class="row align-items-center gy-4">
+                <div class="col-lg-6" data-aos="fade-right">
+                    <span class="section-label"><i class="fa-solid fa-map-location-dot"></i> Showroom &amp; Bengkel Inspeksi</span>
+                    <h2 class="section-heading mt-2 mb-3">Garasi MBG Makassar</h2>
+                    <p class="text-muted mb-4">
+                        Datang langsung dan buktikan transparansi kami. Anda dapat membawa mekanik kepercayaan sendiri atau menggunakan fasilitas lift hidrolik kami untuk mengecek kolong mobil secara tuntas.
+                    </p>
+
+                    <div class="loc-detail-item">
+                        <div class="loc-icon-box bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-location-dot"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Alamat Showroom</h6>
+                            <p class="text-muted small mb-0">Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222</p>
+                        </div>
+                    </div>
+                    <div class="loc-detail-item">
+                        <div class="loc-icon-box bg-warning bg-opacity-10 text-warning"><i class="fa-regular fa-clock"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Jam Operasional</h6>
+                            <p class="text-muted small mb-0">Senin – Minggu: 08.30 – 18.00 WITA (Termasuk Hari Libur Nasional)</p>
+                        </div>
+                    </div>
+                    <div class="loc-detail-item">
+                        <div class="loc-icon-box bg-success bg-opacity-10 text-success"><i class="fa-brands fa-whatsapp"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Booking &amp; Test Drive</h6>
+                            <p class="text-muted small mb-0">WhatsApp Center: +62 812-3456-7890 (Respon Cepat)</p>
+                        </div>
+                    </div>
+
+                    <a href="https://maps.google.com" target="_blank" class="btn btn-outline-primary rounded-pill px-4 fw-semibold mt-2">
+                        <i class="fa-solid fa-diamond-turn-right me-2"></i>Buka Petunjuk Arah di Google Maps
+                    </a>
+                </div>
+
+                <div class="col-lg-6" data-aos="fade-left" data-aos-delay="100">
+                    <div class="map-mockup">
+                        <i class="fa-solid fa-location-dot text-danger mb-3" style="font-size:2.5rem;position:relative;z-index:1;"></i>
+                        <h5 class="fw-bold text-white mb-1 position-relative" style="z-index:1;">Showroom &amp; Garasi MBG</h5>
+                        <p class="small mb-3 position-relative" style="color:#94A3B8;z-index:1;">Pusat Kota Makassar — Jl. A.P. Pettarani</p>
+                        <span class="badge bg-success px-3 py-2 rounded-pill position-relative" style="z-index:1;">
+                            <i class="fa-solid fa-shield-halved me-1"></i> Fasilitas Lift Inspeksi Kolong Tersedia
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════════════╗
+         ║  10. FOOTER PROFESIONAL (Sederhana & Elegan Khas Startup)        ║
+         ╚══════════════════════════════════════════════════════════════════╝ -->
+    <footer class="footer-mbg-startup">
+        <div class="container">
+            <div class="row g-4 mb-5">
+                <!-- Kolom 1: Logo & Slogan MBG -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <div class="brand-icon" style="width:38px;height:38px;font-size:1rem;border-radius:10px;">
+                            <i class="fa-solid fa-car-side"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold text-white mb-0" style="font-size:1.15rem;">MBG</h4>
+                            <small class="text-white-50" style="font-size:0.75rem;">Mobil Bekas Garasi Makassar</small>
+                        </div>
+                    </div>
+                    <p class="small mb-3" style="color:#94A3B8; line-height: 1.6;">
+                        Platform e-commerce otomotif terpercaya di Makassar dan Sulawesi Selatan. Mengutamakan transparansi harga, garansi mesin, dan jaminan 100% lulus 150 titik inspeksi dengan model Online-to-Offline (O2O).
+                    </p>
+                    <div class="d-flex gap-2">
+                        <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
+                        <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+                    </div>
+                </div>
+
+                <!-- Kolom 2: Navigasi Cepat -->
+                <div class="col-lg-2 col-md-6 col-6">
+                    <h5>Navigasi</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="footer-link-item">Beranda</a></li>
+                        <li><a href="#katalog" class="footer-link-item">Katalog Mobil</a></li>
+                        <li><a href="#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
+                        <li><a href="#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
+                        <li><a href="#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
+                    </ul>
+                </div>
+
+                <!-- Kolom 3: Layanan & Wilayah -->
+                <div class="col-lg-2 col-md-6 col-6">
+                    <h5>Wilayah Layanan</h5>
+                    <ul class="list-unstyled">
+                        <li><span class="footer-link-item">Kota Makassar</span></li>
+                        <li><span class="footer-link-item">Kabupaten Gowa</span></li>
+                        <li><span class="footer-link-item">Kabupaten Maros</span></li>
+                        <li><span class="footer-link-item">Kota Parepare</span></li>
+                        <li><span class="footer-link-item">Seluruh Sulsel</span></li>
+                    </ul>
+                </div>
+
+                <!-- Kolom 4: Alamat Showroom & CS WhatsApp -->
+                <div class="col-lg-4 col-md-6">
+                    <h5>Alamat &amp; Kontak</h5>
+                    <ul class="list-unstyled small" style="color:#94A3B8;">
+                        <li class="mb-2.5 d-flex align-items-start gap-2">
+                            <i class="fa-solid fa-location-dot text-danger mt-1"></i>
+                            <span>Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222</span>
+                        </li>
+                        <li class="mb-2.5 d-flex align-items-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-success"></i>
+                            <a href="https://wa.me/6281234567890" target="_blank" class="text-white text-decoration-none fw-semibold">+62 812-3456-7890 (CS WhatsApp)</a>
+                        </li>
+                        <li class="mb-2.5 d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-envelope text-primary"></i>
+                            <span>halo@mobilbekasgarasi.com</span>
+                        </li>
+                        <li class="d-flex align-items-center gap-2">
+                            <i class="fa-regular fa-clock text-warning"></i>
+                            <span>Buka: 08.30 – 18.00 WITA Setiap Hari</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Baris Bawah: Copyright & Link Cepat (Syarat & Ketentuan) -->
+            <div class="pt-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 small" style="border-top:1px solid rgba(255,255,255,0.08);color:#94A3B8;">
+                <div>&copy; 2026 Mobil Bekas Garasi (MBG) Makassar. Seluruh Hak Cipta Dilindungi.</div>
+                <div class="d-flex gap-3">
+                    <a href="#" class="text-decoration-none text-secondary">Syarat &amp; Ketentuan</a>
+                    <span>&middot;</span>
+                    <a href="#" class="text-decoration-none text-secondary">Kebijakan Privasi</a>
+                    <span>&middot;</span>
+                    <a href="https://wa.me/6281234567890" target="_blank" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ── Scripts ──────────────────────────────── -->
+    <!-- Bootstrap 5 JS Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- AOS.js — Animate On Scroll CDN -->
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        // Inisialisasi library animasi AOS
+        AOS.init({
+            once: true,
+            duration: 650,
+            easing: 'ease-out-cubic',
+            offset: 60
+        });
+
+        // Efek bayangan navbar saat di-scroll
+        const navbar = document.querySelector('.navbar-mbg');
+        if (navbar) {
+            window.addEventListener('scroll', () => {
+                navbar.classList.toggle('scrolled', window.scrollY > 20);
+            });
+        }
+    </script>
 </body>
 </html>

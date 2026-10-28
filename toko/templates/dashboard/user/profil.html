@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profil — MBG Makassar</title>
+
+    <!-- Google Fonts: Montserrat & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --mbg-navy:        #080D1A;
+            --mbg-blue:        #2563EB;
+            --mbg-blue-glow:   rgba(37, 99, 235, 0.35);
+            --mbg-surface:     #F8FAFC;
+            --radius-xl:       20px;
+            --radius-lg:       16px;
+            --radius-md:       12px;
+            --shadow-card:     0 4px 20px -2px rgba(8, 13, 26, 0.06);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--mbg-surface);
+            color: #334155;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* Top Bar */
+        .top-ticker {
+            background: var(--mbg-navy);
+            color: #94A3B8;
+            font-size: 0.78rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Navbar */
+        .navbar-mbg {
+            background: #FFFFFF;
+            border-bottom: 1px solid #E2E8F0;
+            padding: 0.85rem 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        }
+
+        .brand-lockup {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--mbg-blue), #1D4ED8);
+            border-radius: var(--radius-md);
+            display: grid; place-items: center;
+            color: #fff; font-size: 1.15rem;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+        }
+
+        .brand-text .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 1.25rem;
+            color: var(--mbg-navy); line-height: 1.1;
+        }
+
+        .brand-text .brand-sub {
+            font-size: 0.68rem; font-weight: 600;
+            color: #64748B; text-transform: uppercase;
+        }
+
+        .nav-link {
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: #475569 !important;
+            padding: 0.5rem 0.85rem !important;
+            border-radius: 8px;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--mbg-blue) !important;
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        /* Sidebar Nav */
+        .sidebar-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .user-avatar-badge {
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, #1E293B, var(--mbg-blue));
+            color: #FFFFFF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            font-weight: 700;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0 auto 1rem;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+        }
+
+        .side-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.90rem;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-bottom: 0.35rem;
+        }
+
+        .side-nav-item:hover {
+            color: var(--mbg-blue);
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        .side-nav-item.active {
+            color: #FFFFFF;
+            background: var(--mbg-blue);
+            box-shadow: 0 4px 12px var(--mbg-blue-glow);
+        }
+
+        .side-nav-item i {
+            width: 20px;
+            font-size: 1rem;
+        }
+
+        .content-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: #334155;
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-control {
+            border-radius: var(--radius-md);
+            border: 1.5px solid #E2E8F0;
+            padding: 0.70rem 1rem;
+            font-size: 0.90rem;
+        }
+
+        .form-control:focus {
+            border-color: var(--mbg-blue);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-primary-mbg {
+            background: linear-gradient(135deg, var(--mbg-blue) 0%, #1D4ED8 100%);
+            color: #fff;
+            font-weight: 700;
+            padding: 0.75rem 1.75rem;
+            border-radius: var(--radius-md);
+            border: none;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            transition: all 0.25s ease;
+        }
+
+        .btn-primary-mbg:hover {
+            background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+
+        footer {
+            background: var(--mbg-navy);
+            color: #94A3B8;
+            font-size: 0.85rem;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="top-ticker py-1.5 d-none d-md-block">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom: Jl. A.P. Pettarani No. 88, Makassar</span>
+            <span><i class="fa-solid fa-shield-halved text-success me-1"></i> 100% Lulus 150 Titik Inspeksi MBG</span>
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-mbg sticky-top">
+        <div class="container">
+            <a class="brand-lockup" href="{% url 'beranda' %}">
+                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">MBG</div>
+                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                </div>
+            </a>
+
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navContent">
+                <i class="fa-solid fa-bars text-dark fs-4"></i>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navContent">
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house me-1"></i> Beranda</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#katalog"><i class="fa-solid fa-car me-1"></i> Katalog Mobil</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar me-1"></i> Titip-Jual</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="{% url 'dashboard_user' %}"><i class="fa-solid fa-gauge me-1"></i> Dashboard Saya</a></li>
+                </ul>
+
+                <div class="d-flex align-items-center gap-3">
+                    <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container py-4 flex-grow-1">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2.5 px-3 mb-4 shadow-sm" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
+                    {% if message.tags == 'success' %}
+                        <i class="fa-solid fa-circle-check text-success me-2"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}
+                        <i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info text-info me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Sidebar Pelanggan -->
+            <div class="col-lg-3">
+                <div class="sidebar-card text-center mb-4">
+                    <div class="user-avatar-badge">
+                        {{ user.first_name.0|default:user.username.0|upper }}
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ user.get_full_name|default:user.username }}</h5>
+                    <p class="text-muted small mb-3">@{{ user.username }}</p>
+
+                    <nav class="nav flex-column text-start">
+                        <a class="side-nav-item" href="{% url 'dashboard_user' %}">
+                            <i class="fa-solid fa-gauge"></i> Ringkasan Akun
+                        </a>
+                        <a class="side-nav-item active" href="{% url 'profil_user' %}">
+                            <i class="fa-solid fa-id-badge"></i> Edit Profil
+                        </a>
+                        <a class="side-nav-item" href="{% url 'ubah_password_user' %}">
+                            <i class="fa-solid fa-key"></i> Ubah Kata Sandi
+                        </a>
+                        <a class="side-nav-item" href="{% url 'beranda' %}#katalog">
+                            <i class="fa-solid fa-car"></i> Cari Mobil Bekas
+                        </a>
+                        <a class="side-nav-item text-danger mt-2 pt-2 border-top" href="{% url 'logout' %}">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Profile Form Column -->
+            <div class="col-lg-9">
+                <div class="content-card">
+                    <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-4">
+                        <div>
+                            <h4 class="fw-bold mb-1 text-dark">
+                                <i class="fa-solid fa-user-pen text-primary me-2"></i> Perbarui Data Profil
+                            </h4>
+                            <p class="text-muted small mb-0">Kelola informasi identitas Anda untuk kemudahan verifikasi transaksi.</p>
+                        </div>
+                        <a href="{% url 'ubah_password_user' %}" class="btn btn-outline-warning text-dark btn-sm rounded-pill fw-bold px-3">
+                            <i class="fa-solid fa-lock me-1"></i> Ubah Kata Sandi
+                        </a>
+                    </div>
+
+                    <form method="post" action="{% url 'profil_user' %}">
+                        {% csrf_token %}
+
+                        <!-- Read-only Username & Date Joined Info -->
+                        <div class="row g-3 mb-4 p-3 bg-light rounded-3 border">
+                            <div class="col-sm-6">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.70rem;">Username Akun (Permanen)</small>
+                                <span class="fw-bold text-dark">@{{ user.username }}</span>
+                            </div>
+                            <div class="col-sm-6">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.70rem;">Bergabung Sejak</small>
+                                <span class="fw-bold text-dark">{{ user.date_joined|date:"d F Y" }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Nama Depan & Belakang -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="id_first_name" class="form-label">Nama Depan</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_last_name" class="form-label">Nama Belakang</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Email & WhatsApp -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="id_email" class="form-label">Alamat Email</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_no_whatsapp" class="form-label">Nomor WhatsApp / HP</label>
+                                {{ form.no_whatsapp }}
+                                {% if form.no_whatsapp.errors %}
+                                    <div class="text-danger small mt-1">{{ form.no_whatsapp.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Alamat Domisili -->
+                        <div class="mb-4">
+                            <label for="id_alamat" class="form-label">Alamat Domisili / Rumah (Makassar & Sekitarnya)</label>
+                            {{ form.alamat }}
+                            <small class="text-muted d-block mt-1">Digunakan sebagai acuan lokasi layanan antar cek unit (towing).</small>
+                            {% if form.alamat.errors %}
+                                <div class="text-danger small mt-1">{{ form.alamat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex align-items-center gap-3">
+                            <button type="submit" class="btn btn-primary-mbg">
+                                <i class="fa-solid fa-floppy-disk me-2"></i> Simpan Perubahan Profil
+                            </button>
+                            <a href="{% url 'dashboard_user' %}" class="btn btn-light border rounded-pill px-4">
+                                Batal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 mt-5">
+        <div class="container text-center">
+            &copy; 2026 <strong>Mobil Bekas Garasi (MBG) Makassar</strong>. Seluruh Hak Cipta Dilindungi.
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrator — Mobil Bekas Garasi (MBG) Makassar</title>
+
+    <!-- Google Fonts: Montserrat & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <!-- AOS.js -->
+    <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --mbg-navy:        #080D1A;
+            --mbg-deep:        #0C1222;
+            --mbg-slate:       #131B2E;
+            --mbg-blue:        #2563EB;
+            --mbg-blue-glow:   rgba(37, 99, 235, 0.35);
+            --mbg-gold:        #F59E0B;
+            --mbg-emerald:     #10B981;
+            --mbg-surface:     #F1F5F9;
+            --radius-xl:       20px;
+            --radius-lg:       16px;
+            --radius-md:       12px;
+            --shadow-card:     0 4px 20px -2px rgba(8, 13, 26, 0.06);
+            --shadow-hover:    0 12px 30px -4px rgba(8, 13, 26, 0.12);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--mbg-surface);
+            color: #334155;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* Admin Navbar */
+        .admin-nav {
+            background: #080D1A;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            padding: 0.85rem 0;
+            color: #FFFFFF;
+        }
+
+        .brand-lockup {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            border-radius: var(--radius-md);
+            display: grid; place-items: center;
+            color: #fff; font-size: 1.15rem;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+        }
+
+        .brand-text .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 1.25rem;
+            color: #FFFFFF; line-height: 1.1;
+        }
+
+        .brand-text .brand-sub {
+            font-size: 0.68rem; font-weight: 700;
+            color: #F59E0B; text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* Sidebar Menu */
+        .admin-sidebar {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .admin-side-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.72rem 1rem;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.88rem;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-bottom: 0.35rem;
+        }
+
+        .admin-side-item:hover {
+            color: var(--mbg-blue);
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        .admin-side-item.active {
+            color: #FFFFFF;
+            background: #080D1A;
+            box-shadow: 0 4px 12px rgba(8, 13, 26, 0.25);
+        }
+
+        .admin-side-item i {
+            width: 22px;
+            font-size: 0.95rem;
+        }
+
+        .side-section-title {
+            font-size: 0.70rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #94A3B8;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            padding-left: 0.5rem;
+        }
+
+        /* Stat KPI Cards */
+        .kpi-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.4rem;
+            box-shadow: var(--shadow-card);
+            transition: transform 0.25s, box-shadow 0.25s;
+            height: 100%;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .kpi-icon {
+            width: 46px; height: 46px;
+            border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .kpi-val {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 900;
+            color: var(--mbg-navy);
+            line-height: 1.15;
+        }
+
+        .kpi-sub {
+            font-size: 0.74rem;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        /* Content Card */
+        .content-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-card);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header-clean {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #F1F5F9;
+            padding-bottom: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        footer {
+            background: var(--mbg-navy);
+            color: #94A3B8;
+            font-size: 0.85rem;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Navigation Bar -->
+    <nav class="admin-nav sticky-top">
+        <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+                <a class="brand-lockup" href="{% url 'dashboard_admin' %}">
+                    <div class="brand-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                    <div class="brand-text">
+                        <div class="brand-name">MBG PANEL</div>
+                        <div class="brand-sub">Admin Otomotif Makassar</div>
+                    </div>
+                </a>
+                <span class="badge bg-warning text-dark fw-bold px-2.5 py-1 rounded-pill small ms-2 d-none d-md-inline-block">
+                    Administrator Mode
+                </span>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'beranda' %}" target="_blank" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="fa-solid fa-globe me-1"></i> Lihat Beranda MBG
+                </a>
+                <a href="/admin/" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                    <i class="fa-solid fa-server me-1"></i> Django Admin /admin/
+                </a>
+                
+                <div class="dropdown ms-2">
+                    <button class="btn btn-dark border border-secondary border-opacity-50 dropdown-toggle rounded-pill px-3 py-1.5 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-user-shield text-warning"></i>
+                        <span class="fw-bold small">{{ user.first_name|default:user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><h6 class="dropdown-header">Login sebagai Admin</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'profil_admin' %}"><i class="fa-solid fa-user-pen me-2 text-muted"></i> Profil Admin</a></li>
+                        <li><a class="dropdown-item" href="{% url 'ubah_password_admin' %}"><i class="fa-solid fa-key me-2 text-muted"></i> Ubah Password</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-primary" href="{% url 'dashboard_user' %}"><i class="fa-solid fa-user me-2"></i> Mode Pelanggan</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket me-2"></i> Keluar</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container-fluid px-4 py-4 flex-grow-1">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2.5 px-3 mb-4 shadow-sm" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
+                    {% if message.tags == 'success' %}
+                        <i class="fa-solid fa-circle-check text-success me-2"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}
+                        <i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info text-info me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Sidebar Admin -->
+            <div class="col-lg-2">
+                <div class="admin-sidebar">
+                    <div class="side-section-title mt-0">Navigasi Utama</div>
+                    <a class="admin-side-item active" href="{% url 'dashboard_admin' %}">
+                        <span><i class="fa-solid fa-chart-line text-warning"></i> Ikhtisar Bisnis</span>
+                    </a>
+
+                    <div class="side-section-title">Modul Operasional</div>
+                    <a class="admin-side-item" href="/admin/toko/produk/" target="_blank">
+                        <span><i class="fa-solid fa-car text-primary"></i> Katalog Mobil</span>
+                        <span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/bookingcekunit/" target="_blank">
+                        <span><i class="fa-solid fa-calendar-check text-success"></i> Booking Cek Unit</span>
+                        {% if booking_menunggu_dp > 0 %}
+                            <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
+                        {% endif %}
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/titipjual/" target="_blank">
+                        <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
+                        {% if titip_jual_pending > 0 %}
+                            <span class="badge bg-danger rounded-pill small">{{ titip_jual_pending }}</span>
+                        {% endif %}
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
+                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi & DP</span>
+                        <span class="badge bg-secondary rounded-pill small">{{ total_transaksi }}</span>
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/customuser/" target="_blank">
+                        <span><i class="fa-solid fa-users text-secondary"></i> Data Pengguna</span>
+                        <span class="badge bg-light text-dark border rounded-pill small">{{ total_pengguna }}</span>
+                    </a>
+
+                    <div class="side-section-title">Akun & Pengaturan</div>
+                    <a class="admin-side-item" href="{% url 'profil_admin' %}">
+                        <span><i class="fa-solid fa-user-gear"></i> Profil Admin</span>
+                    </a>
+                    <a class="admin-side-item" href="{% url 'ubah_password_admin' %}">
+                        <span><i class="fa-solid fa-key"></i> Ubah Password</span>
+                    </a>
+                    <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}">
+                        <span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="col-lg-10">
+                <!-- Welcome Title -->
+                <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="fw-bold text-dark mb-1">
+                            <i class="fa-solid fa-chart-pie text-primary me-2"></i> Ringkasan Bisnis MBG Makassar
+                        </h3>
+                        <p class="text-muted small mb-0">Data statistik terverifikasi langsung dari database operasional real-time.</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/toko/produk/add/" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-bold">
+                            <i class="fa-solid fa-plus me-1"></i> Tambah Mobil Baru
+                        </a>
+                        <a href="/admin/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                            <i class="fa-solid fa-sliders me-1"></i> Kelola Django Admin
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 5 KPI Stat Cards (Katalog, Pengguna, Booking, Titip-Jual, Transaksi) -->
+                <div class="row g-3 mb-4">
+                    <!-- 1. Katalog Kendaraan -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-car"></i></div>
+                                <span class="badge bg-primary bg-opacity-10 text-primary small">Katalog</span>
+                            </div>
+                            <div class="kpi-val">{{ total_katalog }}</div>
+                            <div class="kpi-sub mt-1">Ready: <strong>{{ stok_ready }}</strong> | Sold: <strong>{{ stok_sold }}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Pengguna Terdaftar -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fa-solid fa-users"></i></div>
+                                <span class="badge bg-info bg-opacity-10 text-info small">Akun</span>
+                            </div>
+                            <div class="kpi-val">{{ total_pengguna }}</div>
+                            <div class="kpi-sub mt-1">Customer: <strong>{{ total_pelanggan }}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Booking Cek Unit -->
+                    <div class="col-md-4 col-xl-3">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="fa-solid fa-calendar-check"></i></div>
+                                <span class="badge bg-success bg-opacity-10 text-success small">Booking O2O</span>
+                            </div>
+                            <div class="kpi-val">{{ total_booking }}</div>
+                            <div class="kpi-sub mt-1">Menunggu DP: <strong class="text-warning">{{ booking_menunggu_dp }}</strong> | Terkonfirmasi: <strong>{{ booking_terkonfirmasi }}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Pengajuan Titip-Jual -->
+                    <div class="col-md-6 col-xl-2">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                                <span class="badge bg-warning bg-opacity-10 text-warning small">Titip-Jual</span>
+                            </div>
+                            <div class="kpi-val">{{ total_titip_jual }}</div>
+                            <div class="kpi-sub mt-1">Pending: <strong class="text-danger">{{ titip_jual_pending }}</strong> | Disetujui: <strong>{{ titip_jual_disetujui }}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Transaksi & Pembayaran -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fa-solid fa-receipt"></i></div>
+                                <span class="badge bg-danger bg-opacity-10 text-danger small">Transaksi DP</span>
+                            </div>
+                            <div class="kpi-val">{{ total_transaksi }}</div>
+                            <div class="kpi-sub mt-1">Berhasil: <strong class="text-success">{{ transaksi_berhasil }}</strong> | Menunggu: <strong class="text-warning">{{ transaksi_pending }}</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Left Column: Booking Terbaru & Titip-Jual Terbaru -->
+                    <div class="col-lg-6">
+                        <!-- Booking Terbaru Table -->
+                        <div class="content-card">
+                            <div class="card-header-clean">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-calendar-check text-success me-2"></i> Booking Cek Unit Terbaru</h5>
+                                <a href="/admin/toko/bookingcekunit/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Kelola</a>
+                            </div>
+
+                            {% if recent_booking %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0 small">
+                                        <thead class="table-light text-uppercase">
+                                            <tr>
+                                                <th>Pemesan</th>
+                                                <th>Mobil</th>
+                                                <th>Jadwal</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for b in recent_booking %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ b.nama_pemesan }}</div>
+                                                    <small class="text-muted">{{ b.no_whatsapp }}</small>
+                                                </td>
+                                                <td>{{ b.produk.nama }}</td>
+                                                <td>{{ b.tanggal_cek_unit|date:"d M" }} {{ b.jam_cek_unit }}</td>
+                                                <td>
+                                                    {% if b.status == 'terkonfirmasi' %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded-pill">Terkonfirmasi</span>
+                                                    {% elif b.status == 'menunggu_dp' %}
+                                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-0.5 rounded-pill">Menunggu DP</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary px-2 py-0.5 rounded-pill">{{ b.get_status_display }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted small">
+                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada data booking cek unit.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Pengajuan Titip-Jual Terbaru Table -->
+                        <div class="content-card">
+                            <div class="card-header-clean">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Pengajuan Titip-Jual C2C Terbaru</h5>
+                                <a href="/admin/toko/titipjual/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Kelola</a>
+                            </div>
+
+                            {% if recent_titip_jual %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0 small">
+                                        <thead class="table-light text-uppercase">
+                                            <tr>
+                                                <th>Pemilik</th>
+                                                <th>Mobil</th>
+                                                <th>Harga Harapan</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for tj in recent_titip_jual %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ tj.nama_pemilik }}</div>
+                                                    <small class="text-muted">{{ tj.no_whatsapp }}</small>
+                                                </td>
+                                                <td>{{ tj.merek_model }} ({{ tj.tahun }})</td>
+                                                <td class="fw-bold text-primary">Rp {{ tj.harga_harapan|intcomma }}</td>
+                                                <td>
+                                                    {% if tj.status == 'disetujui' %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded-pill">Disetujui</span>
+                                                    {% elif tj.status == 'pending' %}
+                                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-0.5 rounded-pill">Verifikasi</span>
+                                                    {% else %}
+                                                        <span class="badge bg-info px-2 py-0.5 rounded-pill">{{ tj.get_status_display }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted small">
+                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada pengajuan titip-jual.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Transaksi & Katalog Produk -->
+                    <div class="col-lg-6">
+                        <!-- Transaksi Terbaru Table -->
+                        <div class="content-card">
+                            <div class="card-header-clean">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-receipt text-danger me-2"></i> Transaksi & DP Terbaru</h5>
+                                <a href="/admin/toko/transaksi/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Kelola</a>
+                            </div>
+
+                            {% if recent_transaksi %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0 small">
+                                        <thead class="table-light text-uppercase">
+                                            <tr>
+                                                <th>No. Order</th>
+                                                <th>Mobil</th>
+                                                <th>Nominal DP</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for trx in recent_transaksi %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ trx.no_order }}</div>
+                                                    <small class="text-muted">{{ trx.created_at|date:"d M Y" }}</small>
+                                                </td>
+                                                <td>{{ trx.booking.produk.nama }}</td>
+                                                <td class="fw-bold text-success">Rp {{ trx.nominal_dp|intcomma }}</td>
+                                                <td>
+                                                    {% if trx.status_pembayaran == 'berhasil' %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded-pill">Berhasil</span>
+                                                    {% elif trx.status_pembayaran == 'pending' %}
+                                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-0.5 rounded-pill">Pending</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger px-2 py-0.5 rounded-pill">{{ trx.get_status_pembayaran_display }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted small">
+                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada transaksi tercatat.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Katalog Terbaru Table -->
+                        <div class="content-card">
+                            <div class="card-header-clean">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-car text-primary me-2"></i> Stok Katalog Terkini</h5>
+                                <a href="/admin/toko/produk/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Semua</a>
+                            </div>
+
+                            {% if recent_produk %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0 small">
+                                        <thead class="table-light text-uppercase">
+                                            <tr>
+                                                <th>Nama Mobil</th>
+                                                <th>Harga OTR</th>
+                                                <th>Status Stok</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in recent_produk %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ p.nama }}</div>
+                                                    <small class="text-muted">{{ p.tahun }} · {{ p.get_transmisi_display }}</small>
+                                                </td>
+                                                <td class="fw-bold text-dark">Rp {{ p.harga|intcomma }}</td>
+                                                <td>
+                                                    {% if p.status_stok == 'ready' %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded-pill">Ready</span>
+                                                    {% elif p.status_stok == 'in_review' %}
+                                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-0.5 rounded-pill">In Review</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary px-2 py-0.5 rounded-pill">Sold</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <a href="{% url 'detail_produk' p.id %}" target="_blank" class="btn btn-sm btn-light border py-0 px-2" title="Lihat di Web">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square small"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted small">
+                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada produk mobil.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-3">
+        <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+            <div>
+                &copy; 2026 <strong>Mobil Bekas Garasi (MBG) Makassar</strong> · Management Console
+            </div>
+            <div>
+                <a href="/admin/" target="_blank" class="text-light text-opacity-75 text-decoration-none me-3">Django Admin</a>
+                <a href="{% url 'beranda' %}" class="text-light text-opacity-75 text-decoration-none">Website MBG</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- AOS.js -->
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        AOS.init();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil Administrator — MBG Makassar</title>
+
+    <!-- Google Fonts: Montserrat & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --mbg-navy:        #080D1A;
+            --mbg-blue:        #2563EB;
+            --mbg-surface:     #F1F5F9;
+            --radius-xl:       20px;
+            --radius-lg:       16px;
+            --radius-md:       12px;
+            --shadow-card:     0 4px 20px -2px rgba(8, 13, 26, 0.06);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--mbg-surface);
+            color: #334155;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .admin-nav {
+            background: #080D1A;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            padding: 0.85rem 0;
+            color: #FFFFFF;
+        }
+
+        .brand-lockup {
+            display: flex; align-items: center; gap: 0.65rem; text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            border-radius: var(--radius-md);
+            display: grid; place-items: center;
+            color: #fff; font-size: 1.15rem;
+        }
+
+        .brand-text .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 1.25rem;
+            color: #FFFFFF; line-height: 1.1;
+        }
+
+        .brand-text .brand-sub {
+            font-size: 0.68rem; font-weight: 700;
+            color: #F59E0B; text-transform: uppercase;
+        }
+
+        .admin-sidebar {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .admin-side-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.72rem 1rem; color: #475569;
+            font-weight: 600; font-size: 0.88rem;
+            border-radius: var(--radius-md); text-decoration: none;
+            transition: all 0.2s; margin-bottom: 0.35rem;
+        }
+
+        .admin-side-item:hover {
+            color: var(--mbg-blue); background: rgba(37, 99, 235, 0.06);
+        }
+
+        .admin-side-item.active {
+            color: #FFFFFF; background: #080D1A;
+            box-shadow: 0 4px 12px rgba(8, 13, 26, 0.25);
+        }
+
+        .admin-side-item i { width: 22px; font-size: 0.95rem; }
+
+        .side-section-title {
+            font-size: 0.70rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #94A3B8; margin-top: 1.25rem;
+            margin-bottom: 0.5rem; padding-left: 0.5rem;
+        }
+
+        .content-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .form-label {
+            font-weight: 600; font-size: 0.82rem;
+            color: #334155; margin-bottom: 0.35rem;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+
+        .form-control {
+            border-radius: var(--radius-md);
+            border: 1.5px solid #E2E8F0;
+            padding: 0.70rem 1rem; font-size: 0.90rem;
+        }
+
+        .form-control:focus {
+            border-color: #080D1A;
+            box-shadow: 0 0 0 4px rgba(8, 13, 26, 0.12);
+        }
+
+        .btn-admin-submit {
+            background: #080D1A;
+            color: #FFFFFF; font-weight: 700;
+            padding: 0.75rem 1.75rem;
+            border-radius: var(--radius-md); border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-admin-submit:hover {
+            background: #1E293B; color: #FFFFFF;
+        }
+
+        footer {
+            background: var(--mbg-navy);
+            color: #94A3B8; font-size: 0.85rem;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Topbar -->
+    <nav class="admin-nav sticky-top">
+        <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
+            <a class="brand-lockup" href="{% url 'dashboard_admin' %}">
+                <div class="brand-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">MBG PANEL</div>
+                    <div class="brand-sub">Admin Otomotif Makassar</div>
+                </div>
+            </a>
+
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'dashboard_admin' %}" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Ikhtisar
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container-fluid px-4 py-4 flex-grow-1">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2.5 px-3 mb-4 shadow-sm" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
+                    {% if message.tags == 'success' %}
+                        <i class="fa-solid fa-circle-check text-success me-2"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}
+                        <i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info text-info me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Sidebar -->
+            <div class="col-lg-2">
+                <div class="admin-sidebar">
+                    <div class="side-section-title mt-0">Navigasi Utama</div>
+                    <a class="admin-side-item" href="{% url 'dashboard_admin' %}">
+                        <span><i class="fa-solid fa-chart-line text-warning"></i> Ikhtisar Bisnis</span>
+                    </a>
+
+                    <div class="side-section-title">Akun & Pengaturan</div>
+                    <a class="admin-side-item active" href="{% url 'profil_admin' %}">
+                        <span><i class="fa-solid fa-user-gear"></i> Profil Admin</span>
+                    </a>
+                    <a class="admin-side-item" href="{% url 'ubah_password_admin' %}">
+                        <span><i class="fa-solid fa-key"></i> Ubah Password</span>
+                    </a>
+                    <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}">
+                        <span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="col-lg-10">
+                <div class="content-card">
+                    <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-4">
+                        <div>
+                            <h4 class="fw-bold text-dark mb-1">
+                                <i class="fa-solid fa-user-shield text-warning me-2"></i> Profil Administrator MBG
+                            </h4>
+                            <p class="text-muted small mb-0">Kelola informasi kontak dan identitas akun administratif Anda.</p>
+                        </div>
+                        <a href="{% url 'ubah_password_admin' %}" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-3">
+                            <i class="fa-solid fa-lock me-1"></i> Ubah Kata Sandi
+                        </a>
+                    </div>
+
+                    <form method="post" action="{% url 'profil_admin' %}">
+                        {% csrf_token %}
+
+                        <!-- Read-only Security Level & Role -->
+                        <div class="row g-3 mb-4 p-3 bg-light rounded-3 border">
+                            <div class="col-sm-4">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.70rem;">Username Admin</small>
+                                <span class="fw-bold text-dark">@{{ user.username }}</span>
+                            </div>
+                            <div class="col-sm-4">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.70rem;">Tingkat Hak Akses</small>
+                                <span class="badge bg-danger rounded-pill px-2.5 py-1">
+                                    {% if user.is_superuser %}Superuser (Full Control){% else %}Staff Administrator{% endif %}
+                                </span>
+                            </div>
+                            <div class="col-sm-4">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.70rem;">Terdaftar Sejak</small>
+                                <span class="fw-bold text-dark">{{ user.date_joined|date:"d F Y" }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Nama Depan & Belakang -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="id_first_name" class="form-label">Nama Depan</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_last_name" class="form-label">Nama Belakang</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Email & WhatsApp -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="id_email" class="form-label">Alamat Email Operasional</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_no_whatsapp" class="form-label">Nomor WhatsApp Admin</label>
+                                {{ form.no_whatsapp }}
+                                {% if form.no_whatsapp.errors %}
+                                    <div class="text-danger small mt-1">{{ form.no_whatsapp.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Alamat / Lokasi Operasional -->
+                        <div class="mb-4">
+                            <label for="id_alamat" class="form-label">Catatan / Alamat Operasional Kantor</label>
+                            {{ form.alamat }}
+                            {% if form.alamat.errors %}
+                                <div class="text-danger small mt-1">{{ form.alamat.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex align-items-center gap-3">
+                            <button type="submit" class="btn btn-admin-submit">
+                                <i class="fa-solid fa-floppy-disk me-2"></i> Simpan Profil Admin
+                            </button>
+                            <a href="{% url 'dashboard_admin' %}" class="btn btn-light border rounded-pill px-4">
+                                Batal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-3">
+        <div class="container-fluid px-4 text-center">
+            &copy; 2026 <strong>Mobil Bekas Garasi (MBG) Makassar</strong> · Management Console
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+

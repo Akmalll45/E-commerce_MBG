@@ -2,3 +2,6 @@
 __pycache__/
 db.sqlite3
 media/
+scratch_*.py
+backup*.sql
+

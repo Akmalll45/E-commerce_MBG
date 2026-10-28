@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Akun Baru — MBG (Mobil Bekas Garasi Makassar)</title>
+
+    <!-- Google Fonts: Montserrat & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <!-- AOS.js -->
+    <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --mbg-navy:        #080D1A;
+            --mbg-deep:        #0C1222;
+            --mbg-slate:       #131B2E;
+            --mbg-blue:        #2563EB;
+            --mbg-blue-glow:   rgba(37, 99, 235, 0.35);
+            --mbg-sky:         #38BDF8;
+            --mbg-gold:        #F59E0B;
+            --mbg-emerald:     #10B981;
+            --radius-xl:       20px;
+            --radius-lg:       16px;
+            --radius-md:       12px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(165deg, #080D1A 0%, #0F1B38 50%, #131B2E 100%);
+            color: #E2E8F0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 550px; height: 550px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, transparent 70%);
+            top: -10%; right: -5%;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 450px; height: 450px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+            bottom: -10%; left: -5%;
+            pointer-events: none;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 540px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            padding: 2.5rem 2.25rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+            color: #1E293B;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .brand-lockup {
+            display: inline-flex;
+            align-items: center;
+            gap: .65rem;
+            text-decoration: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .brand-icon {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, var(--mbg-blue), #1D4ED8);
+            border-radius: var(--radius-md);
+            display: grid; place-items: center;
+            color: #fff; font-size: 1.2rem;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+        }
+
+        .brand-text .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 1.35rem;
+            color: var(--mbg-navy); line-height: 1.1;
+        }
+
+        .brand-text .brand-sub {
+            font-size: .68rem; font-weight: 600;
+            color: #64748B; text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .auth-title {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+            font-size: 1.6rem;
+            color: var(--mbg-navy);
+            letter-spacing: -0.02em;
+            margin-bottom: 0.35rem;
+        }
+
+        .auth-subtitle {
+            font-size: 0.88rem;
+            color: #64748B;
+            margin-bottom: 1.75rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.80rem;
+            color: #334155;
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-control {
+            border-radius: var(--radius-md);
+            border: 1.5px solid #E2E8F0;
+            padding: 0.68rem 0.95rem;
+            font-size: 0.90rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--mbg-blue);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+        }
+
+        .input-group-text {
+            background: #F8FAFC;
+            border: 1.5px solid #E2E8F0;
+            border-left: none;
+            cursor: pointer;
+            color: #64748B;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        }
+
+        .input-group-text:hover {
+            color: var(--mbg-blue);
+        }
+
+        .btn-auth-submit {
+            background: linear-gradient(135deg, var(--mbg-blue) 0%, #1D4ED8 100%);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.8rem 1.5rem;
+            border-radius: var(--radius-md);
+            border: none;
+            width: 100%;
+            box-shadow: 0 4px 14px var(--mbg-blue-glow);
+            transition: all 0.25s ease;
+            margin-top: 1rem;
+        }
+
+        .btn-auth-submit:hover {
+            background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px var(--mbg-blue-glow);
+            color: #fff;
+        }
+
+        .auth-footer {
+            margin-top: 1.75rem;
+            text-align: center;
+            font-size: 0.88rem;
+            color: #64748B;
+        }
+
+        .auth-footer a {
+            color: var(--mbg-blue);
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #94A3B8;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            margin-bottom: 1.5rem;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #fff;
+        }
+
+        .benefit-badge {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.78rem;
+            color: #065F46;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container" data-aos="fade-up" data-aos-duration="600">
+        <a href="{% url 'beranda' %}" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> Kembali ke Beranda MBG
+        </a>
+
+        <div class="auth-card">
+            <!-- Brand -->
+            <a class="brand-lockup" href="{% url 'beranda' %}">
+                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">MBG</div>
+                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                </div>
+            </a>
+
+            <h1 class="auth-title">Daftar Akun Baru</h1>
+            <p class="auth-subtitle">Bergabunglah untuk kemudahan booking cek unit dan titip-jual mobil.</p>
+
+            <div class="benefit-badge">
+                <i class="fa-solid fa-shield-halved text-success fs-5"></i>
+                <div>
+                    <strong>Keamanan & Kenyamanan Terjamin:</strong> Data pribadi Anda dilindungi dengan standar keamanan MBG Makassar.
+                </div>
+            </div>
+
+            <!-- Feedback Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2.5 px-3" role="alert" style="font-size: 0.86rem; border-radius: 10px;">
+                        {% if message.tags == 'success' %}
+                            <i class="fa-solid fa-circle-check text-success me-2"></i>
+                        {% elif message.tags == 'danger' or message.tags == 'error' %}
+                            <i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                        {% else %}
+                            <i class="fa-solid fa-circle-info text-info me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem;"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Form Error Global -->
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2.5 px-3" style="font-size: 0.86rem; border-radius: 10px;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Form Register -->
+            <form method="post" action="{% url 'register' %}">
+                {% csrf_token %}
+
+                <!-- Nama Lengkap -->
+                <div class="mb-3">
+                    <label for="id_nama_lengkap" class="form-label">Nama Lengkap</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted ps-3">
+                            <i class="fa-solid fa-id-card"></i>
+                        </span>
+                        {{ form.nama_lengkap }}
+                    </div>
+                    {% if form.nama_lengkap.errors %}
+                        <div class="text-danger small mt-1">{{ form.nama_lengkap.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Username & No WhatsApp -->
+                <div class="row g-2 mb-3">
+                    <div class="col-sm-6">
+                        <label for="id_username" class="form-label">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted ps-2.5">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            {{ form.username }}
+                        </div>
+                        {% if form.username.errors %}
+                            <div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label for="id_no_whatsapp" class="form-label">WhatsApp / HP</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted ps-2.5">
+                                <i class="fa-brands fa-whatsapp text-success"></i>
+                            </span>
+                            {{ form.no_whatsapp }}
+                        </div>
+                        {% if form.no_whatsapp.errors %}
+                            <div class="text-danger small mt-1">{{ form.no_whatsapp.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Alamat Email -->
+                <div class="mb-3">
+                    <label for="id_email" class="form-label">Alamat Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted ps-3">
+                            <i class="fa-solid fa-envelope"></i>
+                        </span>
+                        {{ form.email }}
+                    </div>
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Kata Sandi -->
+                <div class="mb-3">
+                    <label for="id_password" class="form-label">Kata Sandi</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted ps-3">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        {{ form.password }}
+                        <button class="btn btn-outline-secondary input-group-text" type="button" onclick="togglePasswordVisibility('id_password', 'togglePassIcon1')">
+                            <i class="fa-solid fa-eye" id="togglePassIcon1"></i>
+                        </button>
+                    </div>
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Konfirmasi Kata Sandi -->
+                <div class="mb-3">
+                    <label for="id_password_confirm" class="form-label">Konfirmasi Kata Sandi</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted ps-3">
+                            <i class="fa-solid fa-shield-check"></i>
+                        </span>
+                        {{ form.password_confirm }}
+                        <button class="btn btn-outline-secondary input-group-text" type="button" onclick="togglePasswordVisibility('id_password_confirm', 'togglePassIcon2')">
+                            <i class="fa-solid fa-eye" id="togglePassIcon2"></i>
+                        </button>
+                    </div>
+                    {% if form.password_confirm.errors %}
+                        <div class="text-danger small mt-1">{{ form.password_confirm.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-auth-submit">
+                    <i class="fa-solid fa-user-plus me-2"></i> Buat Akun MBG Sekarang
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Sudah memiliki akun? 
+                <a href="{% url 'login' %}">Masuk ke Akun Anda</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- AOS.js -->
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        AOS.init();
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
+</body>
+</html>
+
