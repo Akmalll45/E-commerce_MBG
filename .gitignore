@@ -1,7 +1,9 @@
 .venv/
 __pycache__/
 db.sqlite3
+.env
 media/
 scratch_*.py
 backup*.sql
-
+*.py[cod]
+staticfiles/
