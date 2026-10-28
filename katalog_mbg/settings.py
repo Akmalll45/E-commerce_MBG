@@ -120,7 +120,14 @@ DATABASES = {
     }
 }
 
-
+# Gunakan TLS terverifikasi untuk koneksi database cloud.
+# Konfigurasi ini tidak mengubah koneksi MySQL lokal Docker.
+if os.environ.get('DB_HOST'):
+    DATABASES['default']['OPTIONS'].update({
+        'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
+        'ssl_verify_cert': True,
+        'ssl_verify_identity': True,
+    })
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
