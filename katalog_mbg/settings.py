@@ -24,19 +24,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-key-for-local-develop
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get(
-    'DJANGO_ALLOWED_HOSTS',
-    'localhost,127.0.0.1'
-).split(',')
-
-for env_name in (
-    'RENDER_EXTERNAL_HOSTNAME',
-    'VERCEL_URL',
-    'VERCEL_PROJECT_PRODUCTION_URL',
-):
-    host = os.environ.get(env_name)
-    if host and host not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(host)
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        'DJANGO_ALLOWED_HOSTS',
+        'localhost,127.0.0.1'
+    ).split(',')
+    if host.strip()
+]
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
@@ -52,17 +47,17 @@ for env_name in (
     'VERCEL_PROJECT_PRODUCTION_URL',
 ):
     host = os.environ.get(env_name)
+
     if host:
+        host = host.removeprefix('https://').rstrip('/')
+
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
+
         origin = f'https://{host}'
+
         if origin not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(origin)
-
-RENDER_EXTERNAL_HOSTNAME = os.environ.get(
-    'RENDER_EXTERNAL_HOSTNAME'
-)
-
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 
@@ -205,12 +200,3 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
-# Gunakan TLS terverifikasi untuk database cloud.
-# Koneksi MySQL lokal tetap menggunakan konfigurasi biasa.
-if os.environ.get('DB_HOST'):
-    DATABASES['default']['OPTIONS'].update({
-        'ssl_mode': 'VERIFY_IDENTITY',
-        'ssl': {
-            'ca': '/etc/ssl/certs/ca-certificates.crt',
-        },
-    })
