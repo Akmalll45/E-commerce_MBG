@@ -29,6 +29,34 @@ ALLOWED_HOSTS = os.environ.get(
     'localhost,127.0.0.1'
 ).split(',')
 
+for env_name in (
+    'RENDER_EXTERNAL_HOSTNAME',
+    'VERCEL_URL',
+    'VERCEL_PROJECT_PRODUCTION_URL',
+):
+    host = os.environ.get(env_name)
+    if host and host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        'DJANGO_CSRF_TRUSTED_ORIGINS', ''
+    ).split(',')
+    if origin.strip()
+]
+
+for env_name in (
+    'RENDER_EXTERNAL_HOSTNAME',
+    'VERCEL_URL',
+    'VERCEL_PROJECT_PRODUCTION_URL',
+):
+    host = os.environ.get(env_name)
+    if host:
+        origin = f'https://{host}'
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+
 RENDER_EXTERNAL_HOSTNAME = os.environ.get(
     'RENDER_EXTERNAL_HOSTNAME'
 )
