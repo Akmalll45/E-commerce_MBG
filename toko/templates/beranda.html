@@ -895,6 +895,7 @@
             border-top: 1px solid #F1F5F9;
             margin: .75rem 0;
         }
+        .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 
         /* ── Responsive ──────────────────────── */
         /* ═══ NAVBAR FLUID FIT — semua item tetap tampil, ukuran ikut lebar layar ═══ */
@@ -1084,7 +1085,11 @@
                 {% if user.is_authenticated %}
                     <div class="p-3 rounded-3 mb-3" style="background: rgba(37, 99, 235, 0.14); border: 1px solid rgba(37, 99, 235, 0.3);">
                         <div class="d-flex align-items-center gap-2.5 mb-2.5">
-                            <i class="fa-solid fa-circle-user text-primary fs-3"></i>
+                            {% if user.foto_profil %}
+                                <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:40px;height:40px;">
+                            {% else %}
+                                <i class="fa-solid fa-circle-user text-primary fs-3"></i>
+                            {% endif %}
                             <div>
                                 <div class="fw-bold text-white">{{ user.first_name|default:user.username }}</div>
                                 <small class="text-white-50" style="font-size: 0.72rem;">{% if user.is_staff or user.is_superuser %}Administrator MBG{% else %}Pelanggan Terverifikasi{% endif %}</small>

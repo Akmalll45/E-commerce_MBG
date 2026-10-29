@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 import re
+from django.core.files.uploadedfile import UploadedFile
 
 User = get_user_model()
 
@@ -209,15 +210,26 @@ class UserProfileForm(forms.ModelForm):
     Form pembaruan data profil untuk pengguna biasa (Customer).
     Aman: tidak mengekspos field administratif (is_staff, is_superuser, groups).
     """
+    FOTO_MAKS_BYTE = 2 * 1024 * 1024  # 2 MB
+    # Format hasil deteksi Pillow -> ekstensi file yang disimpan
+    FOTO_EKSTENSI = {'JPEG': 'jpg', 'MPO': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}
+
+    hapus_foto = forms.BooleanField(
+        required=False,
+        label='Hapus foto profil saat ini',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'no_whatsapp', 'alamat']
+        fields = ['foto_profil', 'first_name', 'last_name', 'email', 'no_whatsapp', 'alamat']
         labels = {
             'first_name': 'Nama Depan',
             'last_name': 'Nama Belakang',
             'email': 'Alamat Email',
             'no_whatsapp': 'Nomor WhatsApp / HP',
             'alamat': 'Alamat Domisili',
+            'foto_profil': 'Foto Profil',
         }
         widgets = {
             'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nama depan'}),
@@ -225,7 +237,18 @@ class UserProfileForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'nama@email.com'}),
             'no_whatsapp': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contoh: 081234567890'}),
             'alamat': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Alamat lengkap di Makassar atau sekitarnya'}),
+            'foto_profil': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Catat nama file lama: saat validasi, instance langsung diisi file baru,
+        # sehingga file lama perlu diingat untuk dihapus dari storage setelah simpan.
+        self._foto_lama = (
+            self.instance.foto_profil.name
+            if self.instance.pk and self.instance.foto_profil
+            else None
+        )
 
     def clean_email(self):
         email = self.cleaned_data.get('email', '').strip().lower()
@@ -237,13 +260,48 @@ class UserProfileForm(forms.ModelForm):
         return email
 
     def clean_no_whatsapp(self):
-        no_wa = self.cleaned_data.get('no_whatsapp', '').strip()
+        # Field model ini boleh NULL, jadi isian kosong dibersihkan Django menjadi None
+        # (bukan string kosong). "or ''" mencegah error pada .strip().
+        no_wa = (self.cleaned_data.get('no_whatsapp') or '').strip()
         if no_wa:
             digits = re.sub(r'[^\d+]', '', no_wa)
             if len(digits) < 9 or len(digits) > 16:
                 raise ValidationError("Nomor telepon/WhatsApp tidak valid.")
             return digits
         return no_wa
+
+    def clean_foto_profil(self):
+        foto = self.cleaned_data.get('foto_profil')
+
+        # Hanya validasi unggahan baru; jika tidak ada unggahan, nilai lama dibiarkan.
+        if isinstance(foto, UploadedFile):
+            if foto.size > self.FOTO_MAKS_BYTE:
+                raise ValidationError("Ukuran foto terlalu besar. Maksimal 2 MB.")
+
+            # forms.ImageField sudah memastikan file benar-benar gambar (via Pillow);
+            # format asli gambar yang menentukan boleh/tidaknya, bukan nama file.
+            format_gambar = foto.image.format
+            if format_gambar not in self.FOTO_EKSTENSI:
+                raise ValidationError("Format foto harus JPG, PNG, atau WEBP.")
+
+            # Samakan ekstensi dengan format asli agar nama file tidak menyesatkan.
+            foto.name = f"foto.{self.FOTO_EKSTENSI[format_gambar]}"
+        return foto
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        ada_foto_baru = isinstance(self.cleaned_data.get('foto_profil'), UploadedFile)
+        if self.cleaned_data.get('hapus_foto') and not ada_foto_baru:
+            user.foto_profil = None
+
+        if commit:
+            user.save()
+            # Bersihkan file lama dari storage jika sudah diganti atau dihapus.
+            nama_sekarang = user.foto_profil.name if user.foto_profil else None
+            if self._foto_lama and self._foto_lama != nama_sekarang:
+                user.foto_profil.storage.delete(self._foto_lama)
+        return user
 
 
 class AdminProfileForm(forms.ModelForm):
@@ -304,4 +362,3 @@ class UbahPasswordForm(PasswordChangeForm):
             'autocomplete': 'new-password',
         })
         self.fields['new_password2'].label = 'Konfirmasi Kata Sandi Baru'
-

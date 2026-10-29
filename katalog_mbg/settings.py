@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 import os
 from pathlib import Path
+import certifi
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,9 +123,17 @@ DATABASES = {
 
 # Gunakan TLS terverifikasi untuk koneksi database cloud.
 # Konfigurasi ini tidak mengubah koneksi MySQL lokal Docker.
-if os.environ.get('DB_HOST'):
+# TLS hanya digunakan untuk database cloud.
+# MySQL Docker lokal tidak membutuhkan konfigurasi TLS ini.
+if DATABASES['default']['HOST'] not in (
+    '127.0.0.1',
+    'localhost',
+    'db',
+):
+    
+
     DATABASES['default']['OPTIONS'].update({
-        'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
+        'ssl_ca': certifi.where(),
         'ssl_verify_cert': True,
         'ssl_verify_identity': True,
     })
@@ -182,6 +191,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 
 AUTH_USER_MODEL = 'toko.CustomUser'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Auth URLs
 LOGIN_URL = 'login'

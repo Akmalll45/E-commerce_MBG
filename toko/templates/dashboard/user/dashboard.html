@@ -255,6 +255,9 @@
             margin-top: auto;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
+        .user-avatar-badge { overflow: hidden; }
+        .user-avatar-badge img { width: 100%; height: 100%; object-fit: cover; }
+        .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
     </style>
 </head>
 <body>
@@ -305,7 +308,11 @@
                 <div class="d-flex align-items-center gap-3">
                     <div class="dropdown">
                         <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2 rounded-pill px-3 py-1.5" type="button" data-bs-toggle="dropdown">
-                            <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                            {% if user.foto_profil %}
+                            <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar">
+                            {% else %}
+                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                            {% endif %}
                             <span class="fw-bold small">{{ user.first_name|default:user.username }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
@@ -353,9 +360,13 @@
             <div class="col-lg-3">
                 <div class="sidebar-card text-center mb-4">
                     <div class="user-avatar-badge">
-                        {{ user.first_name.0|default:user.username.0|upper }}
+                        {% if user.foto_profil %}
+                            <img src="{{ user.foto_profil.url }}" alt="Foto profil {{ user.username }}">
+                        {% else %}
+                            {{ user.first_name.0|default:user.username.0|upper }}
+                        {% endif %}
                     </div>
-                    <h5 class="fw-bold mb-1">{{ user.get_full_name|default:user.username }}</h5>
+                    <h5 class="fw-bold mb-1">
                     <p class="text-muted small mb-3">@{{ user.username }}</p>
 
                     <div class="d-flex align-items-center justify-content-center gap-1 mb-4">

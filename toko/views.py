@@ -184,16 +184,20 @@ def dashboard_user(request):
 @login_required(login_url='login')
 def profil_user(request):
     """
-    Update data profil pengguna (Nama, Email, WhatsApp, Alamat).
+    Update data profil pengguna (Foto, Nama, Email, WhatsApp, Alamat).
     """
     user = request.user
     if request.method == 'POST':
-        form = UserProfileForm(request.POST, instance=user)
+        form = UserProfileForm(request.POST, request.FILES, instance=user)
         if form.is_valid():
             form.save()
             messages.success(request, "Profil Anda berhasil diperbarui.")
             return redirect('profil_user')
         else:
+            # Validasi sudah mengisi instance dengan input yang belum valid (termasuk file
+            # yang belum tersimpan). Pulihkan dari database agar sidebar tidak menampilkan
+            # foto/nama yang belum tersimpan; isian form tetap berasal dari data POST.
+            user.refresh_from_db()
             messages.error(request, "Gagal memperbarui profil. Silakan periksa pesan kesalahan pada formulir.")
     else:
         form = UserProfileForm(instance=user)

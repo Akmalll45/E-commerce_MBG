@@ -1,12 +1,22 @@
 from django.db import models
 from django.core.validators import MinValueValidator 
 from django.contrib.auth.models import AbstractUser
+import os
+import uuid
 
+def foto_profil_upload_path(instance, filename):
+    """
+    Simpan foto di folder per-user dengan nama acak (UUID) agar tidak
+    bentrok dan tidak mudah ditebak. Contoh: profil/12/3f2a...c9.jpg
+    """
+    ekstensi = os.path.splitext(filename)[1].lower()
+    return f'profil/{instance.pk or "baru"}/{uuid.uuid4().hex}{ekstensi}'
 
 class CustomUser(AbstractUser):
     no_whatsapp = models.CharField(max_length=20, blank=True, null=True)
     alamat = models.TextField(blank=True, null=True)
-
+    foto_profil = models.ImageField(upload_to=foto_profil_upload_path, blank=True)
+                                    
     def __str__(self):
         return self.username
 
