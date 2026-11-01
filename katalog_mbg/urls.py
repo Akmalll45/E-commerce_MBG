@@ -9,8 +9,9 @@ urlpatterns = [
     # Django Admin Site Bawaan
     path('admin/', admin.site.urls),
 
-    # Publik: Beranda & Detail Mobil
+    # Publik: Beranda, Katalog & Detail Mobil
     path('', views.beranda, name='beranda'),
+    path('katalog/', views.katalog, name='katalog'),
     path('mobil/<int:id>/', views.detail_produk, name='detail_produk'),
 
     # Autentikasi MBG

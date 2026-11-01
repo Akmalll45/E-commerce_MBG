@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     # Publik
     path('', views.beranda, name='beranda'),
+    path('katalog/', views.katalog, name='katalog'),
     path('mobil/<int:id>/', views.detail_produk, name='detail_produk'),
 
     # Autentikasi

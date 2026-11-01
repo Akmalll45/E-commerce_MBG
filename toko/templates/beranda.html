@@ -977,7 +977,7 @@
                         <a class="nav-link active" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#katalog"><i class="fa-solid fa-car"></i> Katalog Mobil</a>
+                        <a class="nav-link" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a>
@@ -1123,7 +1123,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="offcanvas-link" href="#katalog" data-bs-dismiss="offcanvas">
+                        <a class="offcanvas-link" href="{% url 'katalog' %}">
                             <i class="fa-solid fa-car text-info me-2.5"></i> Katalog Mobil
                         </a>
                     </li>
@@ -1217,7 +1217,7 @@
 
                     <!-- CTA -->
                     <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start mb-4">
-                        <a href="#katalog" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
+                        <a href="{% url 'katalog' %}" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
                             <i class="fa-solid fa-magnifying-glass"></i> Jelajahi Unit Tersedia
                         </a>
                         <a href="#titip-jual" class="btn btn-outline-light btn-lg rounded-pill px-4 fw-semibold d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
@@ -1277,52 +1277,52 @@
                 </span>
             </div>
 
-            <form onsubmit="return false;">
+            <form method="get" action="{% url 'katalog' %}">
                 <div class="row g-2 g-md-3">
                     <div class="col-12 col-md-4">
                         <label class="filter-label"><i class="fa-solid fa-magnifying-glass me-1"></i> Kata Kunci</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" style="font-size:.8rem;"></i></span>
-                            <input type="text" class="form-control" placeholder="Ketik Avanza, Innova, HR-V, Fortuner…">
+                            <input type="search" name="q" class="form-control" maxlength="200" placeholder="Ketik Avanza, Innova, HR-V, Fortuner…">
                         </div>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="filter-label"><i class="fa-solid fa-car me-1"></i> Merek</label>
-                        <select class="form-select">
-                            <option selected>Semua Merek</option>
-                            <option>Toyota</option>
-                            <option>Honda</option>
-                            <option>Mitsubishi</option>
-                            <option>Daihatsu</option>
-                            <option>Suzuki</option>
-                            <option>Hyundai</option>
-                            <option>Nissan</option>
+                        <select class="form-select" name="merek">
+                            <option value="" selected>Semua Merek</option>
+                            <option value="Toyota">Toyota</option>
+                            <option value="Honda">Honda</option>
+                            <option value="Mitsubishi">Mitsubishi</option>
+                            <option value="Daihatsu">Daihatsu</option>
+                            <option value="Suzuki">Suzuki</option>
+                            <option value="Hyundai">Hyundai</option>
+                            <option value="Nissan">Nissan</option>
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="filter-label"><i class="fa-solid fa-money-bill-wave me-1"></i> Rentang Harga</label>
-                        <select class="form-select">
-                            <option selected>Semua Harga</option>
-                            <option>&lt; Rp 150 Juta</option>
-                            <option>Rp 150 – 250 Juta</option>
-                            <option>Rp 250 – 350 Juta</option>
-                            <option>&gt; Rp 350 Juta</option>
+                        <select class="form-select" name="harga">
+                            <option value="" selected>Semua Harga</option>
+                            <option value="lt150">&lt; Rp 150 Juta</option>
+                            <option value="150-250">Rp 150 – 250 Juta</option>
+                            <option value="250-350">Rp 250 – 350 Juta</option>
+                            <option value="gt350">&gt; Rp 350 Juta</option>
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="filter-label"><i class="fa-solid fa-gears me-1"></i> Transmisi</label>
-                        <select class="form-select">
-                            <option selected>Semua</option>
-                            <option>Automatic (AT)</option>
-                            <option>Manual (MT)</option>
+                        <select class="form-select" name="transmisi">
+                            <option value="" selected>Semua</option>
+                            <option value="AT">Automatic (AT)</option>
+                            <option value="MT">Manual (MT)</option>
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="filter-label"><i class="fa-solid fa-store me-1"></i> Tipe Penjual</label>
-                        <select class="form-select">
-                            <option selected>Semua Unit</option>
-                            <option>Garasi MBG (B2C)</option>
-                            <option>Titip-Jual (C2C)</option>
+                        <select class="form-select" name="tipe">
+                            <option value="" selected>Semua Unit</option>
+                            <option value="B2C">Garasi MBG (B2C)</option>
+                            <option value="C2C">Titip-Jual (C2C)</option>
                         </select>
                     </div>
                 </div>
@@ -1338,7 +1338,7 @@
                     </div>
                     <div class="d-flex gap-2">
                         <button type="reset" class="btn btn-sm btn-light text-muted fw-semibold px-3 rounded-pill">Reset</button>
-                        <button type="button" class="btn-filter-apply">
+                        <button type="submit" class="btn-filter-apply">
                             <i class="fa-solid fa-magnifying-glass me-1"></i> Terapkan Filter
                         </button>
                     </div>
@@ -1351,7 +1351,7 @@
          ║  5. AREA KATALOG PRODUK: "Rekomendasi Mobil Bekas Pilihan"       ║
          ║     (PRODUCT GRID DENGAN LOGIKA DJANGO 100% DIPERTAHANKAN)       ║
          ╚══════════════════════════════════════════════════════════════════╝ -->
-    <main class="container py-5" id="katalog">
+    <main class="container py-5" id="mobil-pilihan">
         
         <!-- Header Katalog -->
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 pb-3" style="border-bottom:1px solid #E2E8F0;" data-aos="fade-up">
@@ -1360,14 +1360,10 @@
                 <h2 class="section-heading mt-1 mb-1">Rekomendasi Mobil Bekas Pilihan</h2>
                 <p class="text-muted mb-0" style="font-size:.9rem;">Unit terbaik di Garasi Makassar — 100% lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
             </div>
-            <div class="mt-3 mt-md-0 d-flex align-items-center gap-2">
-                <span class="small text-muted fw-semibold" style="white-space:nowrap;">Urutkan:</span>
-                <select class="form-select form-select-sm" style="width:auto;border-radius:var(--radius-md);">
-                    <option>Terbaru Ditambahkan</option>
-                    <option>Harga: Rendah → Tinggi</option>
-                    <option>Harga: Tinggi → Rendah</option>
-                    <option>Tahun: Paling Baru</option>
-                </select>
+            <div class="mt-3 mt-md-0">
+                <a href="{% url 'katalog' %}" class="btn btn-outline-primary rounded-pill px-4 fw-bold btn-sm">
+                    Lihat Semua{% if total_unit_tayang %} ({{ total_unit_tayang }} Unit){% endif %} <i class="fa-solid fa-arrow-right ms-1"></i>
+                </a>
             </div>
         </div>
 
@@ -1501,6 +1497,14 @@
             </div>
             {% endfor %}
         </div>
+
+        {% if total_unit_tayang > katalog_mobil|length %}
+        <div class="text-center mt-5" data-aos="fade-up">
+            <a href="{% url 'katalog' %}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow-sm">
+                <i class="fa-solid fa-car me-2"></i>Lihat Semua {{ total_unit_tayang }} Mobil di Katalog
+            </a>
+        </div>
+        {% endif %}
     </main>
 
     <!-- ╔══════════════════════════════════════════╗
@@ -1723,8 +1727,8 @@
                 <div class="col-lg-2 col-md-6 col-6">
                     <h5>Navigasi</h5>
                     <ul class="list-unstyled">
-                        <li><a href="#" class="footer-link-item">Beranda</a></li>
-                        <li><a href="#katalog" class="footer-link-item">Katalog Mobil</a></li>
+                        <li><a href="{% url 'beranda' %}" class="footer-link-item">Beranda</a></li>
+                        <li><a href="{% url 'katalog' %}" class="footer-link-item">Katalog Mobil</a></li>
                         <li><a href="#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
                         <li><a href="#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>

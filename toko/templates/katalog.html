@@ -1,0 +1,380 @@
+{% extends 'base_publik.html' %}
+{% load humanize %}
+
+{% block title %}Katalog Mobil Bekas{% if page_obj.number > 1 %} — Halaman {{ page_obj.number }}{% endif %} | MBG Makassar{% endblock %}
+{% block meta_description %}Telusuri {{ total_unit_tayang }} mobil bekas lulus 150 titik inspeksi di Garasi MBG Makassar. Cari, filter, dan bandingkan harga transparan.{% endblock %}
+{% block nav_katalog_aktif %}active{% endblock %}
+{% block offcanvas_katalog_aktif %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Header halaman katalog ── */
+    .katalog-hero { position:relative; background:linear-gradient(165deg,#080D1A 0%,#0F1B38 45%,#131B2E 100%); padding:2.75rem 0 4.25rem; overflow:hidden; }
+    .katalog-hero::before { content:''; position:absolute; width:520px; height:520px; background:radial-gradient(circle,rgba(37,99,235,.20) 0%,transparent 70%); top:-45%; right:-6%; pointer-events:none; }
+    .katalog-hero .breadcrumb { --bs-breadcrumb-divider-color:#64748B; margin-bottom:1rem; font-size:.82rem; }
+    .katalog-hero .breadcrumb a { color:#94A3B8; text-decoration:none; }
+    .katalog-hero .breadcrumb a:hover { color:#fff; }
+    .katalog-hero .breadcrumb-item.active { color:#E2E8F0; }
+    .katalog-title { font-size:clamp(1.7rem,3.6vw,2.5rem); font-weight:900; color:#fff; line-height:1.15; }
+    .katalog-sub { color:#94A3B8; max-width:620px; font-size:.98rem; }
+    .search-wrap { position:relative; z-index:20; margin-top:-2.1rem; }
+    .search-bar { background:rgba(255,255,255,.92); backdrop-filter:saturate(180%) blur(18px); -webkit-backdrop-filter:saturate(180%) blur(18px); border:1px solid rgba(255,255,255,.7); border-radius:var(--radius-xl); box-shadow:0 16px 48px -8px rgba(8,13,26,.14); padding:.7rem; }
+    .search-bar .form-control { border:none; background:transparent; font-size:1rem; padding:.7rem .5rem; box-shadow:none; }
+    .search-bar .search-icon { color:#94A3B8; padding-left:.9rem; display:flex; align-items:center; }
+    .search-bar .btn-filter-apply { padding:.7rem 1.6rem; }
+
+    /* ── Panel filter ── */
+    .filter-sticky { position:relative; }
+    .filter-card { background:#fff; border:1px solid #E2E8F0; border-radius:var(--radius-lg); padding:1.4rem; box-shadow:var(--shadow-card); width:100%; }
+    .filter-card .filter-title { font-size:1rem; font-weight:800; color:var(--mbg-navy); }
+    .filter-group { margin-bottom:1.05rem; }
+    .filter-card .form-select, .filter-card .form-control { padding:.55rem .8rem; }
+    @media (min-width:992px) {
+        .filter-sticky { position:sticky; top:96px; }
+        .offcanvas-lg .offcanvas-body { overflow:visible; }
+    }
+    @media (max-width:991.98px) {
+        .filter-card { border:none; box-shadow:none; padding:0; }
+        #filterPanel { max-width:92vw; }
+    }
+
+    /* ── Toolbar & chip ── */
+    .result-count { font-size:.92rem; color:#475569; }
+    .result-count strong { color:var(--mbg-navy); }
+    .chip-aktif { display:inline-flex; align-items:center; gap:.4rem; font-size:.76rem; font-weight:600; padding:.32rem .5rem .32rem .8rem; border-radius:999px; background:rgba(37,99,235,.08); color:var(--mbg-blue); border:1px solid rgba(37,99,235,.2); text-decoration:none; transition:all .2s ease; }
+    .chip-aktif:hover { background:var(--mbg-blue); color:#fff; border-color:var(--mbg-blue); }
+    .chip-aktif .x { width:18px; height:18px; display:grid; place-items:center; border-radius:50%; background:rgba(37,99,235,.14); font-size:.62rem; }
+    .chip-aktif:hover .x { background:rgba(255,255,255,.25); }
+    .link-reset { font-size:.78rem; font-weight:700; color:#64748B; text-decoration:none; }
+    .link-reset:hover { color:var(--mbg-red); }
+
+    /* ── Pagination ── */
+    .pagination-mbg { gap:.35rem; flex-wrap:wrap; justify-content:center; }
+    .pagination-mbg .page-link { border:1.5px solid #E2E8F0; border-radius:12px !important; min-width:42px; height:42px; display:inline-grid; place-items:center; padding:0 .8rem; color:#334155; font-weight:700; font-size:.88rem; background:#fff; transition:all .2s ease; }
+    .pagination-mbg .page-link:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); background:rgba(37,99,235,.05); }
+    .pagination-mbg .page-item.active .page-link { background:var(--mbg-blue); border-color:var(--mbg-blue); color:#fff; box-shadow:0 4px 14px var(--mbg-blue-glow); }
+    .pagination-mbg .page-item.disabled .page-link { background:#F1F5F9; color:#94A3B8; }
+    .pagination-mbg .page-link:focus-visible { outline:2px solid var(--mbg-blue); outline-offset:2px; box-shadow:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ═══ HEADER KATALOG ═══ #}
+<header class="katalog-hero">
+    <div class="container position-relative">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'beranda' %}">Beranda</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Katalog Mobil</li>
+            </ol>
+        </nav>
+        <span class="section-label" style="color:#60A5FA;"><i class="fa-solid fa-circle-check"></i> Unit Terverifikasi MBG</span>
+        <h1 class="katalog-title mt-2 mb-2">Katalog Mobil Bekas Garasi Makassar</h1>
+        <p class="katalog-sub mb-0">
+            {{ total_unit_tayang }} unit siap dilihat langsung — semua lulus inspeksi, harga OTR Makassar transparan.
+        </p>
+    </div>
+</header>
+
+{# ═══ SEARCH BAR (terhubung ke form filter lewat atribut form="filterForm") ═══ #}
+<section class="container search-wrap" aria-label="Pencarian mobil">
+    <div class="search-bar">
+        <div class="d-flex align-items-center gap-2">
+            <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="search" name="q" form="filterForm" class="form-control" value="{{ nilai.q|default:'' }}"
+                   placeholder="Cari merek atau model: Avanza, Innova, HR-V, Fortuner…"
+                   maxlength="200" autocomplete="off" aria-label="Kata kunci pencarian">
+            <button type="submit" form="filterForm" class="btn-filter-apply d-none d-sm-inline-flex align-items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass"></i> Cari
+            </button>
+            <button type="submit" form="filterForm" class="btn-filter-apply d-sm-none" aria-label="Cari">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+        </div>
+    </div>
+</section>
+
+<main class="container py-5" id="katalog">
+    <div class="row g-4">
+
+        {# ═══ SIDEBAR FILTER (desktop) / OFFCANVAS (smartphone) ═══ #}
+        <aside class="col-lg-3" aria-label="Filter mobil">
+            <div class="filter-sticky">
+                <div class="offcanvas-lg offcanvas-start" tabindex="-1" id="filterPanel" aria-labelledby="filterPanelLabel">
+                    <div class="offcanvas-header border-bottom">
+                        <h5 class="offcanvas-title fw-bold" id="filterPanelLabel"><i class="fa-solid fa-sliders text-primary me-2"></i>Filter Mobil</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterPanel" aria-label="Tutup filter"></button>
+                    </div>
+                    <div class="offcanvas-body">
+                        <form id="filterForm" method="get" action="{% url 'katalog' %}" class="filter-card">
+                            <div class="d-none d-lg-flex align-items-center justify-content-between mb-3">
+                                <h2 class="filter-title mb-0"><i class="fa-solid fa-sliders text-primary me-2"></i>Filter Mobil</h2>
+                                {% if ada_pencarian %}<a href="{% url 'katalog' %}" class="link-reset">Reset</a>{% endif %}
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fMerek"><i class="fa-solid fa-car me-1"></i> Merek</label>
+                                <select class="form-select" id="fMerek" name="merek">
+                                    <option value="">Semua Merek</option>
+                                    {% for m in daftar_merek %}
+                                        <option value="{{ m }}" {% if nilai.merek == m %}selected{% endif %}>{{ m }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fKategori"><i class="fa-solid fa-truck-monster me-1"></i> Kategori</label>
+                                <select class="form-select" id="fKategori" name="kategori">
+                                    <option value="">Semua Kategori</option>
+                                    {% for k in daftar_kategori %}
+                                        <option value="{{ k }}" {% if nilai.kategori == k %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fHarga"><i class="fa-solid fa-money-bill-wave me-1"></i> Rentang Harga</label>
+                                <select class="form-select" id="fHarga" name="harga">
+                                    <option value="">Semua Harga</option>
+                                    {% for kunci, label in pilihan_harga %}
+                                        <option value="{{ kunci }}" {% if nilai.harga == kunci %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <span class="filter-label"><i class="fa-regular fa-calendar me-1"></i> Tahun</span>
+                                <div class="row g-2">
+                                    <div class="col-6"><input type="number" class="form-control" name="tahun_min" value="{{ nilai.tahun_min|default:'' }}" placeholder="Dari" min="1980" max="2100" inputmode="numeric" aria-label="Tahun minimum"></div>
+                                    <div class="col-6"><input type="number" class="form-control" name="tahun_max" value="{{ nilai.tahun_max|default:'' }}" placeholder="Sampai" min="1980" max="2100" inputmode="numeric" aria-label="Tahun maksimum"></div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fKm"><i class="fa-solid fa-gauge-high me-1"></i> Kilometer</label>
+                                <select class="form-select" id="fKm" name="km">
+                                    <option value="">Semua Kilometer</option>
+                                    {% for kunci, label in pilihan_km %}
+                                        <option value="{{ kunci }}" {% if nilai.km == kunci %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fTransmisi"><i class="fa-solid fa-gears me-1"></i> Transmisi</label>
+                                <select class="form-select" id="fTransmisi" name="transmisi">
+                                    <option value="">Semua Transmisi</option>
+                                    {% for kunci, label in pilihan_transmisi %}
+                                        <option value="{{ kunci }}" {% if nilai.transmisi == kunci %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label class="filter-label" for="fTipe"><i class="fa-solid fa-store me-1"></i> Sumber Kendaraan</label>
+                                <select class="form-select" id="fTipe" name="tipe">
+                                    <option value="">Semua Unit</option>
+                                    {% for kunci, label in pilihan_tipe %}
+                                        <option value="{{ kunci }}" {% if nilai.tipe == kunci %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            {# Urutan terpilih ikut terkirim saat filter diterapkan #}
+                            <div class="d-grid gap-2 mt-4">
+                                <button type="submit" class="btn-filter-apply"><i class="fa-solid fa-check me-1"></i> Terapkan Filter</button>
+                                <a href="{% url 'katalog' %}" class="btn btn-light rounded-pill fw-semibold text-muted">Reset Semua</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        {# ═══ HASIL ═══ #}
+        <div class="col-lg-9">
+
+            {# Toolbar: jumlah hasil + tombol filter (HP) + urutan #}
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+                <div class="result-count" aria-live="polite">
+                    {% if total_hasil %}
+                        Menampilkan <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+                        dari <strong>{{ total_hasil|intcomma }}</strong> unit
+                    {% else %}
+                        <strong>0</strong> unit ditemukan
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary rounded-pill fw-bold d-lg-none d-inline-flex align-items-center gap-2"
+                            data-bs-toggle="offcanvas" data-bs-target="#filterPanel" aria-controls="filterPanel" style="height:42px;">
+                        <i class="fa-solid fa-sliders"></i> Filter
+                        {% if jumlah_filter_aktif %}<span class="badge bg-primary rounded-pill">{{ jumlah_filter_aktif }}</span>{% endif %}
+                    </button>
+                    <label for="selectUrutan" class="small text-muted fw-semibold text-nowrap mb-0 d-none d-sm-block">Urutkan:</label>
+                    <select id="selectUrutan" name="urutan" form="filterForm" class="form-select form-select-sm" style="width:auto;height:42px;border-radius:var(--radius-md);" aria-label="Urutkan hasil">
+                        {% for kunci, label in pilihan_urutan %}
+                            <option value="{{ kunci }}" {% if urutan_aktif == kunci %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {# Chip filter aktif #}
+            {% if filter_aktif %}
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-4" aria-label="Filter aktif">
+                    {% for f in filter_aktif %}
+                        <a href="{{ f.url }}" class="chip-aktif" title="Hapus filter ini">
+                            {{ f.label }} <span class="x"><i class="fa-solid fa-xmark"></i></span>
+                        </a>
+                    {% endfor %}
+                    <a href="{% url 'katalog' %}" class="link-reset ms-1">Hapus semua</a>
+                </div>
+            {% endif %}
+
+            {# Grid kartu #}
+            <div class="row g-4">
+                {% for mobil in mobil_list %}
+                <div class="col-12 col-md-6 col-xl-4">
+                    <article class="card-product-premium">
+                        <div class="card-product-img-wrapper">
+                            {% if mobil.gambar_utama %}
+                                <a href="{% url 'detail_produk' mobil.id %}" tabindex="-1" aria-hidden="true">
+                                    <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy">
+                                </a>
+                            {% else %}
+                                <div class="no-photo-placeholder">
+                                    <i class="fa-regular fa-image" style="font-size:2.5rem;margin-bottom:.5rem;"></i>
+                                    <span style="font-size:.82rem;">Foto unit dalam proses</span>
+                                </div>
+                            {% endif %}
+
+                            {% if mobil.harga_promo %}
+                                <div class="badge-promo-floating"><i class="fa-solid fa-fire-flame-curved"></i> Subsidi DP</div>
+                            {% endif %}
+                            <div class="badge-seller-floating">
+                                <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display }}
+                            </div>
+                        </div>
+
+                        <div class="card-body-content">
+                            {% if mobil.lulus_inspeksi %}
+                                <div class="mb-2">
+                                    <span class="badge-inspeksi-exclusive"><i class="fa-solid fa-shield-check"></i><span>Lulus 150 Titik Inspeksi</span></span>
+                                </div>
+                            {% endif %}
+
+                            <h2 class="card-car-title mb-2" title="{{ mobil.nama }}">
+                                <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">{{ mobil.nama }}</a>
+                            </h2>
+
+                            <div class="specs-mini-bar">
+                                <span class="specs-mini-item"><i class="fa-regular fa-calendar"></i><strong>{{ mobil.tahun }}</strong></span>
+                                <span class="specs-mini-item"><i class="fa-solid fa-gears"></i><strong>{{ mobil.get_transmisi_display }}</strong></span>
+                                <span class="specs-mini-item"><i class="fa-solid fa-gauge-high"></i><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
+                            </div>
+
+                            <p class="car-desc mb-2">{{ mobil.deskripsi_singkat }}</p>
+
+                            <hr class="card-divider">
+
+                            <div class="mb-3">
+                                <span class="price-label d-block">Harga OTR {{ mobil.lokasi }}:</span>
+                                <div class="price-value">Rp {{ mobil.harga|intcomma }}</div>
+                                {% if mobil.harga_promo %}
+                                    <div class="text-danger small fw-bold"><i class="fa-solid fa-tag me-1"></i> Promo DP Khusus: Rp {{ mobil.harga_promo|intcomma }}</div>
+                                {% else %}
+                                    <span class="price-note">*Tersedia opsi Cash / Kredit DP Ringan</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="d-flex flex-column gap-2 mt-auto">
+                                <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking">
+                                    <i class="fa-solid fa-circle-info"></i><span>Lihat Detail &amp; Booking</span>
+                                </a>
+                                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma|urlencode }})%20masih%20tersedia?"
+                                   target="_blank" rel="noopener" class="btn-cta-wa">
+                                    <i class="fa-brands fa-whatsapp"></i><span>Tanya via WhatsApp</span>
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state text-center">
+                        <div class="empty-state-icon"><i class="fa-solid fa-car-side"></i></div>
+                        {% if ada_pencarian %}
+                            <h2 class="h4 fw-bold mb-2" style="color:var(--mbg-navy);">Tidak Ada Mobil yang Cocok</h2>
+                            <p class="text-muted mb-4 mx-auto" style="max-width:440px;">Coba kurangi filter atau ubah kata kunci. Anda juga bisa menghubungi tim kami untuk dicarikan unit sesuai budget.</p>
+                            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+                                <a href="{% url 'katalog' %}" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-solid fa-rotate-left me-2"></i>Reset Pencarian</a>
+                                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20mencari%20mobil%20bekas%20sesuai%20budget" target="_blank" rel="noopener" class="btn btn-outline-success rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Minta Dicarikan Unit</a>
+                            </div>
+                        {% else %}
+                            <h2 class="h4 fw-bold mb-2" style="color:var(--mbg-navy);">Katalog Masih Kosong</h2>
+                            <p class="text-muted mb-4 mx-auto" style="max-width:420px;">Belum ada unit yang tersedia saat ini di Garasi MBG. Silakan hubungi tim kami untuk memesan atau menitipkan mobil Anda.</p>
+                            <a href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# Pagination (parameter pencarian & filter dipertahankan) #}
+            {% if page_obj.paginator.num_pages > 1 %}
+            <nav class="mt-5" aria-label="Navigasi halaman katalog">
+                <ul class="pagination pagination-mbg mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Halaman sebelumnya"><i class="fa-solid fa-chevron-left"></i></a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="fa-solid fa-chevron-left"></i></span></li>
+                    {% endif %}
+
+                    {% for p in rentang_halaman %}
+                        {% if p == ELLIPSIS %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% elif p == page_obj.number %}
+                            <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ p }}">{{ p }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}" aria-label="Halaman berikutnya"><i class="fa-solid fa-chevron-right"></i></a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="fa-solid fa-chevron-right"></i></span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const form = document.getElementById('filterForm');
+        if (!form) return;
+
+        // Ganti urutan → langsung terapkan (filter & pencarian aktif ikut terkirim)
+        const urutan = document.getElementById('selectUrutan');
+        if (urutan) urutan.addEventListener('change', () => form.requestSubmit());
+
+        // URL bersih: jangan kirim kolom kosong atau urutan bawaan
+        form.addEventListener('submit', () => {
+            Array.from(form.elements).forEach(el => {
+                if (!el.name || el.type === 'submit' || el.type === 'button') return;
+                if (el.value === '' || (el.name === 'urutan' && el.value === 'terbaru')) el.disabled = true;
+            });
+        });
+        // Pulihkan kolom saat tombol "kembali" memakai cache halaman
+        window.addEventListener('pageshow', () => {
+            Array.from(form.elements).forEach(el => { el.disabled = false; });
+        });
+    })();
+</script>
+{% endblock %}

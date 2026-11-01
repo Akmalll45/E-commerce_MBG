@@ -295,7 +295,7 @@
                         <a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house me-1"></i> Beranda</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'beranda' %}#katalog"><i class="fa-solid fa-car me-1"></i> Katalog Mobil</a>
+                        <a class="nav-link" href="{% url 'katalog' %}"><i class="fa-solid fa-car me-1"></i> Katalog Mobil</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar me-1"></i> Titip-Jual</a>
@@ -385,7 +385,7 @@
                         <a class="side-nav-item" href="{% url 'ubah_password_user' %}">
                             <i class="fa-solid fa-key"></i> Ubah Kata Sandi
                         </a>
-                        <a class="side-nav-item" href="{% url 'beranda' %}#katalog">
+                        <a class="side-nav-item" href="{% url 'katalog' %}">
                             <i class="fa-solid fa-car"></i> Cari Mobil Bekas
                         </a>
                         <a class="side-nav-item" href="{% url 'beranda' %}#titip-jual">
@@ -426,7 +426,7 @@
                                 Selamat datang di dashboard pribadi Anda. Pantau jadwal booking inspeksi, status pengajuan titip-jual, serta transaksi mobil bekas impian Anda dengan transparan.
                             </p>
                             <div class="d-flex gap-2 flex-wrap">
-                                <a href="{% url 'beranda' %}#katalog" class="btn btn-light fw-bold rounded-pill px-4 btn-sm shadow-sm">
+                                <a href="{% url 'katalog' %}" class="btn btn-light fw-bold rounded-pill px-4 btn-sm shadow-sm">
                                     <i class="fa-solid fa-magnifying-glass me-1"></i> Telusuri Mobil Bekas
                                 </a>
                                 <a href="{% url 'profil_user' %}" class="btn btn-outline-light rounded-pill px-3 btn-sm">
@@ -560,7 +560,7 @@
                             <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
                             <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Booking Cek Unit</h6>
                             <p class="text-muted small mb-3">Anda belum memiliki jadwal kunjungan cek unit atau booking test-drive.</p>
-                            <a href="{% url 'beranda' %}#katalog" class="btn btn-sm btn-primary rounded-pill px-4">
+                            <a href="{% url 'katalog' %}" class="btn btn-sm btn-primary rounded-pill px-4">
                                 <i class="fa-solid fa-car me-1"></i> Pilih Mobil di Katalog
                             </a>
                         </div>
@@ -696,7 +696,7 @@
             </div>
             <div class="small">
                 <a href="{% url 'beranda' %}" class="text-secondary text-decoration-none me-3">Beranda</a>
-                <a href="{% url 'beranda' %}#katalog" class="text-secondary text-decoration-none me-3">Katalog Mobil</a>
+                <a href="{% url 'katalog' %}" class="text-secondary text-decoration-none me-3">Katalog Mobil</a>
                 <a href="{% url 'beranda' %}#titip-jual" class="text-secondary text-decoration-none">Titip-Jual</a>
             </div>
         </div>

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MBG — Mobil Bekas Garasi Makassar{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Mobil bekas berkualitas di Makassar, 100% lulus 150 titik inspeksi.{% endblock %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+    <style>
+        /* ═══ MBG DESIGN SYSTEM — token & komponen yang sama dengan beranda ═══ */
+        :root {
+            --mbg-navy:#080D1A; --mbg-deep:#0C1222; --mbg-slate:#131B2E;
+            --mbg-blue:#2563EB; --mbg-blue-glow:rgba(37,99,235,.35); --mbg-sky:#38BDF8;
+            --mbg-gold:#F59E0B; --mbg-emerald:#10B981; --mbg-red:#EF4444;
+            --mbg-surface:#F8FAFC; --mbg-card:#FFFFFF;
+            --radius-xl:20px; --radius-lg:16px; --radius-md:12px;
+            --shadow-card:0 4px 24px -4px rgba(8,13,26,.06);
+            --shadow-hover:0 20px 40px -8px rgba(8,13,26,.14);
+            --transition-snappy:cubic-bezier(.16,1,.3,1);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--mbg-surface); color:#334155; overflow-x:hidden; -webkit-font-smoothing:antialiased; }
+        h1,h2,h3,h4,h5,h6,.font-heading { font-family:'Montserrat',sans-serif; letter-spacing:-.025em; }
+        ::selection { background:var(--mbg-blue); color:#fff; }
+
+        /* Navbar */
+        .navbar-mbg { background:rgba(255,255,255,.96); backdrop-filter:saturate(180%) blur(16px); -webkit-backdrop-filter:saturate(180%) blur(16px); border-bottom:1px solid rgba(226,232,240,.8); min-height:76px; padding:0; transition:box-shadow .3s ease; }
+        .navbar-mbg.scrolled { box-shadow:0 6px 30px rgba(8,13,26,.08); }
+        .navbar-mbg > .container { min-height:76px; max-width:1320px; padding-left:1.25rem; padding-right:1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1.5rem; }
+        .brand-lockup { display:inline-flex; align-items:center; gap:.75rem; text-decoration:none !important; flex-shrink:0; }
+        .brand-icon { width:48px; height:48px; background:linear-gradient(135deg,var(--mbg-blue),#1D4ED8); border-radius:12px; display:grid; place-items:center; color:#fff; font-size:1.25rem; box-shadow:0 4px 14px var(--mbg-blue-glow); flex-shrink:0; }
+        .brand-text .brand-name { font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.35rem; color:var(--mbg-navy); line-height:1.1; white-space:nowrap; }
+        .brand-text .brand-sub { font-size:.70rem; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+        .navbar-mbg #desktopNav { display:flex; align-items:center; justify-content:space-between; flex-grow:1; gap:1.25rem; min-width:0; }
+        .navbar-mbg .navbar-nav { display:flex; align-items:center; gap:.35rem; margin:0 auto !important; }
+        .nav-link { font-weight:600 !important; font-size:14.5px !important; color:#334155 !important; padding:.55rem .85rem !important; border-radius:10px; transition:all .2s ease; white-space:nowrap; text-decoration:none !important; display:inline-flex; align-items:center; gap:.35rem; }
+        .nav-link:hover, .nav-link.active { color:var(--mbg-blue) !important; background:rgba(37,99,235,.07); }
+        .navbar-mbg .dropdown-menu { border-radius:14px; box-shadow:0 10px 30px -4px rgba(8,13,26,.12); border:1px solid rgba(0,0,0,.06); padding:.5rem; }
+        .navbar-mbg .dropdown-item { font-size:.88rem; font-weight:600; border-radius:8px; padding:.55rem .85rem; }
+        .navbar-mbg .dropdown-item:hover { background:rgba(37,99,235,.06); color:var(--mbg-blue); }
+        .nav-actions-wrap { display:flex; align-items:center; gap:.65rem; flex-shrink:0; }
+        .btn-nav-auth-login, .btn-nav-auth-register, .btn-nav-auth-user, .btn-nav-cta { height:46px; display:inline-flex; align-items:center; justify-content:center; gap:.45rem; font-size:.88rem; font-weight:700; border-radius:999px; text-decoration:none !important; white-space:nowrap; transition:all .2s ease; }
+        .btn-nav-auth-login { padding:0 1.25rem; color:var(--mbg-blue) !important; background:rgba(37,99,235,.06); border:1.5px solid rgba(37,99,235,.25); }
+        .btn-nav-auth-login:hover { background:rgba(37,99,235,.12); border-color:var(--mbg-blue); transform:translateY(-1px); }
+        .btn-nav-auth-register { padding:0 1.25rem; color:#fff !important; background:#080D1A; border:1.5px solid #080D1A; box-shadow:0 4px 12px rgba(8,13,26,.15); }
+        .btn-nav-auth-register:hover { background:#1E293B; transform:translateY(-1px); }
+        .btn-nav-auth-user { padding:0 1.15rem; border:1.5px solid #E2E8F0; background:#fff; color:#080D1A; }
+        .btn-nav-auth-user:hover { border-color:var(--mbg-blue); background:#F8FAFC; }
+        .btn-nav-cta { background:linear-gradient(135deg,var(--mbg-blue),#1D4ED8); color:#fff !important; border:none; padding:0 1.35rem; box-shadow:0 4px 14px var(--mbg-blue-glow); }
+        .btn-nav-cta:hover { background:linear-gradient(135deg,#1D4ED8,#1E40AF); transform:translateY(-1px); }
+        .btn-hamburger-mbg { width:46px; height:46px; border-radius:12px; border:1.5px solid #E2E8F0; background:#fff; display:inline-flex; align-items:center; justify-content:center; color:var(--mbg-navy); cursor:pointer; padding:0; }
+        .btn-hamburger-mbg:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); }
+        .offcanvas-mbg { background:#090D16; color:#F8FAFC; width:320px !important; border-left:1px solid rgba(255,255,255,.08); }
+        .offcanvas-link { color:#94A3B8 !important; font-weight:600; font-size:.95rem; padding:.75rem 1rem !important; border-radius:10px; transition:all .2s ease; display:flex; align-items:center; text-decoration:none !important; }
+        .offcanvas-link:hover, .offcanvas-link.active { color:#fff !important; background:rgba(37,99,235,.18); }
+        .offcanvas-link i { width:24px; font-size:1rem; }
+        .nav-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+
+        /* Form & tombol */
+        .filter-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748B; margin-bottom:.3rem; display:block; }
+        .form-control, .form-select { border-radius:var(--radius-md); border:1.5px solid #E2E8F0; padding:.62rem .9rem; font-size:.88rem; font-weight:500; color:#1E293B; background-color:#fff; transition:all .2s ease; }
+        .form-control:focus, .form-select:focus { border-color:var(--mbg-blue); box-shadow:0 0 0 4px rgba(37,99,235,.12); }
+        .btn-filter-apply { background:var(--mbg-blue); color:#fff; font-weight:700; font-size:.88rem; border:none; border-radius:999px; padding:.65rem 1.5rem; box-shadow:0 4px 14px var(--mbg-blue-glow); transition:all .25s var(--transition-snappy); }
+        .btn-filter-apply:hover { background:#1D4ED8; transform:translateY(-1px); color:#fff; }
+        .section-label { font-size:.76rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--mbg-blue); display:inline-flex; align-items:center; gap:.4rem; }
+
+        /* Kartu mobil (identik dengan beranda) */
+        .card-product-premium { background:var(--mbg-card); border:1px solid #E2E8F0; border-radius:var(--radius-lg); overflow:hidden; display:flex; flex-direction:column; height:100%; box-shadow:var(--shadow-card); transition:transform .35s var(--transition-snappy), box-shadow .35s var(--transition-snappy), border-color .35s ease; }
+        .card-product-premium:hover { transform:translateY(-8px); border-color:#CBD5E1; box-shadow:var(--shadow-hover); }
+        .card-product-img-wrapper { position:relative; width:100%; height:235px; overflow:hidden; background:#0C1222; }
+        .card-product-img-wrapper img { width:100%; height:100%; object-fit:cover; transition:transform .5s var(--transition-snappy); }
+        .card-product-premium:hover .card-product-img-wrapper img { transform:scale(1.06); }
+        .card-product-img-wrapper::after { content:''; position:absolute; bottom:0; left:0; right:0; height:60px; background:linear-gradient(to top,rgba(0,0,0,.35),transparent); pointer-events:none; }
+        .no-photo-placeholder { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,#1E293B,#0F172A); color:#64748B; }
+        .badge-promo-floating { position:absolute; top:14px; left:14px; background:linear-gradient(135deg,#DC2626,#B91C1C); color:#fff; font-size:.72rem; font-weight:700; padding:5px 11px; border-radius:8px; box-shadow:0 4px 12px rgba(220,38,38,.35); z-index:5; display:inline-flex; align-items:center; gap:5px; }
+        .badge-seller-floating { position:absolute; top:14px; right:14px; background:rgba(8,13,26,.75); backdrop-filter:blur(8px); color:#F1F5F9; font-size:.68rem; font-weight:600; padding:5px 9px; border-radius:8px; border:1px solid rgba(255,255,255,.15); z-index:5; display:inline-flex; align-items:center; gap:4px; }
+        .badge-inspeksi-exclusive { background:linear-gradient(135deg,#ECFDF5,#FFFBEB); color:#065F46; border:1px solid rgba(16,185,129,.35); font-size:.75rem; font-weight:700; padding:5px 12px; border-radius:9999px; display:inline-flex; align-items:center; gap:6px; }
+        .badge-inspeksi-exclusive i { color:#D97706; }
+        .card-body-content { padding:1.35rem; display:flex; flex-direction:column; flex-grow:1; }
+        .card-car-title { font-family:'Montserrat',sans-serif; font-size:1.1rem; font-weight:800; color:var(--mbg-navy); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .car-desc { font-size:.82rem; line-height:1.55; color:#64748B; flex-grow:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+        .specs-mini-bar { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:.55rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.35rem; font-size:.76rem; color:#64748B; margin-bottom:.85rem; flex-wrap:wrap; }
+        .specs-mini-item { display:inline-flex; align-items:center; gap:4px; font-weight:600; }
+        .specs-mini-item strong { color:#1E293B; }
+        .specs-mini-item i { color:var(--mbg-blue); font-size:.75rem; }
+        .card-divider { border:none; border-top:1px solid #F1F5F9; margin:.75rem 0; }
+        .price-label { font-size:.70rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#94A3B8; }
+        .price-value { font-family:'Montserrat',sans-serif; font-size:1.4rem; font-weight:900; color:var(--mbg-navy); line-height:1.2; }
+        .price-note { font-size:.70rem; color:#94A3B8; }
+        .btn-cta-booking { background:linear-gradient(135deg,#2563EB,#1D4ED8); color:#fff !important; font-weight:700; font-size:.92rem; padding:.72rem 1.25rem; border-radius:var(--radius-md); border:none; box-shadow:0 4px 14px var(--mbg-blue-glow); transition:transform .25s var(--transition-snappy), box-shadow .25s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; text-decoration:none; width:100%; }
+        .btn-cta-booking:hover { transform:scale(1.03); box-shadow:0 8px 22px var(--mbg-blue-glow); color:#fff !important; }
+        .btn-cta-wa { background:rgba(16,185,129,.08); border:1.5px solid rgba(16,185,129,.30); color:var(--mbg-emerald) !important; font-weight:600; border-radius:var(--radius-md); padding:.52rem 1rem; font-size:.84rem; transition:all .25s var(--transition-snappy); display:flex; align-items:center; justify-content:center; gap:.4rem; text-decoration:none; }
+        .btn-cta-wa:hover { background:var(--mbg-emerald); color:#fff !important; border-color:var(--mbg-emerald); transform:translateY(-1px); }
+
+        /* Empty state */
+        .empty-state { background:#fff; border-radius:var(--radius-xl); padding:4rem 2rem; box-shadow:var(--shadow-card); }
+        .empty-state-icon { width:80px; height:80px; border-radius:999px; background:var(--mbg-surface); display:grid; place-items:center; margin:0 auto 1.25rem; font-size:2rem; color:#94A3B8; }
+
+        /* Footer */
+        .footer-mbg-startup { background:var(--mbg-navy); color:#94A3B8; padding:4.5rem 0 2rem; border-top:1px solid rgba(255,255,255,.06); }
+        .footer-mbg-startup h5 { color:#fff; font-size:.95rem; font-weight:700; margin-bottom:1.25rem; }
+        .footer-link-item { display:inline-block; color:#94A3B8; text-decoration:none; margin-bottom:.5rem; font-size:.88rem; transition:color .2s, transform .2s; }
+        .footer-link-item:hover { color:#fff; transform:translateX(3px); }
+        .social-btn { width:38px; height:38px; border-radius:10px; display:inline-grid; place-items:center; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#94A3B8; font-size:.9rem; transition:all .2s ease; text-decoration:none; }
+        .social-btn:hover { background:var(--mbg-blue); color:#fff; border-color:var(--mbg-blue); transform:translateY(-2px); }
+
+        @media (min-width:1200px) {
+            .navbar-mbg { font-size:clamp(13px,1.1vw,16px); min-height:4.75em; }
+            .navbar-mbg > .container { max-width:1440px; min-height:4.75em; padding-left:1em; padding-right:1em; gap:1em; }
+            .navbar-mbg .brand-lockup { gap:.65em; }
+            .navbar-mbg .brand-icon { font-size:1.15em; width:2.4em; height:2.4em; }
+            .navbar-mbg .brand-text .brand-name { font-size:1.3em; }
+            .navbar-mbg .brand-text .brand-sub { font-size:.68em; letter-spacing:.05em; }
+            .navbar-mbg #desktopNav { gap:1em; }
+            .navbar-mbg .navbar-nav { gap:.15em; }
+            .navbar-mbg .nav-link { font-size:.9em !important; padding:.55em .6em !important; }
+            .navbar-mbg .nav-actions-wrap { gap:.45em; }
+            .navbar-mbg .btn-nav-auth-login, .navbar-mbg .btn-nav-auth-register, .navbar-mbg .btn-nav-auth-user, .navbar-mbg .btn-nav-cta { font-size:.86em; height:3.3em; padding:0 1.05em; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior:auto; }
+            .card-product-premium, .card-product-img-wrapper img, .btn-cta-booking { transition:none; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    {# ═══ NAVBAR ═══ #}
+    <nav class="navbar navbar-expand-xl navbar-mbg sticky-top">
+        <div class="container">
+            <a class="brand-lockup" href="{% url 'beranda' %}" aria-label="Beranda MBG Makassar">
+                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">MBG</div>
+                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                </div>
+            </a>
+
+            <div class="collapse navbar-collapse d-none d-xl-flex" id="desktopNav">
+                <ul class="navbar-nav mx-auto mb-0 align-items-center">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a></li>
+                    <li class="nav-item"><a class="nav-link {% block nav_katalog_aktif %}{% endblock %}" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa-solid fa-sliders"></i> Layanan &amp; Transaksi
+                        </a>
+                        <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="desktopLayananDropdown" style="min-width:230px;">
+                            <li><a class="dropdown-item" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
+                            <li><a class="dropdown-item" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <div class="nav-actions-wrap">
+                    {% if user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                <span>{{ user.first_name|default:user.username }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="font-size:.88rem;min-width:210px;">
+                                <li><h6 class="dropdown-header">Halo, {{ user.username }}</h6></li>
+                                {% if user.is_staff or user.is_superuser %}
+                                    <li><a class="dropdown-item fw-bold text-warning" href="{% url 'dashboard_admin' %}"><i class="fa-solid fa-gauge-high me-2 text-warning"></i> Panel Admin MBG</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'profil_admin' %}"><i class="fa-solid fa-user-shield me-2 text-muted"></i> Profil Admin</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li><a class="dropdown-item fw-semibold" href="{% url 'dashboard_user' %}"><i class="fa-solid fa-gauge me-2 text-primary"></i> Dashboard Pelanggan</a></li>
+                                <li><a class="dropdown-item" href="{% url 'profil_user' %}"><i class="fa-solid fa-user-gear me-2 text-muted"></i> Profil Saya</a></li>
+                                <li><a class="dropdown-item" href="{% url 'ubah_password_user' %}"><i class="fa-solid fa-key me-2 text-muted"></i> Ubah Password</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Keluar</a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn-nav-auth-login"><i class="fa-solid fa-right-to-bracket"></i> Masuk</a>
+                        <a href="{% url 'register' %}" class="btn-nav-auth-register"><i class="fa-solid fa-user-plus"></i> Daftar</a>
+                    {% endif %}
+                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" rel="noopener" class="btn-nav-cta">
+                        <i class="fa-solid fa-calendar-check"></i> <span>Booking Cek Unit</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 d-xl-none">
+                <button class="btn-hamburger-mbg" type="button" data-bs-toggle="offcanvas" data-bs-target="#mbgOffcanvasNavbar" aria-controls="mbgOffcanvasNavbar" aria-label="Buka Menu Navigasi MBG">
+                    <i class="fa-solid fa-bars fs-5"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="offcanvas offcanvas-end offcanvas-mbg" tabindex="-1" id="mbgOffcanvasNavbar" aria-labelledby="mbgOffcanvasLabel">
+        <div class="offcanvas-header border-bottom border-secondary border-opacity-25 py-3">
+            <div class="d-flex align-items-center gap-2">
+                <div class="brand-icon" style="width:42px;height:42px;font-size:1.1rem;border-radius:10px;"><i class="fa-solid fa-car-side"></i></div>
+                <div>
+                    <h6 class="fw-bold text-white mb-0" id="mbgOffcanvasLabel">MBG Makassar</h6>
+                    <small class="text-white-50" style="font-size:.72rem;">Mobil Bekas Garasi</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Tutup Menu"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column justify-content-between p-3">
+            <div>
+                {% if user.is_authenticated %}
+                    <div class="p-3 rounded-3 mb-3" style="background:rgba(37,99,235,.14);border:1px solid rgba(37,99,235,.3);">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            {% if user.foto_profil %}
+                                <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:40px;height:40px;">
+                            {% else %}
+                                <i class="fa-solid fa-circle-user text-primary fs-3"></i>
+                            {% endif %}
+                            <div>
+                                <div class="fw-bold text-white">{{ user.first_name|default:user.username }}</div>
+                                <small class="text-white-50" style="font-size:.72rem;">{% if user.is_staff or user.is_superuser %}Administrator MBG{% else %}Pelanggan Terverifikasi{% endif %}</small>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if user.is_staff or user.is_superuser %}
+                                <a href="{% url 'dashboard_admin' %}" class="btn btn-sm btn-warning w-100 fw-bold" style="font-size:.78rem;">Panel Admin</a>
+                            {% endif %}
+                            <a href="{% url 'dashboard_user' %}" class="btn btn-sm btn-primary w-100 fw-bold" style="font-size:.78rem;">Dashboard</a>
+                            <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger w-50 fw-bold" style="font-size:.78rem;">Keluar</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="d-flex gap-2 mb-3">
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary w-50 rounded-pill fw-bold d-flex align-items-center justify-content-center gap-1 text-decoration-none" style="font-size:.88rem;height:44px;"><i class="fa-solid fa-right-to-bracket"></i> Masuk</a>
+                        <a href="{% url 'register' %}" class="btn btn-primary w-50 rounded-pill fw-bold text-white d-flex align-items-center justify-content-center gap-1 text-decoration-none" style="font-size:.88rem;height:44px;"><i class="fa-solid fa-user-plus"></i> Daftar</a>
+                    </div>
+                {% endif %}
+
+                <span class="text-uppercase text-secondary fw-bold d-block mb-2 px-2" style="font-size:.70rem;letter-spacing:.08em;">Menu Navigasi MBG</span>
+                <ul class="nav flex-column gap-1 mb-4">
+                    <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house text-primary me-2"></i> Beranda</a></li>
+                    <li class="nav-item"><a class="offcanvas-link {% block offcanvas_katalog_aktif %}{% endblock %}" href="{% url 'katalog' %}"><i class="fa-solid fa-car text-info me-2"></i> Katalog Mobil</a></li>
+                    <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Jual Mobil Saya (Titip-Jual)</a></li>
+                    <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
+                    <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
+                </ul>
+            </div>
+            <div class="pt-3 border-top border-secondary border-opacity-25">
+                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20konsultasi%20cek%20unit" target="_blank" rel="noopener" class="btn btn-success w-100 fw-bold rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none" style="height:46px;font-size:.90rem;">
+                    <i class="fa-brands fa-whatsapp fs-5"></i> Hubungi CS WhatsApp
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm py-2 px-3 mb-2" role="alert" style="border-radius:12px;font-size:.90rem;">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {# ═══ FOOTER ═══ #}
+    <footer class="footer-mbg-startup">
+        <div class="container">
+            <div class="row g-4 mb-5">
+                <div class="col-lg-4 col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <div class="brand-icon" style="width:38px;height:38px;font-size:1rem;border-radius:10px;"><i class="fa-solid fa-car-side"></i></div>
+                        <div>
+                            <h4 class="fw-bold text-white mb-0" style="font-size:1.15rem;">MBG</h4>
+                            <small class="text-white-50" style="font-size:.75rem;">Mobil Bekas Garasi Makassar</small>
+                        </div>
+                    </div>
+                    <p class="small mb-3" style="color:#94A3B8;line-height:1.6;">
+                        Platform e-commerce otomotif terpercaya di Makassar dan Sulawesi Selatan. Mengutamakan transparansi harga, garansi mesin, dan jaminan 100% lulus 150 titik inspeksi dengan model Online-to-Offline (O2O).
+                    </p>
+                    <div class="d-flex gap-2">
+                        <a href="#" class="social-btn" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#" class="social-btn" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="#" class="social-btn" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+                        <a href="#" class="social-btn" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-6 col-6">
+                    <h5>Navigasi</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'beranda' %}" class="footer-link-item">Beranda</a></li>
+                        <li><a href="{% url 'katalog' %}" class="footer-link-item">Katalog Mobil</a></li>
+                        <li><a href="{% url 'beranda' %}#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
+                        <li><a href="{% url 'beranda' %}#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
+                        <li><a href="{% url 'beranda' %}#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-6 col-6">
+                    <h5>Wilayah Layanan</h5>
+                    <ul class="list-unstyled">
+                        <li><span class="footer-link-item">Kota Makassar</span></li>
+                        <li><span class="footer-link-item">Kabupaten Gowa</span></li>
+                        <li><span class="footer-link-item">Kabupaten Maros</span></li>
+                        <li><span class="footer-link-item">Kota Parepare</span></li>
+                        <li><span class="footer-link-item">Seluruh Sulsel</span></li>
+                    </ul>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <h5>Alamat &amp; Kontak</h5>
+                    <ul class="list-unstyled small" style="color:#94A3B8;">
+                        <li class="mb-2 d-flex align-items-start gap-2"><i class="fa-solid fa-location-dot text-danger mt-1"></i><span>Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222</span></li>
+                        <li class="mb-2 d-flex align-items-center gap-2"><i class="fa-brands fa-whatsapp text-success"></i><a href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="text-white text-decoration-none fw-semibold">+62 812-3456-7890 (CS WhatsApp)</a></li>
+                        <li class="mb-2 d-flex align-items-center gap-2"><i class="fa-solid fa-envelope text-primary"></i><span>halo@mobilbekasgarasi.com</span></li>
+                        <li class="d-flex align-items-center gap-2"><i class="fa-regular fa-clock text-warning"></i><span>Buka: 08.30 – 18.00 WITA Setiap Hari</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 small" style="border-top:1px solid rgba(255,255,255,.08);color:#94A3B8;">
+                <div>&copy; 2026 Mobil Bekas Garasi (MBG) Makassar. Seluruh Hak Cipta Dilindungi.</div>
+                <div class="d-flex gap-3">
+                    <a href="#" class="text-decoration-none text-secondary">Syarat &amp; Ketentuan</a>
+                    <span>&middot;</span>
+                    <a href="#" class="text-decoration-none text-secondary">Kebijakan Privasi</a>
+                    <span>&middot;</span>
+                    <a href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, duration: 650, easing: 'ease-out-cubic', offset: 60, disable: function () {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }});
+        const navbar = document.querySelector('.navbar-mbg');
+        if (navbar) {
+            window.addEventListener('scroll', () => navbar.classList.toggle('scrolled', window.scrollY > 20));
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
