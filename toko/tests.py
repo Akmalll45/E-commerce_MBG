@@ -218,3 +218,253 @@ class BerandaDanIntegrasiTests(TestCase):
         r = self.client.get(reverse('katalog'))
         self.assertContains(r, 'Dashboard Pelanggan')
         self.assertContains(r, 'Budi')
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PANEL ADMIN — KELOLA KATALOG
+# ═══════════════════════════════════════════════════════════════════
+import io
+import shutil
+import tempfile
+
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+from PIL import Image
+
+from .models import BookingCekUnit, FotoMobil
+
+MEDIA_UJI = tempfile.mkdtemp(prefix='media_uji_admin_')
+
+
+def gambar_uji(nama='foto.jpg', format='JPEG', ukuran=(64, 48)):
+    b = io.BytesIO()
+    Image.new('RGB', ukuran, (30, 90, 200)).save(b, format)
+    return SimpleUploadedFile(nama, b.getvalue(), content_type='image/jpeg')
+
+
+def data_form(**kw):
+    data = dict(
+        sku='mbg-test-001', nama='Toyota  Avanza 1.5 G AT 2021', merek='toyota', kategori='mpv',
+        tahun=2021, warna='Putih', plat_nomor='dd 1234 xx', lokasi='Makassar',
+        transmisi='AT', jarak_tempuh=35000, harga=210000000, harga_promo='',
+        tipe_penjual='B2C', status_stok='ready', lulus_inspeksi='on',
+        ringkasan_inspeksi='Bebas banjir.', deskripsi_singkat='Terawat.', deskripsi_detail='Detail lengkap.',
+        gambar_utama=gambar_uji(),
+    )
+    data.update(kw)
+    return data
+
+
+@override_settings(MEDIA_ROOT=MEDIA_UJI)
+class PanelAdminKatalogTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(MEDIA_UJI, ignore_errors=True)
+
+    def setUp(self):
+        U = get_user_model()
+        self.admin = U.objects.create_user('admin1', 'a@x.id', 'pw12345!x', is_staff=True)
+        self.user = U.objects.create_user('budi', 'b@x.id', 'pw12345!x')
+        self.client.force_login(self.admin)
+
+    # ── Akses ───────────────────────────────────────
+    def test_hanya_staf_yang_bisa_masuk(self):
+        p = buat_produk('Unit A')
+        urls = [reverse('admin_katalog'), reverse('admin_katalog_tambah'),
+                reverse('admin_katalog_edit', args=[p.id])]
+        anon = self.client_class()
+        for u in urls:
+            r = anon.get(u); self.assertEqual(r.status_code, 302); self.assertIn('/login/', r['Location'])
+        self.client.force_login(self.user)
+        for u in urls:
+            r = self.client.get(u); self.assertRedirects(r, reverse('dashboard_user'), fetch_redirect_response=False)
+        # aksi tulis pun ditolak untuk non-staf
+        r = self.client.post(reverse('admin_katalog_hapus', args=[p.id]))
+        self.assertEqual(r.status_code, 302); self.assertTrue(Produk.objects.filter(id=p.id).exists())
+        r = self.client.post(reverse('admin_katalog_tambah'), data_form())
+        self.assertFalse(Produk.objects.filter(sku='MBG-TEST-001').exists())
+
+    def test_aksi_tulis_hanya_lewat_post(self):
+        p = buat_produk('Unit A')
+        self.assertEqual(self.client.get(reverse('admin_katalog_hapus', args=[p.id])).status_code, 405)
+        self.assertEqual(self.client.get(reverse('admin_katalog_status', args=[p.id])).status_code, 405)
+        self.assertTrue(Produk.objects.filter(id=p.id).exists())
+
+    # ── Daftar ──────────────────────────────────────
+    def test_daftar_menampilkan_semua_status(self):
+        buat_produk('Siap', status_stok='ready'); buat_produk('Terjual', status_stok='sold')
+        r = self.client.get(reverse('admin_katalog'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context['total_hasil'], 2)
+        r = self.client.get(reverse('admin_katalog'), {'status': 'sold'})
+        self.assertEqual([p.nama for p in r.context['produk_list']], ['Terjual'])
+        r = self.client.get(reverse('admin_katalog'), {'q': 'sku-0001'})
+        self.assertEqual(r.context['total_hasil'], 1)
+
+    def test_form_tambah_tampil(self):
+        r = self.client.get(reverse('admin_katalog_tambah'))
+        self.assertEqual(r.status_code, 200)
+        for nama in ('sku', 'nama', 'merek', 'harga', 'harga_promo', 'status_stok', 'gambar_utama'):
+            self.assertContains(r, f'name="{nama}"')
+        self.assertContains(r, 'enctype="multipart/form-data"')
+
+    # ── Tambah ──────────────────────────────────────
+    def test_tambah_unit_tersimpan_dan_tampil_di_katalog_publik(self):
+        r = self.client.post(reverse('admin_katalog_tambah'), data_form())
+        p = Produk.objects.get(sku='MBG-TEST-001')  # SKU dinormalkan ke huruf besar
+        self.assertRedirects(r, reverse('admin_katalog_edit', args=[p.id]), fetch_redirect_response=False)
+        self.assertEqual(p.nama, 'Toyota Avanza 1.5 G AT 2021')      # spasi ganda dirapikan
+        self.assertEqual(p.plat_nomor, 'DD 1234 XX')
+        self.assertTrue(p.gambar_utama.name.startswith('mobil/') and p.gambar_utama.name.endswith('.jpg'))
+        self.assertTrue(p.gambar_utama.storage.exists(p.gambar_utama.name))
+        # langsung muncul di katalog & beranda publik
+        pub = self.client_class().get(reverse('katalog'))
+        self.assertIn(p.nama, {m.nama for m in pub.context['mobil_list']})
+
+    def test_merek_dan_kategori_disamakan_dengan_data_yang_ada(self):
+        buat_produk('Lama', merek='Toyota', kategori='MPV')
+        self.client.post(reverse('admin_katalog_tambah'), data_form(merek='TOYOTA', kategori='mpv'))
+        p = Produk.objects.get(sku='MBG-TEST-001')
+        self.assertEqual((p.merek, p.kategori), ('Toyota', 'MPV'))
+
+    def test_validasi_menolak_data_buruk(self):
+        buat_produk('Ada', sku='DUP-1')
+        kasus = {
+            'sku duplikat (tak peka huruf)': dict(sku='dup-1'),
+            'sku berkarakter aneh': dict(sku='A B<script>'),
+            'tahun terlalu lama': dict(tahun=1900),
+            'tahun masa depan': dict(tahun=2999),
+            'km negatif': dict(jarak_tempuh=-5),
+            'harga nol': dict(harga=0),
+            'promo >= harga': dict(harga_promo=210000000),
+            'status tak dikenal': dict(status_stok='hacked'),
+            'transmisi tak dikenal': dict(transmisi='CVT'),
+        }
+        for nama, ubah in kasus.items():
+            n = Produk.objects.count()
+            r = self.client.post(reverse('admin_katalog_tambah'), data_form(**ubah))
+            self.assertEqual(r.status_code, 200, nama)
+            self.assertEqual(Produk.objects.count(), n, nama)
+
+    def test_foto_wajib_dan_harus_gambar_asli(self):
+        r = self.client.post(reverse('admin_katalog_tambah'), data_form(gambar_utama=''))
+        self.assertEqual(Produk.objects.count(), 0)
+        palsu = SimpleUploadedFile('virus.jpg', b'bukan gambar', content_type='image/jpeg')
+        self.client.post(reverse('admin_katalog_tambah'), data_form(gambar_utama=palsu))
+        self.assertEqual(Produk.objects.count(), 0)
+        gif = io.BytesIO(); Image.new('RGB', (10, 10)).save(gif, 'GIF')
+        self.client.post(reverse('admin_katalog_tambah'),
+                         data_form(gambar_utama=SimpleUploadedFile('a.jpg', gif.getvalue())))
+        self.assertEqual(Produk.objects.count(), 0)      # format GIF ditolak walau berekstensi .jpg
+
+    def test_foto_terlalu_besar_ditolak(self):
+        from . import forms as f
+        asli = f.FOTO_MOBIL_MAKS_BYTE
+        f.FOTO_MOBIL_MAKS_BYTE = 100
+        try:
+            self.client.post(reverse('admin_katalog_tambah'), data_form())
+        finally:
+            f.FOTO_MOBIL_MAKS_BYTE = asli
+        self.assertEqual(Produk.objects.count(), 0)
+
+    # ── Ubah ────────────────────────────────────────
+    def test_edit_tanpa_ganti_foto_mempertahankan_foto(self):
+        self.client.post(reverse('admin_katalog_tambah'), data_form())
+        p = Produk.objects.get(sku='MBG-TEST-001'); foto = p.gambar_utama.name
+        d = data_form(nama='Nama Baru', harga=199000000, gambar_utama='')
+        r = self.client.post(reverse('admin_katalog_edit', args=[p.id]), d)
+        self.assertRedirects(r, reverse('admin_katalog'), fetch_redirect_response=False)
+        p.refresh_from_db()
+        self.assertEqual((p.nama, int(p.harga), p.gambar_utama.name), ('Nama Baru', 199000000, foto))
+
+    def test_edit_ganti_foto_menghapus_file_lama(self):
+        self.client.post(reverse('admin_katalog_tambah'), data_form())
+        p = Produk.objects.get(sku='MBG-TEST-001'); lama = p.gambar_utama.name
+        self.client.post(reverse('admin_katalog_edit', args=[p.id]), data_form(gambar_utama=gambar_uji('baru.png', 'PNG')))
+        p.refresh_from_db()
+        self.assertNotEqual(p.gambar_utama.name, lama)
+        self.assertTrue(p.gambar_utama.name.endswith('.png'))
+        self.assertFalse(p.gambar_utama.storage.exists(lama))
+
+    def test_edit_sku_sendiri_tidak_dianggap_duplikat(self):
+        self.client.post(reverse('admin_katalog_tambah'), data_form())
+        p = Produk.objects.get(sku='MBG-TEST-001')
+        r = self.client.post(reverse('admin_katalog_edit', args=[p.id]), data_form(gambar_utama=''))
+        self.assertEqual(r.status_code, 302)
+
+    def test_ubah_status_cepat(self):
+        p = buat_produk('Unit A')
+        r = self.client.post(reverse('admin_katalog_status', args=[p.id]), {'status_stok': 'sold'})
+        p.refresh_from_db(); self.assertEqual(p.status_stok, 'sold')
+        self.client.post(reverse('admin_katalog_status', args=[p.id]), {'status_stok': 'ngawur'})
+        p.refresh_from_db(); self.assertEqual(p.status_stok, 'sold')
+        # unit terjual hilang dari katalog publik
+        pub = self.client_class().get(reverse('katalog'))
+        self.assertEqual(pub.context['total_hasil'], 0)
+
+    def test_redirect_next_eksternal_ditolak(self):
+        p = buat_produk('Unit A')
+        r = self.client.post(reverse('admin_katalog_status', args=[p.id]),
+                             {'status_stok': 'sold', 'next': 'https://jahat.example/'})
+        self.assertRedirects(r, reverse('admin_katalog'), fetch_redirect_response=False)
+
+    # ── Hapus ───────────────────────────────────────
+    def test_hapus_unit_beserta_file(self):
+        self.client.post(reverse('admin_katalog_tambah'), data_form())
+        p = Produk.objects.get(sku='MBG-TEST-001'); nama_file = p.gambar_utama.name; st = p.gambar_utama.storage
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse('admin_katalog_hapus', args=[p.id]))
+        self.assertFalse(Produk.objects.filter(id=p.id).exists())
+        self.assertFalse(st.exists(nama_file))
+
+    def test_unit_dengan_booking_tidak_boleh_dihapus(self):
+        p = buat_produk('Sudah Dibooking')
+        BookingCekUnit.objects.create(produk=p, nama_pemesan='X', no_whatsapp='08', email='x@x.id',
+                                      tanggal_cek_unit='2026-12-01', jam_cek_unit='10:00')
+        r = self.client.post(reverse('admin_katalog_hapus', args=[p.id]))
+        self.assertTrue(Produk.objects.filter(id=p.id).exists())
+        self.assertEqual(BookingCekUnit.objects.count(), 1)
+        self.assertContains(self.client.get(reverse('admin_katalog')), 'Tidak bisa dihapus')
+
+    # ── Galeri ──────────────────────────────────────
+    def test_galeri_tambah_banyak_dan_hapus(self):
+        p = buat_produk('Unit A')
+        r = self.client.post(reverse('admin_galeri_tambah', args=[p.id]),
+                             {'gambar': [gambar_uji('a.jpg'), gambar_uji('b.png', 'PNG')], 'keterangan': 'Interior'})
+        self.assertEqual(p.galeri_foto.count(), 2)
+        self.assertEqual(p.galeri_foto.first().keterangan, 'Interior')
+        f = p.galeri_foto.first(); berkas = f.gambar.name; st = f.gambar.storage
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse('admin_galeri_hapus', args=[p.id, f.id]))
+        self.assertEqual(p.galeri_foto.count(), 1)
+        self.assertFalse(st.exists(berkas))
+        # tampil di halaman detail publik
+        self.assertContains(self.client_class().get(reverse('detail_produk', args=[p.id])), p.galeri_foto.first().gambar.url)
+
+    def test_galeri_menolak_file_palsu_dan_membatasi_kuota(self):
+        p = buat_produk('Unit A')
+        self.client.post(reverse('admin_galeri_tambah', args=[p.id]),
+                         {'gambar': [SimpleUploadedFile('x.jpg', b'bukan gambar')]})
+        self.assertEqual(p.galeri_foto.count(), 0)
+        for i in range(12):
+            FotoMobil.objects.create(produk=p, gambar=f'mobil/galeri/{i}.jpg')
+        self.client.post(reverse('admin_galeri_tambah', args=[p.id]), {'gambar': [gambar_uji()]})
+        self.assertEqual(p.galeri_foto.count(), 12)
+
+    def test_tidak_bisa_menghapus_foto_milik_unit_lain(self):
+        a, b = buat_produk('A'), buat_produk('B')
+        f = FotoMobil.objects.create(produk=b, gambar='mobil/galeri/z.jpg')
+        r = self.client.post(reverse('admin_galeri_hapus', args=[a.id, f.id]))
+        self.assertEqual(r.status_code, 404)
+        self.assertTrue(FotoMobil.objects.filter(id=f.id).exists())
+
+    # ── Integrasi dashboard ─────────────────────────
+    def test_dashboard_admin_menaut_ke_panel_baru(self):
+        r = self.client.get(reverse('dashboard_admin'))
+        self.assertContains(r, reverse('admin_katalog_tambah'))
+        self.assertContains(r, reverse('admin_katalog'))
+        self.assertNotContains(r, '/admin/toko/produk/')
+        for nama in ('profil_admin', 'ubah_password_admin'):
+            self.assertContains(self.client.get(reverse(nama)), reverse('admin_katalog'))

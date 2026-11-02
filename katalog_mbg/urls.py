@@ -26,6 +26,13 @@ urlpatterns = [
 
     # Dashboard Frontend Administrator (MBG Panel)
     path('panel/', views.dashboard_admin, name='dashboard_admin'),
+    path('panel/katalog/', views.admin_katalog, name='admin_katalog'),
+    path('panel/katalog/tambah/', views.admin_katalog_tambah, name='admin_katalog_tambah'),
+    path('panel/katalog/<int:id>/edit/', views.admin_katalog_edit, name='admin_katalog_edit'),
+    path('panel/katalog/<int:id>/status/', views.admin_katalog_status, name='admin_katalog_status'),
+    path('panel/katalog/<int:id>/hapus/', views.admin_katalog_hapus, name='admin_katalog_hapus'),
+    path('panel/katalog/<int:id>/galeri/tambah/', views.admin_galeri_tambah, name='admin_galeri_tambah'),
+    path('panel/katalog/<int:id>/galeri/<int:foto_id>/hapus/', views.admin_galeri_hapus, name='admin_galeri_hapus'),
     path('panel/profil/', views.profil_admin, name='profil_admin'),
     path('panel/ubah-password/', views.ubah_password_admin, name='ubah_password_admin'),
 ]

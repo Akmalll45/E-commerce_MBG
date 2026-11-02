@@ -2,14 +2,21 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
+from functools import wraps
 from urllib.parse import urlencode
 
 from .models import Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi
-from .forms import LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm
+from .forms import (
+    LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
+    ProdukForm, validasi_foto_mobil,
+)
 
 User = get_user_model()
 
@@ -528,3 +535,218 @@ def ubah_password_admin(request):
         'form': form,
         'user': admin_user,
     })
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. PANEL ADMIN — KELOLA KATALOG MOBIL (CRUD)
+# ═══════════════════════════════════════════════════════════════════
+
+ADMIN_KATALOG_PER_HALAMAN = 15
+GALERI_MAKS_FOTO = 12            # total foto galeri per mobil
+GALERI_MAKS_SEKALI_UNGGAH = 8    # jumlah foto per sekali unggah
+
+
+def staf_required(view):
+    """Hanya staf/superuser. Pengguna biasa diarahkan ke dashboard mereka (sama seperti panel yang sudah ada)."""
+    @wraps(view)
+    @login_required(login_url='login')
+    def pembungkus(request, *args, **kwargs):
+        if not (request.user.is_staff or request.user.is_superuser):
+            messages.error(request, "Akses ditolak. Halaman ini hanya untuk staf atau pengelola MBG.")
+            return redirect('dashboard_user')
+        return view(request, *args, **kwargs)
+    return pembungkus
+
+
+@staf_required
+def admin_katalog(request):
+    """Daftar seluruh unit (semua status) + pencarian, filter status/sumber, pagination."""
+    daftar = Produk.objects.annotate(jumlah_booking=Count('bookingcekunit')).order_by('-created_at', '-id')
+    params = {}
+
+    q = ' '.join(request.GET.get('q', '').split())[:100]
+    if q:
+        params['q'] = q
+        for kata in q.split(' ')[:5]:
+            daftar = daftar.filter(
+                Q(nama__icontains=kata) | Q(sku__icontains=kata)
+                | Q(merek__icontains=kata) | Q(plat_nomor__icontains=kata)
+            )
+
+    status = request.GET.get('status', '')
+    if status in dict(Produk.STATUS_STOK_CHOICES):
+        params['status'] = status
+        daftar = daftar.filter(status_stok=status)
+
+    tipe = request.GET.get('tipe', '')
+    if tipe in dict(Produk.TIPE_PENJUAL_CHOICES):
+        params['tipe'] = tipe
+        daftar = daftar.filter(tipe_penjual=tipe)
+
+    page_obj = Paginator(daftar, ADMIN_KATALOG_PER_HALAMAN).get_page(request.GET.get('page'))
+
+    hitung = dict(Produk.objects.values_list('status_stok').annotate(n=Count('id')))
+    tab_status = [('', 'Semua', sum(hitung.values()))] + [
+        (kode, label, hitung.get(kode, 0)) for kode, label in Produk.STATUS_STOK_CHOICES
+    ]
+
+    return render(request, 'dashboard/admin/katalog_list.html', {
+        'page_obj': page_obj,
+        'produk_list': page_obj.object_list,
+        'total_hasil': page_obj.paginator.count,
+        'querystring': urlencode(params),
+        'nilai': params,
+        'tab_status': tab_status,
+        'pilihan_tipe': Produk.TIPE_PENJUAL_CHOICES,
+        'pilihan_status': Produk.STATUS_STOK_CHOICES,
+        'total_katalog': hitung and sum(hitung.values()) or 0,
+        'next_url': request.get_full_path(),
+    })
+
+
+def _simpan_form_produk(request, produk=None):
+    """Logika bersama tambah & ubah. Mengembalikan (form, produk_tersimpan atau None)."""
+    if request.method == 'POST':
+        form = ProdukForm(request.POST, request.FILES, instance=produk)
+        if form.is_valid():
+            return form, form.save()
+        messages.error(request, "Data belum bisa disimpan. Periksa kolom yang ditandai merah.")
+        return form, None
+    return ProdukForm(instance=produk), None
+
+
+@staf_required
+def admin_katalog_tambah(request):
+    form, tersimpan = _simpan_form_produk(request)
+    if tersimpan:
+        messages.success(
+            request,
+            f"Unit “{tersimpan.nama}” berhasil ditambahkan ke katalog. "
+            "Anda bisa menambahkan foto galeri di bawah."
+        )
+        return redirect('admin_katalog_edit', id=tersimpan.id)
+    return render(request, 'dashboard/admin/katalog_form.html', {
+        'form': form, 'produk': None, 'total_katalog': Produk.objects.count(),
+    })
+
+
+@staf_required
+def admin_katalog_edit(request, id):
+    produk = get_object_or_404(Produk, id=id)
+    form, tersimpan = _simpan_form_produk(request, produk)
+    if tersimpan:
+        messages.success(request, f"Perubahan pada “{tersimpan.nama}” berhasil disimpan.")
+        return redirect('admin_katalog')
+    return render(request, 'dashboard/admin/katalog_form.html', {
+        'form': form,
+        'produk': produk,
+        'galeri': produk.galeri_foto.all().order_by('id'),
+        'galeri_maks': GALERI_MAKS_FOTO,
+        'jumlah_booking': produk.bookingcekunit_set.count(),
+        'total_katalog': Produk.objects.count(),
+    })
+
+
+@staf_required
+@require_POST
+def admin_katalog_status(request, id):
+    """Ubah cepat status stok (Ready / In Review / Terjual) langsung dari daftar."""
+    produk = get_object_or_404(Produk, id=id)
+    status = request.POST.get('status_stok', '')
+    if status not in dict(Produk.STATUS_STOK_CHOICES):
+        messages.error(request, "Status stok tidak valid.")
+    else:
+        produk.status_stok = status
+        produk.save(update_fields=['status_stok', 'updated_at'])
+        messages.success(request, f"Status “{produk.nama}” diubah menjadi {produk.get_status_stok_display()}.")
+    tujuan = request.POST.get('next', '')
+    if tujuan and url_has_allowed_host_and_scheme(tujuan, allowed_hosts={request.get_host()}):
+        return redirect(tujuan)
+    return redirect('admin_katalog')
+
+
+@staf_required
+@require_POST
+def admin_katalog_hapus(request, id):
+    """
+    Hapus unit. DIBLOKIR jika unit sudah punya booking: relasi booking → produk
+    bersifat CASCADE, sehingga menghapus mobil akan ikut menghapus booking dan
+    transaksi DP-nya. Untuk unit seperti itu gunakan status "Terjual".
+    """
+    produk = get_object_or_404(Produk, id=id)
+    jumlah_booking = produk.bookingcekunit_set.count()
+    if jumlah_booking:
+        messages.error(
+            request,
+            f"“{produk.nama}” tidak bisa dihapus karena memiliki {jumlah_booking} booking/transaksi. "
+            "Ubah statusnya menjadi “Terjual” agar tidak tampil di katalog tanpa menghilangkan riwayat."
+        )
+        return redirect('admin_katalog')
+
+    nama = produk.nama
+    berkas = [produk.gambar_utama.name] if produk.gambar_utama else []
+    berkas += [f.gambar.name for f in produk.galeri_foto.all() if f.gambar]
+    storage = produk.gambar_utama.storage
+    with transaction.atomic():
+        produk.delete()
+        # File fisik dihapus hanya setelah data di database benar-benar terhapus.
+        transaction.on_commit(lambda: [storage.delete(n) for n in berkas])
+    messages.success(request, f"Unit “{nama}” telah dihapus dari katalog.")
+    return redirect('admin_katalog')
+
+
+@staf_required
+@require_POST
+def admin_galeri_tambah(request, id):
+    """Unggah satu atau beberapa foto galeri tambahan untuk sebuah unit."""
+    produk = get_object_or_404(Produk, id=id)
+    berkas = request.FILES.getlist('gambar')
+    keterangan = ' '.join(request.POST.get('keterangan', '').split())[:100]
+
+    if not berkas:
+        messages.error(request, "Pilih minimal satu foto untuk diunggah.")
+        return redirect('admin_katalog_edit', id=produk.id)
+
+    sisa = GALERI_MAKS_FOTO - produk.galeri_foto.count()
+    if sisa <= 0:
+        messages.error(request, f"Galeri sudah penuh (maksimal {GALERI_MAKS_FOTO} foto). Hapus foto lama dulu.")
+        return redirect('admin_katalog_edit', id=produk.id)
+    if len(berkas) > min(sisa, GALERI_MAKS_SEKALI_UNGGAH):
+        messages.error(
+            request,
+            f"Terlalu banyak foto. Sekali unggah maksimal {min(sisa, GALERI_MAKS_SEKALI_UNGGAH)} foto "
+            f"(sisa kuota galeri: {sisa})."
+        )
+        return redirect('admin_katalog_edit', id=produk.id)
+
+    berhasil, gagal = 0, []
+    for f in berkas:
+        nama_asli = f.name
+        try:
+            validasi_foto_mobil(f)
+        except ValidationError as e:
+            gagal.append(f"{nama_asli}: {e.messages[0]}")
+            continue
+        FotoMobil.objects.create(produk=produk, gambar=f, keterangan=keterangan)
+        berhasil += 1
+
+    if berhasil:
+        messages.success(request, f"{berhasil} foto galeri berhasil ditambahkan.")
+    for pesan in gagal:
+        messages.error(request, pesan)
+    return redirect('admin_katalog_edit', id=produk.id)
+
+
+@staf_required
+@require_POST
+def admin_galeri_hapus(request, id, foto_id):
+    produk = get_object_or_404(Produk, id=id)
+    foto = get_object_or_404(FotoMobil, id=foto_id, produk=produk)
+    berkas = foto.gambar.name
+    storage = foto.gambar.storage
+    with transaction.atomic():
+        foto.delete()
+        transaction.on_commit(lambda: storage.delete(berkas))
+    messages.success(request, "Foto galeri dihapus.")
+    return redirect('admin_katalog_edit', id=produk.id)

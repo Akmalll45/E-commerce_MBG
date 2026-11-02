@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}Panel Administrator{% endblock %} — MBG Makassar</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <style>
+        /* Token & komponen sama dengan dashboard admin yang sudah ada */
+        :root {
+            --mbg-navy:#080D1A; --mbg-deep:#0C1222; --mbg-slate:#131B2E;
+            --mbg-blue:#2563EB; --mbg-blue-glow:rgba(37,99,235,.35);
+            --mbg-gold:#F59E0B; --mbg-emerald:#10B981; --mbg-surface:#F1F5F9;
+            --radius-xl:20px; --radius-lg:16px; --radius-md:12px;
+            --shadow-card:0 4px 20px -2px rgba(8,13,26,.06);
+            --shadow-hover:0 12px 30px -4px rgba(8,13,26,.12);
+        }
+        body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--mbg-surface); color:#334155; min-height:100vh; display:flex; flex-direction:column; }
+        h1,h2,h3,h4,h5,h6,.font-heading { font-family:'Montserrat',sans-serif; letter-spacing:-.02em; }
+        .admin-nav { background:#080D1A; border-bottom:1px solid rgba(255,255,255,.10); padding:.85rem 0; color:#fff; }
+        .brand-lockup { display:flex; align-items:center; gap:.65rem; text-decoration:none; }
+        .brand-icon { width:42px; height:42px; background:linear-gradient(135deg,#F59E0B,#D97706); border-radius:var(--radius-md); display:grid; place-items:center; color:#fff; font-size:1.15rem; box-shadow:0 4px 14px rgba(245,158,11,.3); }
+        .brand-text .brand-name { font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.25rem; color:#fff; line-height:1.1; }
+        .brand-text .brand-sub { font-size:.68rem; font-weight:700; color:#F59E0B; text-transform:uppercase; letter-spacing:.08em; }
+        .admin-sidebar { background:#fff; border:1px solid #E2E8F0; border-radius:var(--radius-lg); padding:1.5rem; box-shadow:var(--shadow-card); }
+        .admin-side-item { display:flex; align-items:center; justify-content:space-between; padding:.72rem 1rem; color:#475569; font-weight:600; font-size:.88rem; border-radius:var(--radius-md); text-decoration:none; transition:all .2s; margin-bottom:.35rem; }
+        .admin-side-item:hover { color:var(--mbg-blue); background:rgba(37,99,235,.06); }
+        .admin-side-item.active { color:#fff; background:#080D1A; box-shadow:0 4px 12px rgba(8,13,26,.25); }
+        .admin-side-item i { width:22px; font-size:.95rem; }
+        .side-section-title { font-size:.70rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#94A3B8; margin-top:1.25rem; margin-bottom:.5rem; padding-left:.5rem; }
+        .content-card { background:#fff; border:1px solid #E2E8F0; border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-card); margin-bottom:1.5rem; }
+        .card-header-clean { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #F1F5F9; padding-bottom:1rem; margin-bottom:1.25rem; gap:.75rem; flex-wrap:wrap; }
+        .form-control, .form-select { border-radius:var(--radius-md); border:1.5px solid #E2E8F0; padding:.6rem .85rem; font-size:.9rem; color:#1E293B; }
+        .form-control:focus, .form-select:focus { border-color:var(--mbg-blue); box-shadow:0 0 0 4px rgba(37,99,235,.12); }
+        .form-label { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#64748B; margin-bottom:.35rem; }
+        footer { background:var(--mbg-navy); color:#94A3B8; font-size:.85rem; margin-top:auto; border-top:1px solid rgba(255,255,255,.08); }
+        @media (max-width:991.98px) {
+            /* Di HP/tablet: menu samping menjadi baris yang bisa digeser, agar formulir tidak terdorong ke bawah */
+            .admin-sidebar { display:flex; gap:.4rem; overflow-x:auto; padding:.6rem; -webkit-overflow-scrolling:touch; }
+            .admin-sidebar .side-section-title { display:none; }
+            .admin-side-item { white-space:nowrap; flex-shrink:0; margin-bottom:0; padding:.55rem .85rem; gap:.5rem; }
+            .admin-side-item.border-top { border-top:0 !important; margin-top:0 !important; padding-top:.55rem !important; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <nav class="admin-nav sticky-top">
+        <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+                <a class="brand-lockup" href="{% url 'dashboard_admin' %}">
+                    <div class="brand-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                    <div class="brand-text">
+                        <div class="brand-name">MBG PANEL</div>
+                        <div class="brand-sub">Admin Otomotif Makassar</div>
+                    </div>
+                </a>
+                <span class="badge bg-warning text-dark fw-bold px-2 py-1 rounded-pill small ms-2 d-none d-md-inline-block">Administrator Mode</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'katalog' %}" target="_blank" class="btn btn-sm btn-outline-light rounded-pill px-3 d-none d-sm-inline-block">
+                    <i class="fa-solid fa-globe me-1"></i> Lihat Katalog Publik
+                </a>
+                <div class="dropdown ms-2">
+                    <button class="btn btn-dark border border-secondary border-opacity-50 dropdown-toggle rounded-pill px-3 py-1 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-user-shield text-warning"></i>
+                        <span class="fw-bold small">{{ user.first_name|default:user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><h6 class="dropdown-header">Login sebagai Admin</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'profil_admin' %}"><i class="fa-solid fa-user-pen me-2 text-muted"></i> Profil Admin</a></li>
+                        <li><a class="dropdown-item" href="{% url 'ubah_password_admin' %}"><i class="fa-solid fa-key me-2 text-muted"></i> Ubah Password</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket me-2"></i> Keluar</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid px-4 py-4 flex-grow-1">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2 px-3 mb-3 shadow-sm" role="alert" style="border-radius:12px;font-size:.90rem;">
+                    {% if message.tags == 'success' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}<i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
+                    {% else %}<i class="fa-solid fa-circle-info text-info me-2"></i>{% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-4">
+            <div class="col-lg-2">
+                <div class="admin-sidebar">
+                    <div class="side-section-title mt-0">Navigasi Utama</div>
+                    <a class="admin-side-item" href="{% url 'dashboard_admin' %}">
+                        <span><i class="fa-solid fa-chart-line text-warning"></i> Ikhtisar Bisnis</span>
+                    </a>
+
+                    <div class="side-section-title">Modul Operasional</div>
+                    <a class="admin-side-item active" href="{% url 'admin_katalog' %}">
+                        <span><i class="fa-solid fa-car text-primary"></i> Katalog Mobil</span>
+                        <span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/bookingcekunit/" target="_blank">
+                        <span><i class="fa-solid fa-calendar-check text-success"></i> Booking Cek Unit</span>
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/titipjual/" target="_blank">
+                        <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
+                    </a>
+                    <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
+                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
+                    </a>
+
+                    <div class="side-section-title">Akun &amp; Pengaturan</div>
+                    <a class="admin-side-item" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>
+                    <a class="admin-side-item" href="{% url 'ubah_password_admin' %}"><span><i class="fa-solid fa-key"></i> Ubah Password</span></a>
+                    <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}"><span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span></a>
+                </div>
+            </div>
+
+            <div class="col-lg-10">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-3">
+        <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>&copy; 2026 <strong>Mobil Bekas Garasi (MBG) Makassar</strong> · Management Console</div>
+            <div>
+                <a href="/admin/" target="_blank" class="text-light text-opacity-75 text-decoration-none me-3">Django Admin</a>
+                <a href="{% url 'beranda' %}" class="text-light text-opacity-75 text-decoration-none">Website MBG</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

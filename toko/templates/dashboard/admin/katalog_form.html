@@ -1,0 +1,299 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+{% load humanize %}
+
+{% block title %}{% if produk %}Ubah Unit{% else %}Tambah Mobil Baru{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section-title { display:flex; align-items:center; gap:.65rem; font-size:1.02rem; font-weight:800; color:#0F172A; margin-bottom:1.1rem; }
+    .section-title .no { width:30px; height:30px; border-radius:10px; display:grid; place-items:center; background:rgba(37,99,235,.1); color:var(--mbg-blue); font-size:.85rem; }
+    .field-help { font-size:.76rem; color:#94A3B8; margin-top:.3rem; }
+    .field-error { font-size:.8rem; color:#DC2626; font-weight:600; margin-top:.3rem; }
+    .is-invalid-box .form-control, .is-invalid-box .form-select { border-color:#DC2626; }
+    .req { color:#DC2626; }
+    .preview-foto { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:14px; background:#0C1222; border:1px solid #E2E8F0; }
+    .preview-kosong { width:100%; aspect-ratio:4/3; border-radius:14px; background:#F8FAFC; border:2px dashed #CBD5E1; color:#94A3B8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.4rem; font-size:.85rem; }
+    .galeri-item { position:relative; border-radius:12px; overflow:hidden; border:1px solid #E2E8F0; background:#fff; }
+    .galeri-item img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; }
+    .galeri-item .cap { font-size:.72rem; padding:.3rem .5rem; color:#64748B; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .galeri-item form { position:absolute; top:6px; right:6px; }
+    .galeri-item .btn-x { width:28px; height:28px; border-radius:50%; border:none; background:rgba(220,38,38,.92); color:#fff; font-size:.7rem; display:grid; place-items:center; }
+    .rupiah-hint { font-size:.8rem; font-weight:700; color:var(--mbg-blue); min-height:1.1rem; margin-top:.3rem; }
+    .sticky-aksi { position:sticky; bottom:0; z-index:20; background:rgba(241,245,249,.92); backdrop-filter:blur(8px); border-top:1px solid #E2E8F0; padding:.9rem 0; margin-top:.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-1">
+            <li class="breadcrumb-item"><a href="{% url 'admin_katalog' %}" class="text-decoration-none">Katalog Mobil</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{% if produk %}Ubah{% else %}Tambah{% endif %}</li>
+        </ol></nav>
+        <h3 class="fw-bold text-dark mb-0">
+            {% if produk %}<i class="fa-solid fa-pen-to-square text-primary me-2"></i>Ubah Unit
+            {% else %}<i class="fa-solid fa-circle-plus text-primary me-2"></i>Tambah Mobil Baru{% endif %}
+        </h3>
+    </div>
+    {% if produk %}
+        <a href="{% url 'detail_produk' produk.id %}" target="_blank" class="btn btn-outline-secondary rounded-pill px-3 btn-sm">
+            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat di website
+        </a>
+    {% endif %}
+</div>
+
+{% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate id="formProduk">
+    {% csrf_token %}
+
+    {# ── 1. Identitas ── #}
+    <div class="content-card">
+        <div class="section-title"><span class="no">1</span> Identitas Unit</div>
+        <div class="row g-3">
+            <div class="col-md-4 {% if form.sku.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.sku.id_for_label }}">{{ form.sku.label }} <span class="req">*</span></label>
+                {{ form.sku }}
+                {% for e in form.sku.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">Unik per unit. Contoh: MBG-SUV-HYD-001</div>
+            </div>
+            <div class="col-md-8 {% if form.nama.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.nama.id_for_label }}">{{ form.nama.label }} <span class="req">*</span></label>
+                {{ form.nama }}
+                {% for e in form.nama.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">Merek, model, tipe, transmisi, dan tahun. Tampil sebagai judul kartu.</div>
+            </div>
+            <div class="col-md-4 {% if form.merek.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.merek.id_for_label }}">{{ form.merek.label }} <span class="req">*</span></label>
+                {{ form.merek }}
+                {% for e in form.merek.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <datalist id="daftar-merek">{% for m in form.saran_merek %}<option value="{{ m }}">{% endfor %}</datalist>
+            </div>
+            <div class="col-md-4 {% if form.kategori.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.kategori.id_for_label }}">{{ form.kategori.label }} <span class="req">*</span></label>
+                {{ form.kategori }}
+                {% for e in form.kategori.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <datalist id="daftar-kategori">{% for k in form.saran_kategori %}<option value="{{ k }}">{% endfor %}</datalist>
+            </div>
+            <div class="col-md-4 {% if form.tahun.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.tahun.id_for_label }}">{{ form.tahun.label }} <span class="req">*</span></label>
+                {{ form.tahun }}
+                {% for e in form.tahun.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4 {% if form.warna.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.warna.id_for_label }}">{{ form.warna.label }} <span class="req">*</span></label>
+                {{ form.warna }}
+                {% for e in form.warna.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4 {% if form.plat_nomor.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.plat_nomor.id_for_label }}">{{ form.plat_nomor.label }} <span class="req">*</span></label>
+                {{ form.plat_nomor }}
+                {% for e in form.plat_nomor.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">Hanya terlihat oleh admin &amp; di halaman detail.</div>
+            </div>
+            <div class="col-md-4 {% if form.lokasi.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.lokasi.id_for_label }}">{{ form.lokasi.label }} <span class="req">*</span></label>
+                {{ form.lokasi }}
+                {% for e in form.lokasi.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ── 2. Spesifikasi & Harga ── #}
+    <div class="content-card">
+        <div class="section-title"><span class="no">2</span> Spesifikasi &amp; Harga</div>
+        <div class="row g-3">
+            <div class="col-md-6 {% if form.transmisi.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.transmisi.id_for_label }}">{{ form.transmisi.label }} <span class="req">*</span></label>
+                {{ form.transmisi }}
+                {% for e in form.transmisi.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6 {% if form.jarak_tempuh.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.jarak_tempuh.id_for_label }}">{{ form.jarak_tempuh.label }} <span class="req">*</span></label>
+                {{ form.jarak_tempuh }}
+                {% for e in form.jarak_tempuh.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6 {% if form.harga.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.harga.id_for_label }}">{{ form.harga.label }} <span class="req">*</span></label>
+                {{ form.harga }}
+                <div class="rupiah-hint" data-untuk="{{ form.harga.id_for_label }}"></div>
+                {% for e in form.harga.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6 {% if form.harga_promo.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.harga_promo.id_for_label }}">{{ form.harga_promo.label }}</label>
+                {{ form.harga_promo }}
+                <div class="rupiah-hint" data-untuk="{{ form.harga_promo.id_for_label }}"></div>
+                {% for e in form.harga_promo.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">{{ form.harga_promo.help_text }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── 3. Status & Inspeksi ── #}
+    <div class="content-card">
+        <div class="section-title"><span class="no">3</span> Status, Sumber &amp; Inspeksi</div>
+        <div class="row g-3">
+            <div class="col-md-6 {% if form.status_stok.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.status_stok.id_for_label }}">{{ form.status_stok.label }} <span class="req">*</span></label>
+                {{ form.status_stok }}
+                {% for e in form.status_stok.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">Hanya unit <strong>Ready Stock</strong> yang tampil di website publik.</div>
+            </div>
+            <div class="col-md-6 {% if form.tipe_penjual.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.tipe_penjual.id_for_label }}">{{ form.tipe_penjual.label }} <span class="req">*</span></label>
+                {{ form.tipe_penjual }}
+                {% for e in form.tipe_penjual.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">Stok MBG (B2C) atau titip-jual pengguna (C2C).</div>
+            </div>
+            <div class="col-12">
+                <div class="form-check form-switch fs-6">
+                    {{ form.lulus_inspeksi }}
+                    <label class="form-check-label fw-semibold" for="{{ form.lulus_inspeksi.id_for_label }}">{{ form.lulus_inspeksi.label }}</label>
+                </div>
+                <div class="field-help">Menampilkan badge “Lulus 150 Titik Inspeksi” pada kartu katalog.</div>
+            </div>
+            <div class="col-12 {% if form.ringkasan_inspeksi.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.ringkasan_inspeksi.id_for_label }}">{{ form.ringkasan_inspeksi.label }} <span class="req">*</span></label>
+                {{ form.ringkasan_inspeksi }}
+                {% for e in form.ringkasan_inspeksi.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ── 4. Foto & Deskripsi ── #}
+    <div class="content-card">
+        <div class="section-title"><span class="no">4</span> Foto Utama &amp; Deskripsi</div>
+        <div class="row g-4">
+            <div class="col-md-4 {% if form.gambar_utama.errors %}is-invalid-box{% endif %}">
+                <label class="form-label" for="{{ form.gambar_utama.id_for_label }}">{{ form.gambar_utama.label }} {% if not produk %}<span class="req">*</span>{% endif %}</label>
+                <div id="previewWrap">
+                    {% if produk and produk.gambar_utama %}
+                        <img src="{{ produk.gambar_utama.url }}" alt="Foto utama saat ini" class="preview-foto" id="previewImg">
+                    {% else %}
+                        <div class="preview-kosong" id="previewKosong"><i class="fa-regular fa-image fs-2"></i> Belum ada foto</div>
+                        <img src="" alt="Pratinjau foto" class="preview-foto d-none" id="previewImg">
+                    {% endif %}
+                </div>
+                <div class="mt-2">{{ form.gambar_utama }}</div>
+                {% for e in form.gambar_utama.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                <div class="field-help">{{ form.gambar_utama.help_text }}{% if produk %} Kosongkan jika tidak ingin mengganti foto.{% endif %}</div>
+            </div>
+            <div class="col-md-8">
+                <div class="mb-3 {% if form.deskripsi_singkat.errors %}is-invalid-box{% endif %}">
+                    <label class="form-label" for="{{ form.deskripsi_singkat.id_for_label }}">{{ form.deskripsi_singkat.label }} <span class="req">*</span></label>
+                    {{ form.deskripsi_singkat }}
+                    {% for e in form.deskripsi_singkat.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                    <div class="field-help">{{ form.deskripsi_singkat.help_text }}</div>
+                </div>
+                <div class="{% if form.deskripsi_detail.errors %}is-invalid-box{% endif %}">
+                    <label class="form-label" for="{{ form.deskripsi_detail.id_for_label }}">{{ form.deskripsi_detail.label }} <span class="req">*</span></label>
+                    {{ form.deskripsi_detail }}
+                    {% for e in form.deskripsi_detail.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+                    <div class="field-help">Pisahkan paragraf dengan baris kosong.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky-aksi">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <a href="{% url 'admin_katalog' %}" class="btn btn-light border rounded-pill px-4">Batal</a>
+            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm" id="btnSimpan">
+                <i class="fa-solid fa-floppy-disk me-2"></i>{% if produk %}Simpan Perubahan{% else %}Simpan &amp; Lanjut ke Galeri{% endif %}
+            </button>
+        </div>
+    </div>
+</form>
+
+{# ── 5. Galeri (form terpisah; hanya saat mengubah unit yang sudah tersimpan) ── #}
+{% if produk %}
+<div class="content-card mt-4">
+    <div class="section-title"><span class="no">5</span> Galeri Foto Tambahan
+        <span class="badge bg-light text-dark border ms-auto">{{ galeri|length }} / {{ galeri_maks }}</span>
+    </div>
+
+    {% if galeri %}
+        <div class="row g-3 mb-4">
+            {% for f in galeri %}
+                <div class="col-6 col-md-3 col-xl-2">
+                    <div class="galeri-item">
+                        <img src="{{ f.gambar.url }}" alt="{{ f.keterangan|default:'Foto galeri' }}" loading="lazy">
+                        <div class="cap">{{ f.keterangan|default:"—" }}</div>
+                        <form method="post" action="{% url 'admin_galeri_hapus' produk.id f.id %}" onsubmit="return confirm('Hapus foto ini?');">
+                            {% csrf_token %}
+                            <button class="btn-x" type="submit" aria-label="Hapus foto"><i class="fa-solid fa-xmark"></i></button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted small">Belum ada foto tambahan (interior, mesin, bagasi, dll.).</p>
+    {% endif %}
+
+    {% if galeri|length < galeri_maks %}
+    <form method="post" action="{% url 'admin_galeri_tambah' produk.id %}" enctype="multipart/form-data" class="row g-2 align-items-end border-top pt-3">
+        {% csrf_token %}
+        <div class="col-md-5">
+            <label class="form-label" for="galeriFile">Pilih foto (bisa banyak sekaligus)</label>
+            <input type="file" id="galeriFile" name="gambar" class="form-control" accept="image/jpeg,image/png,image/webp" multiple required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="galeriKet">Keterangan (opsional)</label>
+            <input type="text" id="galeriKet" name="keterangan" class="form-control" maxlength="100" placeholder="Interior, Mesin, Bagasi…">
+        </div>
+        <div class="col-md-3 d-grid">
+            <button class="btn btn-dark rounded-pill fw-bold" type="submit"><i class="fa-solid fa-upload me-2"></i>Unggah</button>
+        </div>
+    </form>
+    <div class="field-help mt-2">JPG, PNG, atau WEBP · maks. 5 MB per foto · sekali unggah maks. 8 foto.</div>
+    {% endif %}
+</div>
+
+{% if jumlah_booking %}
+<div class="alert alert-info small"><i class="fa-solid fa-circle-info me-2"></i>Unit ini memiliki <strong>{{ jumlah_booking }}</strong> booking, sehingga tidak dapat dihapus. Gunakan status “Terjual” bila sudah laku.</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // Pratinjau foto utama sebelum disimpan
+    const input = document.getElementById('{{ form.gambar_utama.id_for_label }}');
+    const img = document.getElementById('previewImg');
+    const kosong = document.getElementById('previewKosong');
+    if (input && img) {
+        input.addEventListener('change', function () {
+            const f = input.files && input.files[0];
+            if (!f) return;
+            if (f.size > 5 * 1024 * 1024) { alert('Ukuran foto melebihi 5 MB. Pilih foto yang lebih kecil.'); input.value = ''; return; }
+            img.src = URL.createObjectURL(f);
+            img.classList.remove('d-none');
+            if (kosong) kosong.classList.add('d-none');
+        });
+    }
+
+    // Tampilkan harga dalam format Rupiah saat mengetik
+    const fmt = new Intl.NumberFormat('id-ID');
+    document.querySelectorAll('.rupiah-hint').forEach(function (hint) {
+        const el = document.getElementById(hint.dataset.untuk);
+        if (!el) return;
+        const tampil = function () { hint.textContent = el.value ? 'Rp ' + fmt.format(el.value) : ''; };
+        el.addEventListener('input', tampil); tampil();
+    });
+
+    // Cegah klik ganda saat menyimpan
+    const form = document.getElementById('formProduk'), btn = document.getElementById('btnSimpan');
+    if (form && btn) form.addEventListener('submit', function () {
+        setTimeout(function () { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan…'; }, 0);
+    });
+
+    // Gulir ke kolom pertama yang salah
+    const salah = document.querySelector('.is-invalid-box');
+    if (salah) salah.scrollIntoView({ behavior: 'smooth', block: 'center' });
+})();
+</script>
+{% endblock %}

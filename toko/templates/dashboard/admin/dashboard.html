@@ -276,7 +276,7 @@
                     </a>
 
                     <div class="side-section-title">Modul Operasional</div>
-                    <a class="admin-side-item" href="/admin/toko/produk/" target="_blank">
+                    <a class="admin-side-item" href="{% url 'admin_katalog' %}">
                         <span><i class="fa-solid fa-car text-primary"></i> Katalog Mobil</span>
                         <span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>
                     </a>
@@ -325,7 +325,7 @@
                         <p class="text-muted small mb-0">Data statistik terverifikasi langsung dari database operasional real-time.</p>
                     </div>
                     <div class="d-flex gap-2">
-                        <a href="/admin/toko/produk/add/" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-bold">
+                        <a href="{% url 'admin_katalog_tambah' %}" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-bold">
                             <i class="fa-solid fa-plus me-1"></i> Tambah Mobil Baru
                         </a>
                         <a href="/admin/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
@@ -551,7 +551,7 @@
                         <div class="content-card">
                             <div class="card-header-clean">
                                 <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-car text-primary me-2"></i> Stok Katalog Terkini</h5>
-                                <a href="/admin/toko/produk/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Semua</a>
+                                <a href="{% url 'admin_katalog' %}" class="btn btn-sm btn-outline-secondary rounded-pill">Semua</a>
                             </div>
 
                             {% if recent_produk %}

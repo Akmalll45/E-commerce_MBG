@@ -1,0 +1,213 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+{% load humanize %}
+
+{% block title %}Kelola Katalog Mobil{% endblock %}
+
+{% block extra_css %}
+<style>
+    .thumb { width:84px; height:62px; object-fit:cover; border-radius:10px; background:#0C1222; border:1px solid #E2E8F0; flex-shrink:0; }
+    .thumb-kosong { width:84px; height:62px; border-radius:10px; background:#F1F5F9; color:#94A3B8; display:grid; place-items:center; border:1px dashed #CBD5E1; flex-shrink:0; }
+    .tab-status { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .9rem; border-radius:999px; font-size:.82rem; font-weight:700; color:#475569; background:#fff; border:1.5px solid #E2E8F0; text-decoration:none; transition:all .2s; }
+    .tab-status:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); }
+    .tab-status.aktif { background:#080D1A; color:#fff; border-color:#080D1A; }
+    .tab-status .n { font-size:.72rem; padding:.1rem .45rem; border-radius:999px; background:rgba(100,116,139,.15); }
+    .tab-status.aktif .n { background:rgba(255,255,255,.2); }
+    .tabel-katalog td { vertical-align:middle; }
+    .nama-unit { font-weight:700; color:#0F172A; line-height:1.3; }
+    .status-pill { font-size:.72rem; font-weight:700; padding:.3rem .65rem; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
+    .status-ready { background:rgba(16,185,129,.1); color:#047857; border-color:rgba(16,185,129,.3); }
+    .status-in_review { background:rgba(245,158,11,.12); color:#B45309; border-color:rgba(245,158,11,.35); }
+    .status-sold { background:rgba(100,116,139,.12); color:#475569; border-color:rgba(100,116,139,.3); }
+    .pagination .page-link { border-radius:10px !important; margin:0 .15rem; font-weight:700; font-size:.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-car text-primary me-2"></i> Kelola Katalog Mobil</h3>
+        <p class="text-muted small mb-0">Tambah, ubah, dan atur status unit. Perubahan langsung tampil di website publik.</p>
+    </div>
+    <a href="{% url 'admin_katalog_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+        <i class="fa-solid fa-plus me-1"></i> Tambah Mobil Baru
+    </a>
+</div>
+
+{# Tab status #}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% for kode, label, jumlah in tab_status %}
+        <a class="tab-status {% if nilai.status|default:'' == kode %}aktif{% endif %}"
+           href="{% url 'admin_katalog' %}{% if kode %}?status={{ kode }}{% endif %}">
+            {{ label }} <span class="n">{{ jumlah }}</span>
+        </a>
+    {% endfor %}
+</div>
+
+<div class="content-card">
+    {# Pencarian & filter #}
+    <form method="get" class="row g-2 mb-4">
+        {% if nilai.status %}<input type="hidden" name="status" value="{{ nilai.status }}">{% endif %}
+        <div class="col-12 col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:12px 0 0 12px;border:1.5px solid #E2E8F0;border-right:none;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="search" name="q" value="{{ nilai.q|default:'' }}" class="form-control" style="border-left:none;" placeholder="Cari nama, SKU, merek, atau plat nomor…" maxlength="100">
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <select name="tipe" class="form-select" aria-label="Sumber unit">
+                <option value="">Semua Sumber</option>
+                {% for kode, label in pilihan_tipe %}
+                    <option value="{{ kode }}" {% if nilai.tipe == kode %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 d-flex gap-2">
+            <button class="btn btn-dark rounded-pill fw-bold flex-grow-1" type="submit">Terapkan</button>
+            {% if nilai %}<a href="{% url 'admin_katalog' %}" class="btn btn-light border rounded-pill" title="Reset">Reset</a>{% endif %}
+        </div>
+    </form>
+
+    {% if produk_list %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 tabel-katalog">
+                <thead class="table-light small text-uppercase">
+                    <tr>
+                        <th>Unit</th>
+                        <th class="d-none d-md-table-cell">Detail</th>
+                        <th>Harga</th>
+                        <th>Status</th>
+                        <th class="text-end">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in produk_list %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                {% if p.gambar_utama %}
+                                    <img src="{{ p.gambar_utama.url }}" alt="" class="thumb" loading="lazy">
+                                {% else %}
+                                    <div class="thumb-kosong"><i class="fa-regular fa-image"></i></div>
+                                {% endif %}
+                                <div>
+                                    <div class="nama-unit">{{ p.nama }}</div>
+                                    <small class="text-muted"><i class="fa-solid fa-barcode me-1"></i>{{ p.sku }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="d-none d-md-table-cell small text-muted">
+                            {{ p.merek }} · {{ p.kategori }}<br>
+                            {{ p.tahun }} · {{ p.transmisi }} · {{ p.jarak_tempuh|intcomma }} km<br>
+                            <span class="badge bg-light text-dark border">{{ p.get_tipe_penjual_display }}</span>
+                        </td>
+                        <td>
+                            <div class="fw-bold text-dark text-nowrap">Rp {{ p.harga|intcomma }}</div>
+                            {% if p.harga_promo %}<small class="text-danger fw-semibold text-nowrap">Promo Rp {{ p.harga_promo|intcomma }}</small>{% endif %}
+                        </td>
+                        <td>
+                            <span class="status-pill status-{{ p.status_stok }}">{{ p.get_status_stok_display }}</span>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a href="{% url 'detail_produk' p.id %}" target="_blank" class="btn btn-sm btn-light border rounded-circle" title="Lihat di website"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                            <a href="{% url 'admin_katalog_edit' p.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold"><i class="fa-solid fa-pen me-1"></i> Ubah</a>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-light border rounded-circle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aksi lainnya"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <li><h6 class="dropdown-header">Ubah status stok</h6></li>
+                                    {% for kode, label in pilihan_status %}
+                                        {% if kode != p.status_stok %}
+                                        <li>
+                                            <form method="post" action="{% url 'admin_katalog_status' p.id %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="status_stok" value="{{ kode }}">
+                                                <input type="hidden" name="next" value="{{ next_url }}">
+                                                <button class="dropdown-item" type="submit">{{ label }}</button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if p.jumlah_booking %}
+                                        <li><span class="dropdown-item-text small text-muted" style="max-width:230px;white-space:normal;"><i class="fa-solid fa-lock me-1"></i>Tidak bisa dihapus: ada {{ p.jumlah_booking }} booking. Tandai “Terjual”.</span></li>
+                                    {% else %}
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modalHapus"
+                                                    data-aksi="{% url 'admin_katalog_hapus' p.id %}" data-nama="{{ p.nama }}">
+                                                <i class="fa-solid fa-trash me-2"></i>Hapus unit
+                                            </button>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-4">
+            <small class="text-muted">Menampilkan {{ page_obj.start_index }}–{{ page_obj.end_index }} dari {{ total_hasil }} unit</small>
+            {% if page_obj.paginator.num_pages > 1 %}
+            <nav aria-label="Halaman">
+                <ul class="pagination mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+                    {% endif %}
+                    {% for n in page_obj.paginator.page_range %}
+                        <li class="page-item {% if n == page_obj.number %}active{% endif %}"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ n }}">{{ n }}</a></li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">&raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <div class="text-muted mb-3"><i class="fa-solid fa-car-side fs-1"></i></div>
+            {% if nilai %}
+                <h5 class="fw-bold">Tidak ada unit yang cocok</h5>
+                <p class="text-muted small">Coba ubah kata kunci atau filter.</p>
+                <a href="{% url 'admin_katalog' %}" class="btn btn-outline-secondary rounded-pill px-4">Reset</a>
+            {% else %}
+                <h5 class="fw-bold">Katalog masih kosong</h5>
+                <p class="text-muted small">Mulai dengan menambahkan unit pertama.</p>
+                <a href="{% url 'admin_katalog_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-solid fa-plus me-1"></i> Tambah Mobil Baru</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+{# Konfirmasi hapus (satu modal dipakai semua baris) #}
+<div class="modal fade" id="modalHapus" tabindex="-1" aria-labelledby="modalHapusLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" class="modal-content" style="border-radius:16px;" id="formHapus">
+            {% csrf_token %}
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-danger" id="modalHapusLabel"><i class="fa-solid fa-triangle-exclamation me-2"></i>Hapus unit?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">Anda akan menghapus <strong id="namaHapus"></strong> beserta foto-fotonya dari katalog.</p>
+                <p class="text-muted small mb-0">Tindakan ini tidak bisa dibatalkan. Jika unit hanya sudah laku, lebih baik ubah statusnya menjadi “Terjual”.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">Ya, Hapus</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('modalHapus').addEventListener('show.bs.modal', function (e) {
+        const t = e.relatedTarget;
+        document.getElementById('formHapus').action = t.dataset.aksi;
+        document.getElementById('namaHapus').textContent = t.dataset.nama;
+    });
+</script>
+{% endblock %}
