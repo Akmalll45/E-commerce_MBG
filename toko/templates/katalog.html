@@ -270,7 +270,7 @@
 
                             <div class="specs-mini-bar">
                                 <span class="specs-mini-item"><i class="fa-regular fa-calendar"></i><strong>{{ mobil.tahun }}</strong></span>
-                                <span class="specs-mini-item"><i class="fa-solid fa-gears"></i><strong>{{ mobil.get_transmisi_display }}</strong></span>
+                                <span class="specs-mini-item" title="{{ mobil.get_transmisi_display }}"><i class="fa-solid fa-gears"></i><strong><span class="trans-full">{{ mobil.get_transmisi_display }}</span><span class="trans-short">{{ mobil.transmisi }}</span></strong></span>
                                 <span class="specs-mini-item"><i class="fa-solid fa-gauge-high"></i><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
                             </div>
 
