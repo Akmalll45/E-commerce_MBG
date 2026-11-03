@@ -183,6 +183,12 @@ STORAGES = {
     },
 }
 
+# Foto mobil/profil disimpan di Cloudinary jika CLOUDINARY_URL diisi (mis. di Vercel,
+# karena filesystem-nya tidak permanen). Tanpa variabel itu (laptop), tetap di folder media/.
+# Foto lama dipindahkan dengan: python manage.py upload_media
+if os.environ.get('CLOUDINARY_URL'):
+    STORAGES['default'] = {'BACKEND': 'katalog_mbg.storage.CloudinaryStorage'}
+
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
