@@ -1,0 +1,162 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}{{ page_title }} — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section { background:#F8FAFC; border:1.5px solid #E2E8F0; border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+    .form-section-title { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; margin-bottom:1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-newspaper text-primary me-2"></i>
+            {% if mode == 'tambah' %}Tulis Artikel Baru{% else %}Edit Artikel{% endif %}
+        </h3>
+        <p class="text-muted small mb-0">
+            {% if mode == 'tambah' %}Buat artikel atau berita baru untuk website MBG.
+            {% else %}Perbarui konten artikel. Simpan sebagai draft atau terbitkan langsung.{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'admin_artikel' %}" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+        {# Kolom kiri — konten utama #}
+        <div class="col-lg-8">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Konten Artikel</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.judul.id_for_label }}">
+                        Judul <span class="text-danger">*</span>
+                    </label>
+                    {{ form.judul }}
+                    {% if form.judul.errors %}<div class="text-danger small mt-1">{{ form.judul.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.slug.id_for_label }}">
+                        Slug <span class="text-muted fw-normal">(opsional — otomatis dari judul)</span>
+                    </label>
+                    {{ form.slug }}
+                    {% if form.slug.errors %}<div class="text-danger small mt-1">{{ form.slug.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.ringkasan.id_for_label }}">
+                        Ringkasan <span class="text-danger">*</span>
+                    </label>
+                    {{ form.ringkasan }}
+                    {% if form.ringkasan.errors %}<div class="text-danger small mt-1">{{ form.ringkasan.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Muncul di kartu artikel pada halaman daftar.</div>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.isi.id_for_label }}">
+                        Isi Artikel <span class="text-danger">*</span>
+                    </label>
+                    {{ form.isi }}
+                    {% if form.isi.errors %}<div class="text-danger small mt-1">{{ form.isi.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+
+            {# Meta SEO #}
+            <div class="content-card">
+                <div class="form-section-title">SEO (opsional)</div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.meta_title.id_for_label }}">Meta Title</label>
+                    {{ form.meta_title }}
+                    {% if form.meta_title.errors %}<div class="text-danger small mt-1">{{ form.meta_title.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.meta_description.id_for_label }}">Meta Description</label>
+                    {{ form.meta_description }}
+                    {% if form.meta_description.errors %}<div class="text-danger small mt-1">{{ form.meta_description.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# Kolom kanan — pengaturan #}
+        <div class="col-lg-4">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Pengaturan Publikasi</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.status.id_for_label }}">Status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Hanya artikel "Diterbitkan" yang tampil di website publik.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.kategori.id_for_label }}">Kategori</label>
+                    {{ form.kategori }}
+                    {% if form.kategori.errors %}<div class="text-danger small mt-1">{{ form.kategori.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">
+                        <a href="{% url 'admin_kategori_tambah' %}" target="_blank" class="text-decoration-none">
+                            <i class="fa-solid fa-plus"></i> Tambah kategori baru
+                        </a>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold">
+                        <i class="fa-solid fa-floppy-disk me-1"></i>
+                        {% if mode == 'tambah' %}Simpan Artikel{% else %}Simpan Perubahan{% endif %}
+                    </button>
+                    {% if mode == 'edit' and artikel %}
+                    <a href="{% url 'admin_artikel_preview' artikel.id %}" target="_blank" class="btn btn-outline-secondary rounded-pill">
+                        <i class="fa-solid fa-eye me-1"></i> Preview
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'admin_artikel' %}" class="btn btn-outline-secondary rounded-pill">Batal</a>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="form-section-title">Gambar Utama</div>
+                {% if artikel and artikel.gambar_utama %}
+                <div class="mb-3 text-center">
+                    <img src="{{ artikel.gambar_utama.url }}" alt="Gambar saat ini" class="img-fluid rounded-3" style="max-height:180px;object-fit:cover;">
+                    <div class="text-muted small mt-1">Gambar saat ini</div>
+                </div>
+                {% endif %}
+                {{ form.gambar_utama }}
+                {% if form.gambar_utama.errors %}<div class="text-danger small mt-1">{{ form.gambar_utama.errors|join:", " }}</div>{% endif %}
+                <div class="form-text mt-1">Format: JPEG, PNG, WebP. Maks 5 MB.</div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Auto-generate slug dari judul jika slug kosong */
+(function () {
+    const judulEl = document.getElementById('{{ form.judul.id_for_label }}');
+    const slugEl  = document.getElementById('{{ form.slug.id_for_label }}');
+    if (!judulEl || !slugEl) return;
+    judulEl.addEventListener('input', function () {
+        if (slugEl.dataset.manual) return;
+        slugEl.value = judulEl.value.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '').trim()
+            .replace(/\s+/g, '-').replace(/-+/g, '-');
+    });
+    slugEl.addEventListener('input', function () {
+        slugEl.dataset.manual = slugEl.value ? '1' : '';
+    });
+    {% if mode == 'edit' and artikel %}
+    slugEl.dataset.manual = '1';
+    {% endif %}
+})();
+</script>
+{% endblock %}

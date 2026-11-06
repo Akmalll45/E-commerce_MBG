@@ -26,6 +26,25 @@ urlpatterns = [
     path('panel/katalog/<int:id>/hapus/', views.admin_katalog_hapus, name='admin_katalog_hapus'),
     path('panel/katalog/<int:id>/galeri/tambah/', views.admin_galeri_tambah, name='admin_galeri_tambah'),
     path('panel/katalog/<int:id>/galeri/<int:foto_id>/hapus/', views.admin_galeri_hapus, name='admin_galeri_hapus'),
+    # Modul Booking Cek Unit
+    path('panel/booking/', views.admin_booking, name='admin_booking'),
+    path('panel/booking/<int:id>/', views.admin_booking_detail, name='admin_booking_detail'),
+    path('panel/booking/<int:id>/status/', views.admin_booking_status, name='admin_booking_status'),
     path('panel/profil/', views.profil_admin, name='profil_admin'),
     path('panel/ubah-password/', views.ubah_password_admin, name='ubah_password_admin'),
+
+    # CMS Artikel — Admin
+    path('panel/artikel/', views.admin_artikel, name='admin_artikel'),
+    path('panel/artikel/tambah/', views.admin_artikel_tambah, name='admin_artikel_tambah'),
+    path('panel/artikel/<int:id>/edit/', views.admin_artikel_edit, name='admin_artikel_edit'),
+    path('panel/artikel/<int:id>/hapus/', views.admin_artikel_hapus, name='admin_artikel_hapus'),
+    path('panel/artikel/<int:id>/preview/', views.admin_artikel_preview, name='admin_artikel_preview'),
+    path('panel/kategori-artikel/', views.admin_kategori_artikel, name='admin_kategori_artikel'),
+    path('panel/kategori-artikel/tambah/', views.admin_kategori_tambah, name='admin_kategori_tambah'),
+    path('panel/kategori-artikel/<int:id>/edit/', views.admin_kategori_edit, name='admin_kategori_edit'),
+    path('panel/kategori-artikel/<int:id>/hapus/', views.admin_kategori_hapus, name='admin_kategori_hapus'),
+
+    # CMS Artikel — Publik
+    path('artikel/', views.artikel_publik, name='artikel_publik'),
+    path('artikel/<slug:slug>/', views.artikel_detail, name='artikel_detail'),
 ]

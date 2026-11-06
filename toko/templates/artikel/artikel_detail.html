@@ -1,0 +1,149 @@
+{% extends 'base_publik.html' %}
+{% load humanize %}
+
+{% block title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+
+{% block meta_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .art-breadcrumb { font-size:.8rem; color:#94A3B8; }
+    .art-breadcrumb a { color:#64748B; text-decoration:none; }
+    .art-breadcrumb a:hover { color:var(--mbg-blue); }
+    .art-hero-img { width:100%; max-height:460px; object-fit:cover; border-radius:var(--radius-xl); margin-bottom:2rem; }
+    .art-isi { line-height:1.85; color:#1E293B; font-size:1.05rem; }
+    .art-isi p { margin-bottom:1.25rem; }
+    .art-isi h2 { font-weight:700; font-size:1.35rem; margin-top:2rem; margin-bottom:.75rem; color:#0F172A; }
+    .art-isi h3 { font-weight:700; font-size:1.15rem; margin-top:1.5rem; margin-bottom:.6rem; color:#0F172A; }
+    .art-isi ul, .art-isi ol { padding-left:1.4rem; margin-bottom:1rem; }
+    .art-isi li { margin-bottom:.4rem; }
+    .art-isi blockquote { border-left:4px solid var(--mbg-blue); padding:.75rem 1.25rem; margin:1.5rem 0; background:#F0F9FF; border-radius:0 var(--radius-md) var(--radius-md) 0; color:#0369A1; font-style:italic; }
+    .terkait-card { background:#fff; border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow-card); text-decoration:none; color:inherit; display:block; transition:box-shadow .2s,transform .2s; }
+    .terkait-card:hover { box-shadow:var(--shadow-hover); transform:translateY(-3px); }
+    .terkait-img { width:100%; height:140px; object-fit:cover; }
+    .terkait-img-placeholder { width:100%; height:140px; background:#F1F5F9; display:grid; place-items:center; color:#94A3B8; }
+    .sticky-toc { position:sticky; top:90px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        {# Breadcrumb #}
+        <nav class="art-breadcrumb mb-3">
+            <a href="{% url 'beranda' %}">Beranda</a>
+            <span class="mx-1">/</span>
+            <a href="{% url 'artikel_publik' %}">Artikel</a>
+            {% if artikel.kategori %}
+            <span class="mx-1">/</span>
+            <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug }}">{{ artikel.kategori.nama }}</a>
+            {% endif %}
+            <span class="mx-1">/</span>
+            <span class="text-dark fw-semibold">{{ artikel.judul|truncatechars:40 }}</span>
+        </nav>
+
+        <div class="row g-5">
+            {# Konten utama #}
+            <div class="col-lg-8">
+                {# Kategori & meta #}
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    {% if artikel.kategori %}
+                    <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug %}"
+                       class="badge rounded-pill text-decoration-none" style="background:#EEF2FF;color:#4338CA;padding:.35rem .8rem;font-size:.78rem;">
+                        {{ artikel.kategori.nama }}
+                    </a>
+                    {% endif %}
+                    <span class="text-muted small">
+                        <i class="fa-regular fa-calendar me-1"></i>{{ artikel.created_at|date:"d F Y" }}
+                    </span>
+                    <span class="text-muted small">
+                        <i class="fa-solid fa-user me-1"></i>{{ artikel.penulis.get_full_name|default:artikel.penulis.username|default:"Tim MBG" }}
+                    </span>
+                    {% if artikel.updated_at != artikel.created_at %}
+                    <span class="text-muted small">
+                        <i class="fa-solid fa-rotate me-1"></i>Diperbarui {{ artikel.updated_at|date:"d M Y" }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <h1 class="fw-bold mb-3" style="font-size:clamp(1.5rem,3.5vw,2.1rem);line-height:1.25;color:#0F172A;">
+                    {{ artikel.judul }}
+                </h1>
+
+                {% if artikel.ringkasan %}
+                <div class="p-3 mb-4 rounded-3" style="background:#F0F9FF;border-left:4px solid var(--mbg-sky);color:#0369A1;font-size:.95rem;">
+                    {{ artikel.ringkasan }}
+                </div>
+                {% endif %}
+
+                {% if artikel.gambar_utama %}
+                <img src="{{ artikel.gambar_utama.url }}" alt="{{ artikel.judul }}" class="art-hero-img">
+                {% endif %}
+
+                <div class="art-isi">
+                    {{ artikel.isi|linebreaks }}
+                </div>
+
+                {# Share & navigasi #}
+                <div class="mt-5 pt-4 border-top d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <a href="{% url 'artikel_publik' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                            <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar Artikel
+                        </a>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="https://wa.me/?text={{ artikel.judul|urlencode }}%20{{ request.build_absolute_uri }}"
+                           target="_blank" rel="noopener" class="btn btn-sm rounded-pill fw-bold"
+                           style="background:#25D366;color:#fff;">
+                            <i class="fa-brands fa-whatsapp me-1"></i> Share
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {# Sidebar #}
+            <div class="col-lg-4">
+                <div class="sticky-toc">
+                    {# Artikel terkait #}
+                    {% if terkait %}
+                    <div class="mb-5">
+                        <div class="fw-bold mb-3" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:#64748B;">
+                            <i class="fa-solid fa-bookmark me-1"></i> Artikel Terkait
+                        </div>
+                        <div class="d-flex flex-column gap-3">
+                            {% for t in terkait %}
+                            <a href="{% url 'artikel_detail' t.slug %}" class="terkait-card">
+                                {% if t.gambar_utama %}
+                                <img src="{{ t.gambar_utama.url }}" alt="{{ t.judul }}" class="terkait-img" loading="lazy">
+                                {% else %}
+                                <div class="terkait-img-placeholder"><i class="fa-solid fa-newspaper fa-2x"></i></div>
+                                {% endif %}
+                                <div class="p-3">
+                                    <div class="fw-bold small" style="line-height:1.4;">{{ t.judul|truncatechars:65 }}</div>
+                                    <div class="text-muted" style="font-size:.75rem;margin-top:.35rem;">
+                                        <i class="fa-regular fa-calendar me-1"></i>{{ t.created_at|date:"d M Y" }}
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# CTA Booking #}
+                    <div class="rounded-3 p-4 text-center" style="background:linear-gradient(135deg,var(--mbg-navy),var(--mbg-slate));color:#fff;">
+                        <div class="mb-3">
+                            <i class="fa-solid fa-car fa-2x" style="color:var(--mbg-sky);"></i>
+                        </div>
+                        <h6 class="fw-bold mb-2">Tertarik Cek Unit Langsung?</h6>
+                        <p class="text-white text-opacity-75 small mb-3">Booking inspeksi gratis, 150 titik pemeriksaan, harga transparan.</p>
+                        <a href="{% url 'katalog' %}" class="btn btn-primary rounded-pill fw-bold w-100">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i> Lihat Katalog
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

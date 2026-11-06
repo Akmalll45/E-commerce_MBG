@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.db import models
-from django.core.validators import MinValueValidator 
+from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractUser
+from django.utils.text import slugify
 import os
 import uuid
 
@@ -190,3 +192,90 @@ class Transaksi(models.Model):
     def __str__(self):
         return f"{self.no_order} - {self.get_status_pembayaran_display()}"
         
+
+# ═══════════════════════════════════════════════════════════════════
+# 7. KATEGORI ARTIKEL
+# ═══════════════════════════════════════════════════════════════════
+
+class KategoriArtikel(models.Model):
+    nama       = models.CharField(max_length=100, unique=True, verbose_name="Nama Kategori")
+    slug       = models.SlugField(max_length=120, unique=True, blank=True)
+    deskripsi  = models.TextField(blank=True, verbose_name="Deskripsi")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Kategori Artikel"
+        verbose_name_plural = "Kategori Artikel"
+        ordering            = ['nama']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.nama)
+            slug = base
+            n = 1
+            while KategoriArtikel.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{n}"
+                n += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.nama
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 8. ARTIKEL & BERITA
+# ═══════════════════════════════════════════════════════════════════
+
+class Artikel(models.Model):
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('published', 'Diterbitkan'),
+    ]
+
+    judul            = models.CharField(max_length=200, verbose_name="Judul")
+    slug             = models.SlugField(max_length=220, unique=True, blank=True)
+    ringkasan        = models.TextField(verbose_name="Ringkasan")
+    isi              = models.TextField(verbose_name="Isi Artikel")
+    gambar_utama     = models.ImageField(
+                           upload_to='artikel/', blank=True, null=True,
+                           verbose_name="Gambar Utama"
+                       )
+    kategori         = models.ForeignKey(
+                           KategoriArtikel, on_delete=models.SET_NULL,
+                           null=True, blank=True, related_name='artikel',
+                           verbose_name="Kategori"
+                       )
+    penulis          = models.ForeignKey(
+                           settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                           null=True, related_name='artikel_ditulis',
+                           verbose_name="Penulis"
+                       )
+    status           = models.CharField(
+                           max_length=12, choices=STATUS_CHOICES,
+                           default='draft', verbose_name="Status"
+                       )
+    meta_title       = models.CharField(max_length=200, blank=True, verbose_name="Meta Title")
+    meta_description = models.TextField(blank=True, verbose_name="Meta Description")
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Artikel & Berita"
+        verbose_name_plural = "Artikel & Berita"
+        ordering            = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.judul)
+            slug = base
+            n = 1
+            while Artikel.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{n}"
+                n += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.judul

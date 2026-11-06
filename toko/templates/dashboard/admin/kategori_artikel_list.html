@@ -1,0 +1,115 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}Kategori Artikel — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tab-status { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .9rem; border-radius:999px; font-size:.82rem; font-weight:700; color:#475569; background:#fff; border:1.5px solid #E2E8F0; text-decoration:none; transition:all .2s; }
+    .tab-status:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); }
+    .pagination .page-link { border-radius:10px !important; margin:0 .15rem; font-weight:700; font-size:.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-tags text-info me-2"></i> Kategori Artikel</h3>
+        <p class="text-muted small mb-0">Kelola kategori untuk mengelompokkan artikel dan berita MBG.</p>
+    </div>
+    <a href="{% url 'admin_kategori_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+        <i class="fa-solid fa-plus me-1"></i> Tambah Kategori
+    </a>
+</div>
+
+<div class="content-card">
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:12px 0 0 12px;border:1.5px solid #E2E8F0;border-right:none;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="search" name="q" value="{{ q }}" class="form-control" style="border-left:none;" placeholder="Cari nama kategori…" maxlength="100">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary rounded-pill px-4">Cari</button>
+            {% if q %}<a href="{% url 'admin_kategori_artikel' %}" class="btn btn-outline-secondary rounded-pill px-3 ms-1">Reset</a>{% endif %}
+        </div>
+    </form>
+
+    {% if page_obj.object_list %}
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead style="background:#F8FAFC;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:#64748B;">
+                <tr>
+                    <th class="ps-3">#</th>
+                    <th>Nama Kategori</th>
+                    <th>Slug</th>
+                    <th>Jumlah Artikel</th>
+                    <th>Deskripsi</th>
+                    <th class="text-end pe-3">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kat in page_obj %}
+                <tr>
+                    <td class="ps-3 text-muted small">{{ forloop.counter0|add:page_obj.start_index }}</td>
+                    <td class="fw-bold">{{ kat.nama }}</td>
+                    <td><code class="text-muted small">{{ kat.slug }}</code></td>
+                    <td>
+                        {% if kat.jumlah_artikel %}
+                        <span class="badge bg-primary rounded-pill">{{ kat.jumlah_artikel }}</span>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small" style="max-width:220px;">
+                        {{ kat.deskripsi|truncatechars:60|default:"—" }}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{% url 'admin_kategori_edit' kat.id %}" class="btn btn-sm btn-outline-primary rounded-pill me-1">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </a>
+                        <form method="post" action="{% url 'admin_kategori_hapus' kat.id %}" class="d-inline" onsubmit="return confirm('Hapus kategori \'{{ kat.nama }}\'?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill"
+                                {% if kat.jumlah_artikel %}disabled title="Masih ada artikel dalam kategori ini"{% endif %}>
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4 d-flex justify-content-center">
+        <ul class="pagination pagination-sm gap-1 flex-wrap">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+            {% endif %}
+            {% for n in page_obj.paginator.page_range %}
+                {% if n == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ n }}</span></li>
+                {% elif n >= page_obj.number|add:"-2" and n <= page_obj.number|add:"2" %}
+                <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ n }}">{{ n }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fa-solid fa-tags fa-3x mb-3 opacity-25"></i>
+        <p class="mb-2">{% if q %}Tidak ada kategori yang cocok dengan "{{ q }}".{% else %}Belum ada kategori artikel.{% endif %}</p>
+        <a href="{% url 'admin_kategori_tambah' %}" class="btn btn-primary rounded-pill px-4">
+            <i class="fa-solid fa-plus me-1"></i> Tambah Kategori Pertama
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

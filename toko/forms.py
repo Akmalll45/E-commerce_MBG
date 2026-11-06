@@ -8,7 +8,7 @@ import uuid
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk
+from .models import Produk, KategoriArtikel, Artikel
 
 User = get_user_model()
 
@@ -560,3 +560,139 @@ class ProdukForm(forms.ModelForm):
             if self._foto_lama and self._foto_lama != nama_sekarang:
                 produk.gambar_utama.storage.delete(self._foto_lama)
         return produk
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM KATEGORI ARTIKEL
+# ═══════════════════════════════════════════════════════════════════
+
+def validasi_gambar_artikel(f):
+    """Validasi tipe dan ukuran gambar untuk artikel (maks 5 MB)."""
+    if f is None:
+        return f
+    if not isinstance(f, UploadedFile):
+        return f
+    tipe_diizinkan = ['image/jpeg', 'image/png', 'image/webp']
+    if hasattr(f, 'content_type') and f.content_type not in tipe_diizinkan:
+        raise ValidationError("Format gambar tidak didukung. Gunakan JPEG, PNG, atau WebP.")
+    ext = (f.name or '').rsplit('.', 1)[-1].lower()
+    if ext not in ('jpg', 'jpeg', 'png', 'webp'):
+        raise ValidationError("Ekstensi file tidak valid. Gunakan .jpg, .jpeg, .png, atau .webp.")
+    if f.size > 5 * 1024 * 1024:
+        raise ValidationError("Ukuran gambar tidak boleh melebihi 5 MB.")
+    return f
+
+
+class KategoriArtikelForm(forms.ModelForm):
+    class Meta:
+        model  = KategoriArtikel
+        fields = ['nama', 'slug', 'deskripsi']
+        widgets = {
+            'nama': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nama kategori, mis. Tips Membeli Mobil',
+                'maxlength': 100,
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': 'otomatis-dari-nama (kosongkan untuk auto)',
+            }),
+            'deskripsi': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Deskripsi singkat kategori (opsional)',
+            }),
+        }
+
+    def clean_nama(self):
+        nama = (self.cleaned_data.get('nama') or '').strip()
+        if not nama:
+            raise ValidationError("Nama kategori tidak boleh kosong.")
+        return nama
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get('slug') or '').strip()
+        if slug:
+            from django.utils.text import slugify
+            slug = slugify(slug)
+        return slug
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM ARTIKEL & BERITA
+# ═══════════════════════════════════════════════════════════════════
+
+class ArtikelForm(forms.ModelForm):
+    class Meta:
+        model  = Artikel
+        fields = [
+            'judul', 'slug', 'ringkasan', 'isi',
+            'gambar_utama', 'kategori', 'status',
+            'meta_title', 'meta_description',
+        ]
+        widgets = {
+            'judul': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Judul artikel',
+                'maxlength': 200,
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': 'otomatis-dari-judul (kosongkan untuk auto)',
+            }),
+            'ringkasan': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Ringkasan singkat yang tampil di daftar artikel',
+            }),
+            'isi': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 15,
+                'placeholder': 'Isi artikel lengkap...',
+                'id': 'id_isi',
+            }),
+            'kategori': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'meta_title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Meta title untuk SEO (opsional)',
+                'maxlength': 200,
+            }),
+            'meta_description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Meta description untuk SEO (opsional)',
+            }),
+            'gambar_utama': forms.ClearableFileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp',
+            }),
+        }
+
+    def clean_judul(self):
+        judul = (self.cleaned_data.get('judul') or '').strip()
+        if not judul:
+            raise ValidationError("Judul artikel tidak boleh kosong.")
+        return judul
+
+    def clean_ringkasan(self):
+        v = (self.cleaned_data.get('ringkasan') or '').strip()
+        if not v:
+            raise ValidationError("Ringkasan tidak boleh kosong.")
+        return v
+
+    def clean_isi(self):
+        v = (self.cleaned_data.get('isi') or '').strip()
+        if not v:
+            raise ValidationError("Isi artikel tidak boleh kosong.")
+        return v
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get('slug') or '').strip()
+        if slug:
+            from django.utils.text import slugify
+            slug = slugify(slug)
+        return slug
+
+    def clean_gambar_utama(self):
+        return validasi_gambar_artikel(self.cleaned_data.get('gambar_utama'))

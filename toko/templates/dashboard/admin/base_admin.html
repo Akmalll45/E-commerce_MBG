@@ -104,17 +104,20 @@
             <div class="col-lg-2">
                 <div class="admin-sidebar">
                     <div class="side-section-title mt-0">Navigasi Utama</div>
-                    <a class="admin-side-item" href="{% url 'dashboard_admin' %}">
+                    <a class="admin-side-item {% if request.resolver_match.url_name == 'dashboard_admin' %}active{% endif %}" href="{% url 'dashboard_admin' %}">
                         <span><i class="fa-solid fa-chart-line text-warning"></i> Ikhtisar Bisnis</span>
                     </a>
 
                     <div class="side-section-title">Modul Operasional</div>
-                    <a class="admin-side-item active" href="{% url 'admin_katalog' %}">
+                    <a class="admin-side-item {% if 'katalog' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_katalog' %}">
                         <span><i class="fa-solid fa-car text-primary"></i> Katalog Mobil</span>
-                        <span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>
+                        {% if total_katalog %}<span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>{% endif %}
                     </a>
-                    <a class="admin-side-item" href="/admin/toko/bookingcekunit/" target="_blank">
+                    <a class="admin-side-item {% if 'booking' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_booking' %}">
                         <span><i class="fa-solid fa-calendar-check text-success"></i> Booking Cek Unit</span>
+                        {% if booking_menunggu_dp > 0 %}
+                            <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
+                        {% endif %}
                     </a>
                     <a class="admin-side-item" href="/admin/toko/titipjual/" target="_blank">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
@@ -123,9 +126,17 @@
                         <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
                     </a>
 
+                    <div class="side-section-title">Konten Website</div>
+                    <a class="admin-side-item {% if 'artikel' in request.resolver_match.url_name and 'kategori' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_artikel' %}">
+                        <span><i class="fa-solid fa-newspaper text-primary"></i> Artikel &amp; Berita</span>
+                    </a>
+                    <a class="admin-side-item {% if 'kategori_artikel' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_kategori_artikel' %}">
+                        <span><i class="fa-solid fa-tags text-info"></i> Kategori Artikel</span>
+                    </a>
+
                     <div class="side-section-title">Akun &amp; Pengaturan</div>
-                    <a class="admin-side-item" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>
-                    <a class="admin-side-item" href="{% url 'ubah_password_admin' %}"><span><i class="fa-solid fa-key"></i> Ubah Password</span></a>
+                    <a class="admin-side-item {% if request.resolver_match.url_name == 'profil_admin' %}active{% endif %}" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>
+                    <a class="admin-side-item {% if request.resolver_match.url_name == 'ubah_password_admin' %}active{% endif %}" href="{% url 'ubah_password_admin' %}"><span><i class="fa-solid fa-key"></i> Ubah Password</span></a>
                     <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}"><span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span></a>
                 </div>
             </div>

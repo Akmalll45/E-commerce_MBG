@@ -1,0 +1,430 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+{% load humanize %}
+
+{% block title %}Detail Booking #{{ booking.id }} — {{ booking.nama_pemesan }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: #fff;
+        border: 1px solid #E2E8F0;
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-card);
+        margin-bottom: 1.5rem;
+    }
+    .detail-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #F1F5F9;
+        padding-bottom: 0.85rem;
+        margin-bottom: 1.25rem;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+    .detail-label {
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #64748B;
+        margin-bottom: .25rem;
+    }
+    .detail-val {
+        font-size: .95rem;
+        font-weight: 600;
+        color: #0F172A;
+    }
+    .img-unit-detail {
+        width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+        border: 1px solid #E2E8F0;
+    }
+    .badge-status-lg {
+        font-size: .88rem;
+        font-weight: 700;
+        padding: .5rem 1.1rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .badge-booking-menunggu_dp {
+        background: rgba(245, 158, 11, 0.14);
+        color: #B45309;
+        border: 1.5px solid rgba(245, 158, 11, 0.35);
+    }
+    .badge-booking-terkonfirmasi {
+        background: rgba(37, 99, 235, 0.12);
+        color: #1D4ED8;
+        border: 1.5px solid rgba(37, 99, 235, 0.30);
+    }
+    .badge-booking-selesai {
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+        border: 1.5px solid rgba(16, 185, 129, 0.35);
+    }
+    .badge-booking-batal {
+        background: rgba(100, 116, 139, 0.14);
+        color: #475569;
+        border: 1.5px solid rgba(100, 116, 139, 0.30);
+    }
+    .badge-bayar-lg {
+        font-size: .80rem;
+        font-weight: 700;
+        padding: .35rem .75rem;
+        border-radius: 8px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .badge-bayar-pending { background: #FEF3C7; color: #92400E; }
+    .badge-bayar-berhasil { background: #D1FAE5; color: #065F46; }
+    .badge-bayar-gagal { background: #FEE2E2; color: #991B1B; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb & Header Navigasi -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1 small text-muted">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_admin' %}" class="text-decoration-none text-muted">Panel Admin</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'admin_booking' %}" class="text-decoration-none text-muted">Booking Cek Unit</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Booking #{{ booking.id }}</li>
+            </ol>
+        </nav>
+        <div class="d-flex align-items-center gap-3">
+            <h3 class="fw-bold text-dark mb-0">Booking #{{ booking.id }}</h3>
+            <span class="badge-status-lg badge-booking-{{ booking.status }}">
+                {% if booking.status == 'menunggu_dp' %}
+                    <i class="fa-solid fa-hourglass-half"></i>
+                {% elif booking.status == 'terkonfirmasi' %}
+                    <i class="fa-solid fa-circle-check"></i>
+                {% elif booking.status == 'selesai' %}
+                    <i class="fa-solid fa-flag-checkered"></i>
+                {% else %}
+                    <i class="fa-solid fa-ban"></i>
+                {% endif %}
+                {{ booking.get_status_display }}
+            </span>
+        </div>
+        <div class="text-muted small mt-1">
+            <i class="fa-regular fa-clock me-1"></i> Diajukan pada: <strong>{{ booking.created_at|date:"l, d F Y — H:i" }} WITA</strong>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="https://wa.me/{{ booking.no_whatsapp|cut:' '|cut:'-'|cut:'+' }}?text=Halo%20{{ booking.nama_pemesan|urlencode }},%20kami%20dari%20Garasi%20MBG%20Makassar%20mengonfirmasi%20jadwal%20booking%20cek%20unit%20#{{ booking.id }}%20untuk%20mobil%20{{ produk.nama|urlencode }}." 
+           target="_blank" 
+           class="btn btn-success rounded-pill px-3 fw-bold btn-sm shadow-sm">
+            <i class="fa-brands fa-whatsapp me-1"></i> Chat Pelanggan
+        </a>
+        <a href="{% url 'admin_booking' %}" class="btn btn-outline-secondary rounded-pill px-3 btn-sm">
+            <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Kolom Kiri: Pelanggan, Jadwal, dan Pembayaran -->
+    <div class="col-lg-7">
+        <!-- 1. Informasi Pelanggan -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-user text-primary me-2"></i> Informasi Pelanggan
+                </h5>
+                {% if user_terkait %}
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill small">
+                        <i class="fa-solid fa-circle-check me-1"></i> Akun Terdaftar
+                    </span>
+                {% else %}
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill small">
+                        Tamu / Kontak Langsung
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="detail-label">Nama Pemesan</div>
+                    <div class="detail-val fs-6 text-primary">{{ booking.nama_pemesan }}</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="detail-label">Nomor WhatsApp / HP</div>
+                    <div class="detail-val">
+                        <a href="https://wa.me/{{ booking.no_whatsapp|cut:' '|cut:'-'|cut:'+' }}" target="_blank" class="text-success text-decoration-none fw-bold">
+                            <i class="fa-brands fa-whatsapp me-1"></i> {{ booking.no_whatsapp }}
+                        </a>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="detail-label">Alamat Email</div>
+                    <div class="detail-val">
+                        <a href="mailto:{{ booking.email }}" class="text-decoration-none text-dark">
+                            <i class="fa-regular fa-envelope text-muted me-1"></i> {{ booking.email }}
+                        </a>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="detail-label">Status Akun MBG</div>
+                    {% if user_terkait %}
+                        <div class="detail-val small">
+                            <strong>{{ user_terkait.username }}</strong> &bull; Bergabung {{ user_terkait.date_joined|date:"M Y" }}
+                        </div>
+                    {% else %}
+                        <div class="detail-val text-muted small">Belum terdaftar sebagai pengguna website</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Informasi Jadwal & Layanan O2O -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-calendar-days text-success me-2"></i> Jadwal Inspeksi &amp; O2O
+                </h5>
+                <span class="badge bg-light text-dark border">
+                    {% if booking.opsi_delivery == 'showroom' %}
+                        <i class="fa-solid fa-store text-primary me-1"></i> Cek di Showroom (Gratis)
+                    {% else %}
+                        <i class="fa-solid fa-truck-pickup text-info me-1"></i> Towing ke Rumah
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="detail-label">Tanggal Cek Unit</div>
+                    <div class="detail-val fs-6">{{ booking.tanggal_cek_unit|date:"l, d F Y" }}</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="detail-label">Jam Kunjungan</div>
+                    <div class="detail-val fs-6"><i class="fa-regular fa-clock text-warning me-1"></i> {{ booking.jam_cek_unit|time:"H:i" }} WITA</div>
+                </div>
+                <div class="col-12">
+                    <div class="detail-label">Lokasi / Opsi Delivery</div>
+                    {% if booking.opsi_delivery == 'showroom' %}
+                        <div class="p-3 rounded-3 bg-light border">
+                            <div class="fw-bold text-dark"><i class="fa-solid fa-location-dot text-danger me-1"></i> Showroom MBG Makassar</div>
+                            <div class="text-muted small mt-1">Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar (Buka 08.30 – 18.00 WITA)</div>
+                        </div>
+                    {% else %}
+                        <div class="p-3 rounded-3 bg-info bg-opacity-10 border border-info border-opacity-25">
+                            <div class="fw-bold text-dark"><i class="fa-solid fa-truck-pickup text-info me-1"></i> Diantar via Truk Towing ke Alamat:</div>
+                            <div class="text-dark small mt-1 fw-semibold">{{ booking.alamat_pengantaran|default:"(Alamat pengantaran belum dicantumkan)" }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Informasi Transaksi & Booking Fee -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-receipt text-warning me-2"></i> Transaksi &amp; Booking Fee
+                </h5>
+                {% if transaksi %}
+                    <span class="badge-bayar-lg badge-bayar-{{ transaksi.status_pembayaran }}">
+                        {{ transaksi.get_status_pembayaran_display }}
+                    </span>
+                {% else %}
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 small">
+                        Belum Ada Invoice
+                    </span>
+                {% endif %}
+            </div>
+
+            {% if transaksi %}
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="detail-label">Nomor Order Transaksi</div>
+                        <div class="detail-val font-monospace text-primary">{{ transaksi.no_order }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="detail-label">Nominal DP / Booking Fee</div>
+                        <div class="detail-val fs-5 text-success">Rp {{ transaksi.nominal_dp|intcomma }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="detail-label">Metode Pembayaran</div>
+                        <div class="detail-val">{{ transaksi.get_metode_pembayaran_display }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="detail-label">Status Pembayaran</div>
+                        <div class="detail-val">
+                            <span class="badge-bayar badge-bayar-{{ transaksi.status_pembayaran }}">
+                                {{ transaksi.get_status_pembayaran_display }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if transaksi.midtrans_order_id %}
+                        <div class="col-12">
+                            <div class="detail-label">Payment Gateway ID</div>
+                            <div class="detail-val small font-monospace text-muted">{{ transaksi.midtrans_order_id }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="fa-solid fa-file-invoice-dollar fs-3 mb-2 d-block opacity-50"></i>
+                    <p class="small mb-0">Belum ada data transaksi atau DP yang terhubung ke booking ini.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Kolom Kanan: Detail Kendaraan & Pengelolaan Status -->
+    <div class="col-lg-5">
+        <!-- 4. Pengelolaan Status Booking -->
+        <div class="detail-card border-primary border-opacity-25">
+            <div class="detail-card-header">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-sliders text-primary me-2"></i> Kelola Status Booking
+                </h5>
+            </div>
+
+            <form method="post" action="{% url 'admin_booking_status' booking.id %}" id="formStatusBooking">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+                <div class="mb-3">
+                    <label class="form-label">Pilih Status Baru</label>
+                    <select name="status" class="form-select" id="selectStatusBooking">
+                        {% for kode, label in pilihan_status %}
+                            <option value="{{ kode }}" {% if booking.status == kode %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="alert alert-warning py-2 px-3 small mb-3 border-0" style="border-radius: 10px;">
+                    <i class="fa-solid fa-circle-exclamation me-1"></i>
+                    <strong>Perhatian:</strong> Perubahan status booking tidak mengubah status pembayaran secara otomatis.
+                </div>
+
+                <button type="button" class="btn btn-primary w-100 fw-bold py-2 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalKonfirmasiStatus">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan Status
+                </button>
+            </form>
+        </div>
+
+        <!-- 5. Informasi Kendaraan yang Dipilih -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-car text-primary me-2"></i> Kendaraan Pilihan
+                </h5>
+                <a href="{% url 'detail_produk' produk.id %}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill py-0.5 px-2.5 small">
+                    <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat Publik
+                </a>
+            </div>
+
+            <div class="mb-3 text-center">
+                {% if produk.gambar_utama %}
+                    <img src="{{ produk.gambar_utama.url }}" alt="{{ produk.nama }}" class="img-unit-detail mb-3">
+                {% endif %}
+                <h5 class="fw-bold text-dark mb-1">{{ produk.nama }}</h5>
+                <div class="text-primary fw-bold fs-5 mb-2">Rp {{ produk.harga|intcomma }}</div>
+                {% if produk.harga_promo %}
+                    <div class="small text-muted">Promo / Subsidi DP: <span class="text-danger fw-semibold">Rp {{ produk.harga_promo|intcomma }}</span></div>
+                {% endif %}
+            </div>
+
+            <ul class="list-group list-group-flush small mb-3">
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">SKU Produk</span>
+                    <strong class="font-monospace">{{ produk.sku }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">Plat Nomor</span>
+                    <strong>{{ produk.plat_nomor }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">Tahun &bull; Transmisi</span>
+                    <strong>{{ produk.tahun }} &bull; {{ produk.get_transmisi_display }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">Jarak Tempuh</span>
+                    <strong>{{ produk.jarak_tempuh|intcomma }} KM</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">Status Stok Unit</span>
+                    <span>
+                        {% if produk.status_stok == 'ready' %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Ready Stock</span>
+                        {% elif produk.status_stok == 'in_review' %}
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill">In Review (Booking)</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill">Sold Out</span>
+                        {% endif %}
+                    </span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0 py-2">
+                    <span class="text-muted">Inspeksi MBG</span>
+                    <span class="text-success fw-bold"><i class="fa-solid fa-shield-halved me-1"></i> Lulus 150 Titik</span>
+                </li>
+            </ul>
+
+            <a href="{% url 'admin_katalog_edit' produk.id %}" class="btn btn-outline-secondary w-100 btn-sm rounded-pill fw-semibold">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Edit Data Unit di Katalog
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Konfirmasi Perubahan Status -->
+<div class="modal fade" id="modalKonfirmasiStatus" tabindex="-1" aria-labelledby="modalKonfirmasiStatusLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-lg); border: none; box-shadow: var(--shadow-hover);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalKonfirmasiStatusLabel">
+                    <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i> Konfirmasi Perubahan Status
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="text-muted mb-3">
+                    Apakah Anda yakin ingin memperbarui status Booking <strong>#{{ booking.id }}</strong> atas nama <strong>{{ booking.nama_pemesan }}</strong>?
+                </p>
+                <div class="p-3 rounded-3 bg-light border small">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Status Saat Ini:</span>
+                        <strong class="text-dark">{{ booking.get_status_display }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Status Baru:</span>
+                        <strong class="text-primary" id="teksStatusTujuan">-</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="document.getElementById('formStatusBooking').submit();">
+                    Ya, Perbarui Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Update teks status tujuan pada modal konfirmasi secara dinamis
+    const selectStatus = document.getElementById('selectStatusBooking');
+    const teksTujuan = document.getElementById('teksStatusTujuan');
+    if (selectStatus && teksTujuan) {
+        function updateTeksTujuan() {
+            teksTujuan.textContent = selectStatus.options[selectStatus.selectedIndex].text;
+        }
+        selectStatus.addEventListener('change', updateTeksTujuan);
+        updateTeksTujuan();
+    }
+</script>
+{% endblock %}

@@ -1,13 +1,16 @@
+from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path
 from django.conf import settings 
-from django.conf.urls.static import static 
+from django.conf.urls.static import static
+from django.urls import path, include 
 
 from toko import views
 
 urlpatterns = [
-    # Django Admin Site Bawaan
     path('admin/', admin.site.urls),
+    path('', include('toko.urls')),
+
 
     # Publik: Beranda, Katalog & Detail Mobil
     path('', views.beranda, name='beranda'),
@@ -33,6 +36,10 @@ urlpatterns = [
     path('panel/katalog/<int:id>/hapus/', views.admin_katalog_hapus, name='admin_katalog_hapus'),
     path('panel/katalog/<int:id>/galeri/tambah/', views.admin_galeri_tambah, name='admin_galeri_tambah'),
     path('panel/katalog/<int:id>/galeri/<int:foto_id>/hapus/', views.admin_galeri_hapus, name='admin_galeri_hapus'),
+    # Modul Booking Cek Unit
+    path('panel/booking/', views.admin_booking, name='admin_booking'),
+    path('panel/booking/<int:id>/', views.admin_booking_detail, name='admin_booking_detail'),
+    path('panel/booking/<int:id>/status/', views.admin_booking_status, name='admin_booking_status'),
     path('panel/profil/', views.profil_admin, name='profil_admin'),
     path('panel/ubah-password/', views.ubah_password_admin, name='ubah_password_admin'),
 ]

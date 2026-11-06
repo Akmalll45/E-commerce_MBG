@@ -1,0 +1,375 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+{% load humanize %}
+
+{% block title %}Kelola Booking Cek Unit{% endblock %}
+
+{% block extra_css %}
+<style>
+    .thumb-unit {
+        width: 80px; height: 58px;
+        object-fit: cover;
+        border-radius: 10px;
+        background: #0C1222;
+        border: 1px solid #E2E8F0;
+        flex-shrink: 0;
+    }
+    .thumb-kosong {
+        width: 80px; height: 58px;
+        border-radius: 10px;
+        background: #F1F5F9;
+        color: #94A3B8;
+        display: grid; place-items: center;
+        border: 1px dashed #CBD5E1;
+        flex-shrink: 0;
+    }
+    .tab-status {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .45rem .9rem;
+        border-radius: 999px;
+        font-size: .82rem;
+        font-weight: 700;
+        color: #475569;
+        background: #fff;
+        border: 1.5px solid #E2E8F0;
+        text-decoration: none;
+        transition: all .2s;
+    }
+    .tab-status:hover {
+        border-color: var(--mbg-blue);
+        color: var(--mbg-blue);
+    }
+    .tab-status.aktif {
+        background: #080D1A;
+        color: #fff;
+        border-color: #080D1A;
+    }
+    .tab-status .n {
+        font-size: .72rem;
+        padding: .1rem .45rem;
+        border-radius: 999px;
+        background: rgba(100,116,139,.15);
+    }
+    .tab-status.aktif .n {
+        background: rgba(255,255,255,.2);
+    }
+    .tabel-booking td {
+        vertical-align: middle;
+    }
+    .badge-status-booking {
+        font-size: .74rem;
+        font-weight: 700;
+        padding: .35rem .7rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+    .badge-booking-menunggu_dp {
+        background: rgba(245, 158, 11, 0.12);
+        color: #B45309;
+        border-color: rgba(245, 158, 11, 0.35);
+    }
+    .badge-booking-terkonfirmasi {
+        background: rgba(37, 99, 235, 0.10);
+        color: #1D4ED8;
+        border-color: rgba(37, 99, 235, 0.30);
+    }
+    .badge-booking-selesai {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+        border-color: rgba(16, 185, 129, 0.35);
+    }
+    .badge-booking-batal {
+        background: rgba(100, 116, 139, 0.12);
+        color: #475569;
+        border-color: rgba(100, 116, 139, 0.30);
+    }
+    .badge-bayar {
+        font-size: .70rem;
+        font-weight: 700;
+        padding: .2rem .5rem;
+        border-radius: 6px;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+    }
+    .badge-bayar-pending { background: #FEF3C7; color: #92400E; }
+    .badge-bayar-berhasil { background: #D1FAE5; color: #065F46; }
+    .badge-bayar-gagal { background: #FEE2E2; color: #991B1B; }
+    .pagination .page-link {
+        border-radius: 10px !important;
+        margin: 0 .15rem;
+        font-weight: 700;
+        font-size: .85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Halaman -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1 small text-muted">
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_admin' %}" class="text-decoration-none text-muted">Panel Admin</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Booking Cek Unit</li>
+            </ol>
+        </nav>
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-calendar-check text-success me-2"></i> Kelola Booking Cek Unit (O2O)
+        </h3>
+        <p class="text-muted small mb-0">Pantau jadwal inspeksi offline garasi Makassar, delivery towing, dan kelola status jadwal pelanggan.</p>
+    </div>
+</div>
+
+<!-- Tab Filter Status Cepat -->
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% for kode, label, jumlah in tab_status %}
+        <a class="tab-status {% if nilai.status|default:'' == kode %}aktif{% endif %}"
+           href="{% url 'admin_booking' %}{% if kode %}?status={{ kode }}{% endif %}">
+            {{ label }} <span class="n">{{ jumlah }}</span>
+        </a>
+    {% endfor %}
+</div>
+
+<!-- Content Card: Filter & Tabel Data -->
+<div class="content-card">
+    <!-- Form Pencarian & Filter Multi-Kriteria -->
+    <form method="get" class="row g-2 mb-4">
+        {% if nilai.status %}<input type="hidden" name="status" value="{{ nilai.status }}">{% endif %}
+
+        <div class="col-12 col-md-4">
+            <label class="form-label">Pencarian Teks</label>
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" name="q" class="form-control border-start-0" placeholder="Nama, no WA, email, atau unit..." value="{{ nilai.q|default:'' }}">
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <label class="form-label">Opsi Layanan</label>
+            <select name="opsi" class="form-select">
+                <option value="">Semua Opsi</option>
+                {% for kode, label in pilihan_opsi %}
+                    <option value="{{ kode }}" {% if nilai.opsi == kode %}selected{% endif %}>
+                        {% if kode == 'showroom' %}Showroom (Pettarani){% else %}Truk Towing{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <label class="form-label">Status Bayar</label>
+            <select name="pembayaran" class="form-select">
+                <option value="">Semua Bayar</option>
+                {% for kode, label in pilihan_pembayaran %}
+                    <option value="{{ kode }}" {% if nilai.pembayaran == kode %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <label class="form-label">Dari Tanggal Cek</label>
+            <input type="date" name="tgl_dari" class="form-control" value="{{ nilai.tgl_dari|default:'' }}">
+        </div>
+
+        <div class="col-6 col-md-2">
+            <label class="form-label">Sampai Tanggal Cek</label>
+            <input type="date" name="tgl_sampai" class="form-control" value="{{ nilai.tgl_sampai|default:'' }}">
+        </div>
+
+        <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+            {% if nilai %}
+                <a href="{% url 'admin_booking' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="fa-solid fa-arrow-rotate-left me-1"></i> Reset Filter
+                </a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold">
+                <i class="fa-solid fa-filter me-1"></i> Terapkan Filter
+            </button>
+        </div>
+    </form>
+
+    <!-- Tabel Booking Cek Unit -->
+    {% if booking_list %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle tabel-booking mb-0">
+                <thead class="table-light small text-uppercase text-secondary">
+                    <tr>
+                        <th style="width: 80px;">ID</th>
+                        <th>Pelanggan</th>
+                        <th>Kendaraan Pilihan</th>
+                        <th>Jadwal Cek Unit</th>
+                        <th>Layanan O2O</th>
+                        <th>Tanda Jadi / DP</th>
+                        <th>Status Booking</th>
+                        <th class="text-end" style="width: 130px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in booking_list %}
+                        <tr>
+                            <!-- ID & Waktu Diajukan -->
+                            <td>
+                                <span class="fw-bold text-dark">#{{ b.id }}</span>
+                                <div class="text-muted" style="font-size: .70rem;">{{ b.created_at|date:"d M Y" }}</div>
+                            </td>
+
+                            <!-- Info Pelanggan -->
+                            <td>
+                                <a href="{% url 'admin_booking_detail' b.id %}" class="fw-bold text-dark text-decoration-none d-block">
+                                    {{ b.nama_pemesan }}
+                                </a>
+                                <div class="d-flex align-items-center gap-2 mt-0.5">
+                                    <a href="https://wa.me/{{ b.no_whatsapp|cut:' '|cut:'-'|cut:'+' }}?text=Halo%20{{ b.nama_pemesan|urlencode }},%20kami%20dari%20Garasi%20MBG%20Makassar%20mengonfirmasi%20jadwal%20booking%20cek%20unit%20#{{ b.id }}" 
+                                       target="_blank" 
+                                       class="text-success small text-decoration-none fw-semibold">
+                                        <i class="fa-brands fa-whatsapp"></i> {{ b.no_whatsapp }}
+                                    </a>
+                                </div>
+                                <div class="text-muted small" style="font-size: .75rem;">{{ b.email }}</div>
+                            </td>
+
+                            <!-- Info Kendaraan -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2.5">
+                                    {% if b.produk.gambar_utama %}
+                                        <img src="{{ b.produk.gambar_utama.url }}" alt="{{ b.produk.nama }}" class="thumb-unit">
+                                    {% else %}
+                                        <div class="thumb-kosong"><i class="fa-solid fa-car"></i></div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-bold text-dark" style="font-size: .88rem;">{{ b.produk.nama }}</div>
+                                        <div class="text-muted small">SKU: {{ b.produk.sku }} &bull; {{ b.produk.plat_nomor }}</div>
+                                        <div class="text-primary fw-semibold small">Rp {{ b.produk.harga|intcomma }}</div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Jadwal Kunjungan -->
+                            <td>
+                                <div class="fw-bold text-dark">{{ b.tanggal_cek_unit|date:"d M Y" }}</div>
+                                <div class="text-muted small"><i class="fa-regular fa-clock me-1"></i>{{ b.jam_cek_unit|time:"H:i" }} WITA</div>
+                            </td>
+
+                            <!-- Layanan O2O Delivery -->
+                            <td>
+                                {% if b.opsi_delivery == 'showroom' %}
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="fa-solid fa-store text-primary me-1"></i> Showroom MBG
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" title="{{ b.alamat_pengantaran|default:'Makassar' }}">
+                                        <i class="fa-solid fa-truck-pickup me-1"></i> Truk Towing
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Booking Fee & Status Pembayaran -->
+                            <td>
+                                {% if b.transaksi %}
+                                    <div class="fw-bold text-dark">Rp {{ b.transaksi.nominal_dp|intcomma }}</div>
+                                    <span class="badge-bayar badge-bayar-{{ b.transaksi.status_pembayaran }}">
+                                        {{ b.transaksi.get_status_pembayaran_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">Belum Ada Transaksi</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Status Booking -->
+                            <td>
+                                <span class="badge-status-booking badge-booking-{{ b.status }}">
+                                    {% if b.status == 'menunggu_dp' %}
+                                        <i class="fa-solid fa-hourglass-half"></i>
+                                    {% elif b.status == 'terkonfirmasi' %}
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    {% elif b.status == 'selesai' %}
+                                        <i class="fa-solid fa-flag-checkered"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-ban"></i>
+                                    {% endif %}
+                                    {{ b.get_status_display }}
+                                </span>
+                            </td>
+
+                            <!-- Tombol Aksi -->
+                            <td class="text-end">
+                                <a href="{% url 'admin_booking_detail' b.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
+                                    <i class="fa-solid fa-pen-to-square me-1"></i> Kelola
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-4 pt-3 border-top">
+            <div class="small text-muted">
+                Menampilkan <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> dari <strong>{{ total_hasil }}</strong> data booking
+            </div>
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Navigasi Halaman Booking">
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link"><i class="fa-solid fa-chevron-left"></i></span></li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link"><i class="fa-solid fa-chevron-right"></i></span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <div class="mb-3 text-muted">
+                <i class="fa-solid fa-calendar-xmark fs-1 text-secondary opacity-50"></i>
+            </div>
+            <h5 class="fw-bold text-dark mb-1">Tidak Ada Data Booking Cek Unit</h5>
+            <p class="text-muted small mb-3">
+                {% if nilai %}
+                    Tidak ditemukan data booking yang cocok dengan kriteria pencarian atau filter yang Anda pilih.
+                {% else %}
+                    Belum ada data pengajuan booking cek unit di dalam sistem MBG.
+                {% endif %}
+            </p>
+            {% if nilai %}
+                <a href="{% url 'admin_booking' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                    <i class="fa-solid fa-arrow-rotate-left me-1"></i> Reset Kriteria Filter
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

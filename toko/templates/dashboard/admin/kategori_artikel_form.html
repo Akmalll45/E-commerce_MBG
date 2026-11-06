@@ -1,0 +1,83 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}{{ page_title }} — MBG Panel{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-tags text-info me-2"></i>
+            {% if mode == 'tambah' %}Tambah Kategori Artikel{% else %}Edit Kategori: {{ kategori.nama }}{% endif %}
+        </h3>
+        <p class="text-muted small mb-0">
+            {% if mode == 'tambah' %}Buat kategori baru untuk mengelompokkan artikel.{% else %}Perbarui informasi kategori.{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'admin_kategori_artikel' %}" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="fa-solid fa-arrow-left me-1"></i> Kembali
+    </a>
+</div>
+
+<div class="content-card" style="max-width:640px;">
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold" for="{{ form.nama.id_for_label }}">
+                Nama Kategori <span class="text-danger">*</span>
+            </label>
+            {{ form.nama }}
+            {% if form.nama.errors %}
+            <div class="text-danger small mt-1">{{ form.nama.errors|join:", " }}</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold" for="{{ form.slug.id_for_label }}">
+                Slug <span class="text-muted fw-normal">(opsional — otomatis dari nama)</span>
+            </label>
+            {{ form.slug }}
+            {% if form.slug.errors %}
+            <div class="text-danger small mt-1">{{ form.slug.errors|join:", " }}</div>
+            {% endif %}
+            <div class="form-text">Contoh: <code>tips-membeli-mobil</code></div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold" for="{{ form.deskripsi.id_for_label }}">Deskripsi</label>
+            {{ form.deskripsi }}
+            {% if form.deskripsi.errors %}
+            <div class="text-danger small mt-1">{{ form.deskripsi.errors|join:", " }}</div>
+            {% endif %}
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">
+                <i class="fa-solid fa-floppy-disk me-1"></i>
+                {% if mode == 'tambah' %}Simpan Kategori{% else %}Simpan Perubahan{% endif %}
+            </button>
+            <a href="{% url 'admin_kategori_artikel' %}" class="btn btn-outline-secondary rounded-pill px-4">Batal</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Auto-generate slug dari nama jika slug kosong */
+(function () {
+    const namaEl = document.getElementById('{{ form.nama.id_for_label }}');
+    const slugEl = document.getElementById('{{ form.slug.id_for_label }}');
+    if (!namaEl || !slugEl) return;
+    namaEl.addEventListener('input', function () {
+        if (slugEl.dataset.manual) return;
+        slugEl.value = namaEl.value.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '').trim()
+            .replace(/\s+/g, '-').replace(/-+/g, '-');
+    });
+    slugEl.addEventListener('input', function () {
+        slugEl.dataset.manual = slugEl.value ? '1' : '';
+    });
+})();
+</script>
+{% endblock %}

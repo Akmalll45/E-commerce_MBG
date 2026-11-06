@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi
+from .models import CustomUser, Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi, KategoriArtikel, Artikel
 
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -20,3 +20,5 @@ admin.site.register(FotoMobil)
 admin.site.register(TitipJual)
 admin.site.register(BookingCekUnit)
 admin.site.register(Transaksi)
+admin.site.register(KategoriArtikel)
+admin.site.register(Artikel)

@@ -12,10 +12,11 @@ from django.views.decorators.http import require_POST
 from functools import wraps
 from urllib.parse import urlencode
 
-from .models import Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi
+from .models import Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi, KategoriArtikel, Artikel
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
     ProdukForm, validasi_foto_mobil,
+    KategoriArtikelForm, ArtikelForm,
 )
 
 User = get_user_model()
@@ -750,3 +751,391 @@ def admin_galeri_hapus(request, id, foto_id):
         transaction.on_commit(lambda: storage.delete(berkas))
     messages.success(request, "Foto galeri dihapus.")
     return redirect('admin_katalog_edit', id=produk.id)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 6. MODUL BOOKING CEK UNIT (ADMIN PANEL)
+# ═══════════════════════════════════════════════════════════════════
+
+ADMIN_BOOKING_PER_HALAMAN = 15
+
+
+@staf_required
+def admin_booking(request):
+    """
+    Daftar seluruh Booking Cek Unit MBG:
+    Pencarian (nama pemesan, telepon, email, unit), filter status booking,
+    filter opsi delivery, filter tanggal cek unit, pengurutan, pagination.
+    """
+    daftar = BookingCekUnit.objects.select_related('produk', 'transaksi').order_by('-created_at', '-id')
+    params = {}
+
+    # 1. Pencarian teks
+    q = ' '.join(request.GET.get('q', '').split())[:100]
+    if q:
+        params['q'] = q
+        daftar = daftar.filter(
+            Q(nama_pemesan__icontains=q) |
+            Q(no_whatsapp__icontains=q) |
+            Q(email__icontains=q) |
+            Q(produk__nama__icontains=q) |
+            Q(produk__sku__icontains=q) |
+            Q(produk__plat_nomor__icontains=q)
+        )
+
+    # 2. Filter Status Booking
+    status = request.GET.get('status', '').strip()
+    if status in dict(BookingCekUnit.STATUS_BOOKING):
+        params['status'] = status
+        daftar = daftar.filter(status=status)
+
+    # 3. Filter Opsi Delivery
+    opsi = request.GET.get('opsi', '').strip()
+    if opsi in dict(BookingCekUnit.OPSI_DELIVERY):
+        params['opsi'] = opsi
+        daftar = daftar.filter(opsi_delivery=opsi)
+
+    # 4. Filter Status Pembayaran
+    pembayaran = request.GET.get('pembayaran', '').strip()
+    if pembayaran in dict(Transaksi.STATUS_PEMBAYARAN):
+        params['pembayaran'] = pembayaran
+        daftar = daftar.filter(transaksi__status_pembayaran=pembayaran)
+
+    # 5. Filter Rentang Tanggal Cek Unit
+    tgl_dari = request.GET.get('tgl_dari', '').strip()
+    if tgl_dari:
+        params['tgl_dari'] = tgl_dari
+        daftar = daftar.filter(tanggal_cek_unit__gte=tgl_dari)
+
+    tgl_sampai = request.GET.get('tgl_sampai', '').strip()
+    if tgl_sampai:
+        params['tgl_sampai'] = tgl_sampai
+        daftar = daftar.filter(tanggal_cek_unit__lte=tgl_sampai)
+
+    # 6. Pagination
+    page_obj = Paginator(daftar, ADMIN_BOOKING_PER_HALAMAN).get_page(request.GET.get('page'))
+
+    # 7. Statistik & Tab Status
+    total_booking = BookingCekUnit.objects.count()
+    hitung_status = dict(BookingCekUnit.objects.values_list('status').annotate(n=Count('id')))
+    tab_status = [('', 'Semua', total_booking)] + [
+        (kode, label, hitung_status.get(kode, 0)) for kode, label in BookingCekUnit.STATUS_BOOKING
+    ]
+
+    context = {
+        'page_obj': page_obj,
+        'booking_list': page_obj.object_list,
+        'total_hasil': page_obj.paginator.count,
+        'querystring': urlencode(params),
+        'nilai': params,
+        'tab_status': tab_status,
+        'pilihan_status': BookingCekUnit.STATUS_BOOKING,
+        'pilihan_opsi': BookingCekUnit.OPSI_DELIVERY,
+        'pilihan_pembayaran': Transaksi.STATUS_PEMBAYARAN,
+        'total_booking': total_booking,
+        'booking_menunggu_dp': hitung_status.get('menunggu_dp', 0),
+        'booking_terkonfirmasi': hitung_status.get('terkonfirmasi', 0),
+        'booking_selesai': hitung_status.get('selesai', 0),
+        'booking_batal': hitung_status.get('batal', 0),
+        'next_url': request.get_full_path(),
+    }
+    return render(request, 'dashboard/admin/booking_list.html', context)
+
+
+@staf_required
+def admin_booking_detail(request, id):
+    """
+    Halaman Detail Lengkap Booking Cek Unit:
+    Menampilkan info pelanggan, kendaraan, jadwal booking, opsi delivery,
+    transaksi/DP (jika ada), serta aksi kelola status.
+    """
+    booking = get_object_or_404(
+        BookingCekUnit.objects.select_related('produk', 'transaksi'),
+        id=id
+    )
+
+    # Cari akun user terdaftar yang sesuai email atau no_whatsapp
+    user_terkait = None
+    if booking.email or booking.no_whatsapp:
+        filter_user = Q()
+        if booking.email:
+            filter_user |= Q(email__iexact=booking.email)
+        if booking.no_whatsapp:
+            filter_user |= Q(no_whatsapp=booking.no_whatsapp)
+        user_terkait = User.objects.filter(filter_user).first()
+
+    # Transaksi & pembayaran terkait
+    transaksi = getattr(booking, 'transaksi', None)
+
+    context = {
+        'booking': booking,
+        'produk': booking.produk,
+        'transaksi': transaksi,
+        'user_terkait': user_terkait,
+        'pilihan_status': BookingCekUnit.STATUS_BOOKING,
+    }
+    return render(request, 'dashboard/admin/booking_detail.html', context)
+
+
+@staf_required
+@require_POST
+def admin_booking_status(request, id):
+    """
+    Update Status Booking Cek Unit oleh Administrator:
+    Validasi pilihan status di backend, POST-only, CSRF-protected.
+    Tidak mengubah status pembayaran secara otomatis.
+    """
+    booking = get_object_or_404(BookingCekUnit, id=id)
+    status_baru = request.POST.get('status', '').strip()
+    status_dict = dict(BookingCekUnit.STATUS_BOOKING)
+
+    if status_baru not in status_dict:
+        messages.error(request, f"Status '{status_baru}' tidak valid.")
+        return redirect('admin_booking_detail', id=booking.id)
+
+    status_lama = booking.status
+    if status_baru != status_lama:
+        booking.status = status_baru
+        booking.save(update_fields=['status'])
+        messages.success(
+            request,
+            f"Status Booking #{booking.id} berhasil diperbarui dari '{status_dict.get(status_lama)}' menjadi '{status_dict.get(status_baru)}'."
+        )
+    else:
+        messages.info(request, "Status tidak mengalami perubahan.")
+
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return redirect('admin_booking_detail', id=booking.id)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 9. ADMIN — CMS ARTIKEL & KATEGORI ARTIKEL
+# ═══════════════════════════════════════════════════════════════════
+
+ARTIKEL_PER_HALAMAN     = 15
+KATEGORI_PER_HALAMAN    = 20
+PUBLIK_ARTIKEL_PER_HAL  = 9
+
+
+# ─── 9a. Kategori Artikel ────────────────────────────────────────
+
+@staf_required
+def admin_kategori_artikel(request):
+    """Daftar Kategori Artikel dengan search dan pagination."""
+    q  = request.GET.get('q', '').strip()
+    qs = KategoriArtikel.objects.annotate(jumlah_artikel=Count('artikel'))
+    if q:
+        qs = qs.filter(nama__icontains=q)
+    paginator = Paginator(qs.order_by('nama'), KATEGORI_PER_HALAMAN)
+    page      = paginator.get_page(request.GET.get('page'))
+    return render(request, 'dashboard/admin/kategori_artikel_list.html', {
+        'page_obj':  page,
+        'q':         q,
+        'page_title': 'Kategori Artikel',
+    })
+
+
+@staf_required
+def admin_kategori_tambah(request):
+    """Tambah Kategori Artikel."""
+    if request.method == 'POST':
+        form = KategoriArtikelForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Kategori berhasil ditambahkan.")
+            return redirect('admin_kategori_artikel')
+    else:
+        form = KategoriArtikelForm()
+    return render(request, 'dashboard/admin/kategori_artikel_form.html', {
+        'form':      form,
+        'mode':      'tambah',
+        'page_title': 'Tambah Kategori Artikel',
+    })
+
+
+@staf_required
+def admin_kategori_edit(request, id):
+    """Edit Kategori Artikel."""
+    kategori = get_object_or_404(KategoriArtikel, id=id)
+    if request.method == 'POST':
+        form = KategoriArtikelForm(request.POST, instance=kategori)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Kategori berhasil diperbarui.")
+            return redirect('admin_kategori_artikel')
+    else:
+        form = KategoriArtikelForm(instance=kategori)
+    return render(request, 'dashboard/admin/kategori_artikel_form.html', {
+        'form':      form,
+        'kategori':  kategori,
+        'mode':      'edit',
+        'page_title': f'Edit Kategori: {kategori.nama}',
+    })
+
+
+@staf_required
+@require_POST
+def admin_kategori_hapus(request, id):
+    """Hapus Kategori Artikel — ditolak jika masih ada artikel terkait."""
+    kategori = get_object_or_404(KategoriArtikel, id=id)
+    if kategori.artikel.exists():
+        messages.error(
+            request,
+            f"Kategori '{kategori.nama}' tidak dapat dihapus karena masih memiliki "
+            f"{kategori.artikel.count()} artikel. Pindahkan atau hapus artikel terlebih dahulu."
+        )
+        return redirect('admin_kategori_artikel')
+    nama = kategori.nama
+    kategori.delete()
+    messages.success(request, f"Kategori '{nama}' berhasil dihapus.")
+    return redirect('admin_kategori_artikel')
+
+
+# ─── 9b. Artikel & Berita ────────────────────────────────────────
+
+@staf_required
+def admin_artikel(request):
+    """Daftar Artikel dengan search, filter status/kategori, dan pagination."""
+    q         = request.GET.get('q', '').strip()
+    status_f  = request.GET.get('status', '').strip()
+    kat_f     = request.GET.get('kategori', '').strip()
+
+    qs = Artikel.objects.select_related('kategori', 'penulis').order_by('-created_at')
+    if q:
+        qs = qs.filter(Q(judul__icontains=q) | Q(ringkasan__icontains=q))
+    if status_f in ('draft', 'published'):
+        qs = qs.filter(status=status_f)
+    if kat_f.isdigit():
+        qs = qs.filter(kategori_id=int(kat_f))
+
+    paginator    = Paginator(qs, ARTIKEL_PER_HALAMAN)
+    page         = paginator.get_page(request.GET.get('page'))
+    kategori_all = KategoriArtikel.objects.order_by('nama')
+
+    return render(request, 'dashboard/admin/artikel_list.html', {
+        'page_obj':      page,
+        'q':             q,
+        'status_f':      status_f,
+        'kat_f':         kat_f,
+        'kategori_all':  kategori_all,
+        'page_title':    'Artikel & Berita',
+        'jumlah_total':  Artikel.objects.count(),
+        'jumlah_pub':    Artikel.objects.filter(status='published').count(),
+        'jumlah_draft':  Artikel.objects.filter(status='draft').count(),
+    })
+
+
+@staf_required
+def admin_artikel_tambah(request):
+    """Tambah Artikel baru."""
+    if request.method == 'POST':
+        form = ArtikelForm(request.POST, request.FILES)
+        if form.is_valid():
+            artikel = form.save(commit=False)
+            artikel.penulis = request.user
+            artikel.save()
+            messages.success(request, f"Artikel '{artikel.judul}' berhasil ditambahkan.")
+            return redirect('admin_artikel')
+    else:
+        form = ArtikelForm()
+    return render(request, 'dashboard/admin/artikel_form.html', {
+        'form':      form,
+        'mode':      'tambah',
+        'page_title': 'Tambah Artikel',
+    })
+
+
+@staf_required
+def admin_artikel_edit(request, id):
+    """Edit Artikel yang ada."""
+    artikel = get_object_or_404(Artikel, id=id)
+    if request.method == 'POST':
+        form = ArtikelForm(request.POST, request.FILES, instance=artikel)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Artikel '{artikel.judul}' berhasil diperbarui.")
+            return redirect('admin_artikel')
+    else:
+        form = ArtikelForm(instance=artikel)
+    return render(request, 'dashboard/admin/artikel_form.html', {
+        'form':      form,
+        'artikel':   artikel,
+        'mode':      'edit',
+        'page_title': f'Edit Artikel: {artikel.judul}',
+    })
+
+
+@staf_required
+def admin_artikel_hapus(request, id):
+    """Konfirmasi & eksekusi hapus Artikel (GET=konfirmasi, POST=eksekusi)."""
+    artikel = get_object_or_404(Artikel, id=id)
+    if request.method == 'POST':
+        judul = artikel.judul
+        # Hapus gambar dari storage jika ada
+        if artikel.gambar_utama:
+            try:
+                artikel.gambar_utama.storage.delete(artikel.gambar_utama.name)
+            except Exception:
+                pass
+        artikel.delete()
+        messages.success(request, f"Artikel '{judul}' berhasil dihapus.")
+        return redirect('admin_artikel')
+    return render(request, 'dashboard/admin/artikel_hapus.html', {
+        'artikel':   artikel,
+        'page_title': f'Hapus Artikel: {artikel.judul}',
+    })
+
+
+@staf_required
+def admin_artikel_preview(request, id):
+    """Preview artikel (draft maupun published) untuk administrator."""
+    artikel = get_object_or_404(Artikel.objects.select_related('kategori', 'penulis'), id=id)
+    return render(request, 'dashboard/admin/artikel_preview.html', {
+        'artikel':   artikel,
+        'page_title': f'Preview: {artikel.judul}',
+    })
+
+
+# ─── 9c. Halaman Publik Artikel ──────────────────────────────────
+
+def artikel_publik(request):
+    """Daftar artikel published, filter opsional per kategori slug."""
+    kat_slug = request.GET.get('kategori', '').strip()
+    qs       = Artikel.objects.filter(status='published').select_related('kategori', 'penulis').order_by('-created_at')
+
+    kategori_aktif = None
+    if kat_slug:
+        kategori_aktif = get_object_or_404(KategoriArtikel, slug=kat_slug)
+        qs = qs.filter(kategori=kategori_aktif)
+
+    paginator      = Paginator(qs, PUBLIK_ARTIKEL_PER_HAL)
+    page           = paginator.get_page(request.GET.get('page'))
+    kategori_all   = KategoriArtikel.objects.annotate(
+                         jml=Count('artikel', filter=Q(artikel__status='published'))
+                     ).filter(jml__gt=0).order_by('nama')
+
+    return render(request, 'artikel/artikel_list.html', {
+        'page_obj':       page,
+        'kategori_all':   kategori_all,
+        'kategori_aktif': kategori_aktif,
+    })
+
+
+def artikel_detail(request, slug):
+    """Detail satu artikel — hanya published yang bisa diakses publik."""
+    artikel = get_object_or_404(
+        Artikel.objects.select_related('kategori', 'penulis'),
+        slug=slug, status='published'
+    )
+    # Artikel terkait dari kategori yang sama
+    terkait = Artikel.objects.filter(
+        status='published', kategori=artikel.kategori
+    ).exclude(id=artikel.id).order_by('-created_at')[:3]
+
+    return render(request, 'artikel/artikel_detail.html', {
+        'artikel': artikel,
+        'terkait': terkait,
+    })
