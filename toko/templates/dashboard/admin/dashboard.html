@@ -300,6 +300,13 @@
                         <span><i class="fa-solid fa-users text-secondary"></i> Data Pengguna</span>
                         <span class="badge bg-light text-dark border rounded-pill small">{{ total_pengguna }}</span>
                     </a>
+                    <div class="side-section-title">Konten Website</div>
+                    <a class="admin-side-item" href="{% url 'admin_artikel' %}">
+                        <span><i class="fa-solid fa-newspaper text-primary"></i> Artikel &amp; Berita</span>
+                    </a>
+                    <a class="admin-side-item" href="{% url 'admin_kategori_artikel' %}">
+                        <span><i class="fa-solid fa-tags text-info"></i> Kategori Artikel</span>
+                    </a>
 
                     <div class="side-section-title">Akun & Pengaturan</div>
                     <a class="admin-side-item" href="{% url 'profil_admin' %}">
