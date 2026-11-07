@@ -48,7 +48,7 @@
                 {# Kategori & meta #}
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     {% if artikel.kategori %}
-                    <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug %}"
+                    <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug %}}"
                        class="badge rounded-pill text-decoration-none" style="background:#EEF2FF;color:#4338CA;padding:.35rem .8rem;font-size:.78rem;">
                         {{ artikel.kategori.nama }}
                     </a>
