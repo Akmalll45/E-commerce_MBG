@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractUser
+from django.urls import reverse
 from django.utils.text import slugify
 import os
 import uuid
@@ -276,6 +277,55 @@ class Artikel(models.Model):
                 n += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.judul
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 9. HALAMAN WEBSITE (halaman informasi: Tentang Kami, S&K, Kebijakan Privasi, dll.)
+# ═══════════════════════════════════════════════════════════════════
+
+class HalamanWebsite(models.Model):
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('published', 'Diterbitkan'),
+    ]
+
+    judul            = models.CharField(max_length=200, verbose_name="Judul Halaman")
+    slug             = models.SlugField(max_length=220, unique=True, blank=True)
+    ringkasan        = models.TextField(blank=True, verbose_name="Ringkasan")
+    isi              = models.TextField(verbose_name="Isi Halaman")
+    status           = models.CharField(
+                           max_length=12, choices=STATUS_CHOICES,
+                           default='draft', verbose_name="Status"
+                       )
+    tampil_di_footer = models.BooleanField(default=False, verbose_name="Tampilkan di footer")
+    urutan           = models.PositiveSmallIntegerField(default=0, verbose_name="Urutan")
+    meta_title       = models.CharField(max_length=200, blank=True, verbose_name="Meta Title")
+    meta_description = models.TextField(blank=True, verbose_name="Meta Description")
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Halaman Website"
+        verbose_name_plural = "Halaman Website"
+        ordering            = ['urutan', 'judul']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            # Judul yang isinya hanya simbol menghasilkan slug kosong → pakai cadangan.
+            base = slugify(self.judul) or 'halaman'
+            slug = base
+            n = 1
+            while HalamanWebsite.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{n}"
+                n += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('halaman_detail', args=[self.slug])
 
     def __str__(self):
         return self.judul

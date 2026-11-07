@@ -133,6 +133,9 @@
                     <a class="admin-side-item {% if 'kategori_artikel' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_kategori_artikel' %}">
                         <span><i class="fa-solid fa-tags text-info"></i> Kategori Artikel</span>
                     </a>
+                    <a class="admin-side-item {% if 'admin_halaman' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_halaman' %}">
+                        <span><i class="fa-solid fa-file-lines text-success"></i> Halaman Website</span>
+                    </a>
 
                     <div class="side-section-title">Akun &amp; Pengaturan</div>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'profil_admin' %}active{% endif %}" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>

@@ -8,7 +8,7 @@ import uuid
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk, KategoriArtikel, Artikel
+from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite
 
 User = get_user_model()
 
@@ -696,3 +696,83 @@ class ArtikelForm(forms.ModelForm):
 
     def clean_gambar_utama(self):
         return validasi_gambar_artikel(self.cleaned_data.get('gambar_utama'))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM HALAMAN WEBSITE
+# ═══════════════════════════════════════════════════════════════════
+
+class HalamanWebsiteForm(forms.ModelForm):
+    class Meta:
+        model  = HalamanWebsite
+        fields = [
+            'judul', 'slug', 'ringkasan', 'isi',
+            'status', 'tampil_di_footer', 'urutan',
+            'meta_title', 'meta_description',
+        ]
+        labels = {
+            'urutan': 'Urutan tampil',
+        }
+        widgets = {
+            'judul': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Tentang Kami, Syarat & Ketentuan',
+                'maxlength': 200,
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': 'otomatis-dari-judul (kosongkan untuk auto)',
+            }),
+            'ringkasan': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Satu atau dua kalimat pengantar (opsional)',
+            }),
+            'isi': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 16,
+                'placeholder': 'Isi halaman lengkap...',
+            }),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'tampil_di_footer': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'role': 'switch',
+            }),
+            'urutan': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'inputmode': 'numeric',
+            }),
+            'meta_title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Meta title untuk SEO (opsional)',
+                'maxlength': 200,
+            }),
+            'meta_description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Meta description untuk SEO (opsional)',
+            }),
+        }
+
+    def clean_judul(self):
+        judul = ' '.join((self.cleaned_data.get('judul') or '').split())
+        if not judul:
+            raise ValidationError("Judul halaman tidak boleh kosong.")
+        return judul
+
+    def clean_ringkasan(self):
+        return (self.cleaned_data.get('ringkasan') or '').strip()
+
+    def clean_isi(self):
+        isi = (self.cleaned_data.get('isi') or '').strip()
+        if not isi:
+            raise ValidationError("Isi halaman tidak boleh kosong.")
+        return isi
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get('slug') or '').strip()
+        if slug:
+            from django.utils.text import slugify
+            slug = slugify(slug)
+        return slug

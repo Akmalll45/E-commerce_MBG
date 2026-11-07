@@ -1775,10 +1775,15 @@
             <div class="pt-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 small" style="border-top:1px solid rgba(255,255,255,0.08);color:#94A3B8;">
                 <div>&copy; 2026 Mobil Bekas Garasi (MBG) Makassar. Seluruh Hak Cipta Dilindungi.</div>
                 <div class="d-flex gap-3">
+                    {% for h in halaman_footer %}
+                    <a href="{% url 'halaman_detail' h.slug %}" class="text-decoration-none text-secondary">{{ h.judul }}</a>
+                    <span>&middot;</span>
+                    {% empty %}
                     <a href="#" class="text-decoration-none text-secondary">Syarat &amp; Ketentuan</a>
                     <span>&middot;</span>
                     <a href="#" class="text-decoration-none text-secondary">Kebijakan Privasi</a>
                     <span>&middot;</span>
+                    {% endfor %}
                     <a href="https://wa.me/6281234567890" target="_blank" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
                 </div>
             </div>

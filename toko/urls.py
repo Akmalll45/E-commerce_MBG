@@ -47,4 +47,14 @@ urlpatterns = [
     # CMS Artikel — Publik
     path('artikel/', views.artikel_publik, name='artikel_publik'),
     path('artikel/<slug:slug>/', views.artikel_detail, name='artikel_detail'),
+
+    # Halaman Website — Admin
+    path('panel/halaman/', views.admin_halaman, name='admin_halaman'),
+    path('panel/halaman/tambah/', views.admin_halaman_tambah, name='admin_halaman_tambah'),
+    path('panel/halaman/<int:id>/edit/', views.admin_halaman_edit, name='admin_halaman_edit'),
+    path('panel/halaman/<int:id>/hapus/', views.admin_halaman_hapus, name='admin_halaman_hapus'),
+    path('panel/halaman/<int:id>/preview/', views.admin_halaman_preview, name='admin_halaman_preview'),
+
+    # Halaman Website — Publik
+    path('halaman/<slug:slug>/', views.halaman_detail, name='halaman_detail'),
 ]

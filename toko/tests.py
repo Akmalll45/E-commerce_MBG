@@ -468,3 +468,183 @@ class PanelAdminKatalogTests(TestCase):
         self.assertNotContains(r, '/admin/toko/produk/')
         for nama in ('profil_admin', 'ubah_password_admin'):
             self.assertContains(self.client.get(reverse(nama)), reverse('admin_katalog'))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# HALAMAN WEBSITE — halaman informasi (Tentang Kami, S&K, dll.)
+# ═══════════════════════════════════════════════════════════════════
+from unittest import mock
+
+from django.db import DatabaseError
+
+from .models import HalamanWebsite
+
+
+def data_halaman(**kw):
+    """Data POST form halaman. Nilai None = field tidak dikirim (mis. checkbox mati)."""
+    data = dict(
+        judul='Tentang Kami', slug='', ringkasan='', isi='Profil singkat MBG.',
+        status='published', tampil_di_footer='on', urutan=0,
+        meta_title='', meta_description='',
+    )
+    data.update(kw)
+    return {k: v for k, v in data.items() if v is not None}
+
+
+class HalamanWebsiteTests(TestCase):
+    def setUp(self):
+        U = get_user_model()
+        self.admin = U.objects.create_user('admin1', 'a@x.id', 'pw12345!x', is_staff=True)
+        self.user = U.objects.create_user('budi', 'b@x.id', 'pw12345!x')
+        self.terbit = HalamanWebsite.objects.create(
+            judul='Syarat dan Ketentuan', isi='Isi syarat dan ketentuan.',
+            status='published', tampil_di_footer=True, urutan=1,
+        )
+        self.draft = HalamanWebsite.objects.create(
+            judul='Rencana Rahasia', isi='Belum untuk publik.',
+            status='draft', tampil_di_footer=True,
+        )
+
+    # ── Model ───────────────────────────────────────
+    def test_slug_otomatis_dan_unik(self):
+        self.assertEqual(self.terbit.slug, 'syarat-dan-ketentuan')
+        lagi = HalamanWebsite.objects.create(judul='Syarat dan Ketentuan', isi='x')
+        self.assertEqual(lagi.slug, 'syarat-dan-ketentuan-1')
+
+    def test_slug_cadangan_jika_judul_hanya_simbol(self):
+        self.assertEqual(HalamanWebsite.objects.create(judul='???', isi='x').slug, 'halaman')
+
+    def test_status_bawaan_draft(self):
+        self.assertEqual(HalamanWebsite.objects.create(judul='Baru', isi='x').status, 'draft')
+
+    # ── Halaman publik ──────────────────────────────
+    def test_publik_hanya_halaman_terbit(self):
+        r = self.client.get(reverse('halaman_detail', args=[self.terbit.slug]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Isi syarat dan ketentuan.')
+        self.assertEqual(
+            self.client.get(reverse('halaman_detail', args=[self.draft.slug])).status_code, 404)
+        self.assertEqual(
+            self.client.get(reverse('halaman_detail', args=['tidak-ada'])).status_code, 404)
+
+    def test_isi_halaman_di_escape(self):
+        h = HalamanWebsite.objects.create(
+            judul='Uji Escape', isi='<script>alert(1)</script>', status='published')
+        r = self.client.get(h.get_absolute_url())
+        self.assertNotContains(r, '<script>alert(1)</script>')
+        self.assertContains(r, '&lt;script&gt;')
+
+    # ── Footer ──────────────────────────────────────
+    def test_footer_memuat_halaman_terbit_saja(self):
+        for nama in ('beranda', 'katalog'):
+            r = self.client.get(reverse(nama))
+            self.assertContains(r, reverse('halaman_detail', args=[self.terbit.slug]))
+            self.assertContains(r, 'Syarat dan Ketentuan')
+            self.assertNotContains(r, self.draft.slug)
+
+    def test_footer_kembali_ke_tautan_bawaan_jika_kosong(self):
+        HalamanWebsite.objects.all().delete()
+        self.assertContains(self.client.get(reverse('katalog')), 'Kebijakan Privasi')
+
+    def test_footer_dibatasi_enam_tautan(self):
+        for i in range(8):
+            HalamanWebsite.objects.create(
+                judul=f'Info {i}', isi='x', status='published',
+                tampil_di_footer=True, urutan=10 + i)
+        # 1 halaman dari setUp (urutan 1) + 5 pertama dari yang baru = 6 tautan
+        self.assertContains(self.client.get(reverse('katalog')), '/halaman/', count=6)
+
+    def test_footer_tahan_galat_database(self):
+        with mock.patch('toko.context_processors.HalamanWebsite') as model_palsu:
+            model_palsu.objects.filter.side_effect = DatabaseError('tabel belum ada')
+            r = self.client.get(reverse('katalog'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Kebijakan Privasi')
+
+    # ── Panel admin: akses ──────────────────────────
+    def test_panel_hanya_untuk_staf(self):
+        urls = [reverse('admin_halaman'), reverse('admin_halaman_tambah')] + [
+            reverse(n, args=[self.terbit.id])
+            for n in ('admin_halaman_edit', 'admin_halaman_hapus', 'admin_halaman_preview')
+        ]
+        for url in urls:                                   # belum login
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 302)
+            self.assertIn('/login/', r['Location'])
+        self.client.force_login(self.user)                 # login tapi bukan staf
+        for url in urls:
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 302)
+            self.assertEqual(r['Location'], reverse('dashboard_user'))
+
+    def test_panel_menampilkan_daftar_dan_menu_sidebar(self):
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse('admin_halaman'))
+        self.assertContains(r, 'Syarat dan Ketentuan')
+        self.assertContains(r, 'Rencana Rahasia')
+        self.assertContains(r, 'href="%s"' % reverse('admin_halaman'))
+        for nama, args in [
+            ('admin_halaman_tambah', []),
+            ('admin_halaman_edit', [self.draft.id]),
+            ('admin_halaman_hapus', [self.draft.id]),
+            ('admin_halaman_preview', [self.draft.id]),
+        ]:
+            self.assertEqual(self.client.get(reverse(nama, args=args)).status_code, 200)
+
+    def test_filter_status_dan_pencarian(self):
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse('admin_halaman'), {'status': 'draft'})
+        self.assertContains(r, 'Rencana Rahasia')
+        self.assertNotContains(r, 'Syarat dan Ketentuan')
+        r = self.client.get(reverse('admin_halaman'), {'q': 'syarat'})
+        self.assertContains(r, 'Syarat dan Ketentuan')
+        self.assertNotContains(r, 'Rencana Rahasia')
+
+    # ── Panel admin: tambah / edit / hapus ──────────
+    def test_tambah_edit_hapus(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse('admin_halaman_tambah'),
+                             data_halaman(judul='Tentang Kami', urutan=2))
+        self.assertRedirects(r, reverse('admin_halaman'))
+        h = HalamanWebsite.objects.get(slug='tentang-kami')
+        self.assertTrue(h.tampil_di_footer)
+        self.assertEqual(h.status, 'published')
+        self.assertEqual(h.urutan, 2)
+
+        r = self.client.post(
+            reverse('admin_halaman_edit', args=[h.id]),
+            data_halaman(judul='  Tentang   MBG ', slug='tentang-kami', status='draft',
+                         tampil_di_footer=None, isi='Profil baru.'))
+        self.assertRedirects(r, reverse('admin_halaman'))
+        h.refresh_from_db()
+        self.assertEqual(h.judul, 'Tentang MBG')           # spasi dirapikan
+        self.assertEqual(h.slug, 'tentang-kami')           # slug tidak ikut berubah
+        self.assertEqual(h.status, 'draft')
+        self.assertFalse(h.tampil_di_footer)
+
+        r = self.client.post(reverse('admin_halaman_hapus', args=[h.id]))
+        self.assertRedirects(r, reverse('admin_halaman'))
+        self.assertFalse(HalamanWebsite.objects.filter(id=h.id).exists())
+
+    def test_hapus_butuh_konfirmasi_post(self):
+        self.client.force_login(self.admin)
+        self.client.get(reverse('admin_halaman_hapus', args=[self.terbit.id]))
+        self.assertTrue(HalamanWebsite.objects.filter(id=self.terbit.id).exists())
+
+    def test_slug_input_dirapikan(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse('admin_halaman_tambah'),
+                         data_halaman(judul='Kebijakan Privasi', slug='Kebijakan Privasi!!'))
+        self.assertTrue(HalamanWebsite.objects.filter(slug='kebijakan-privasi').exists())
+
+    def test_validasi_form(self):
+        self.client.force_login(self.admin)
+        # slug sudah dipakai halaman lain
+        r = self.client.post(reverse('admin_halaman_tambah'),
+                             data_halaman(judul='Lain', slug=self.terbit.slug))
+        self.assertEqual(r.status_code, 200)
+        # judul dan isi kosong
+        r = self.client.post(reverse('admin_halaman_tambah'),
+                             data_halaman(judul='  ', isi='   '))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(HalamanWebsite.objects.count(), 2)   # tidak ada yang tersimpan

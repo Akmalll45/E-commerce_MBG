@@ -12,11 +12,14 @@ from django.views.decorators.http import require_POST
 from functools import wraps
 from urllib.parse import urlencode
 
-from .models import Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi, KategoriArtikel, Artikel
+from .models import (
+    Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
+    KategoriArtikel, Artikel, HalamanWebsite,
+)
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
     ProdukForm, validasi_foto_mobil,
-    KategoriArtikelForm, ArtikelForm,
+    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm,
 )
 
 User = get_user_model()
@@ -1139,3 +1142,111 @@ def artikel_detail(request, slug):
         'artikel': artikel,
         'terkait': terkait,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. HALAMAN WEBSITE — halaman informasi (Tentang Kami, S&K, dll.)
+# ═══════════════════════════════════════════════════════════════════
+
+HALAMAN_PER_HALAMAN = 15
+
+
+@staf_required
+def admin_halaman(request):
+    """Daftar Halaman Website dengan search, filter status, dan pagination."""
+    q        = request.GET.get('q', '').strip()
+    status_f = request.GET.get('status', '').strip()
+
+    qs = HalamanWebsite.objects.order_by('urutan', 'judul', 'id')
+    if q:
+        qs = qs.filter(
+            Q(judul__icontains=q) | Q(slug__icontains=q) | Q(ringkasan__icontains=q)
+        )
+    if status_f in ('draft', 'published'):
+        qs = qs.filter(status=status_f)
+
+    page = Paginator(qs, HALAMAN_PER_HALAMAN).get_page(request.GET.get('page'))
+    jumlah = HalamanWebsite.objects.aggregate(
+        total=Count('id'),
+        pub=Count('id', filter=Q(status='published')),
+        draft=Count('id', filter=Q(status='draft')),
+    )
+
+    return render(request, 'dashboard/admin/halaman_list.html', {
+        'page_obj':     page,
+        'q':            q,
+        'status_f':     status_f,
+        'page_title':   'Halaman Website',
+        'jumlah_total': jumlah['total'],
+        'jumlah_pub':   jumlah['pub'],
+        'jumlah_draft': jumlah['draft'],
+    })
+
+
+@staf_required
+def admin_halaman_tambah(request):
+    """Tambah Halaman Website baru."""
+    if request.method == 'POST':
+        form = HalamanWebsiteForm(request.POST)
+        if form.is_valid():
+            halaman = form.save()
+            messages.success(request, f"Halaman '{halaman.judul}' berhasil ditambahkan.")
+            return redirect('admin_halaman')
+    else:
+        form = HalamanWebsiteForm()
+    return render(request, 'dashboard/admin/halaman_form.html', {
+        'form':       form,
+        'mode':       'tambah',
+        'page_title': 'Tambah Halaman',
+    })
+
+
+@staf_required
+def admin_halaman_edit(request, id):
+    """Edit Halaman Website yang ada."""
+    halaman = get_object_or_404(HalamanWebsite, id=id)
+    if request.method == 'POST':
+        form = HalamanWebsiteForm(request.POST, instance=halaman)
+        if form.is_valid():
+            halaman = form.save()
+            messages.success(request, f"Halaman '{halaman.judul}' berhasil diperbarui.")
+            return redirect('admin_halaman')
+    else:
+        form = HalamanWebsiteForm(instance=halaman)
+    return render(request, 'dashboard/admin/halaman_form.html', {
+        'form':       form,
+        'halaman':    halaman,
+        'mode':       'edit',
+        'page_title': f'Edit Halaman: {halaman.judul}',
+    })
+
+
+@staf_required
+def admin_halaman_hapus(request, id):
+    """Konfirmasi & eksekusi hapus Halaman Website (GET=konfirmasi, POST=eksekusi)."""
+    halaman = get_object_or_404(HalamanWebsite, id=id)
+    if request.method == 'POST':
+        judul = halaman.judul
+        halaman.delete()
+        messages.success(request, f"Halaman '{judul}' berhasil dihapus.")
+        return redirect('admin_halaman')
+    return render(request, 'dashboard/admin/halaman_hapus.html', {
+        'halaman':    halaman,
+        'page_title': f'Hapus Halaman: {halaman.judul}',
+    })
+
+
+@staf_required
+def admin_halaman_preview(request, id):
+    """Preview halaman (draft maupun terbit) untuk administrator."""
+    halaman = get_object_or_404(HalamanWebsite, id=id)
+    return render(request, 'dashboard/admin/halaman_preview.html', {
+        'halaman':    halaman,
+        'page_title': f'Preview: {halaman.judul}',
+    })
+
+
+def halaman_detail(request, slug):
+    """Halaman informasi publik — hanya yang berstatus Diterbitkan yang bisa dibuka."""
+    halaman = get_object_or_404(HalamanWebsite, slug=slug, status='published')
+    return render(request, 'halaman/halaman_detail.html', {'halaman': halaman})
