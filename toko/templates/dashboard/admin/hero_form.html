@@ -1,0 +1,208 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}{{ page_title }} — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section-title { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; margin-bottom:1rem; }
+    .hero-preview { position:relative; border-radius:14px; overflow:hidden; background:linear-gradient(165deg,#080D1A 0%,#0F1B38 45%,#131B2E 100%); padding:1.1rem 1.25rem; min-height:150px; }
+    .hero-preview-bg { position:absolute; inset:0; background-size:cover; background-position:center; }
+    .hero-preview-scrim { position:absolute; inset:0; background:linear-gradient(90deg,rgba(8,13,26,.92),rgba(8,13,26,.6)); }
+    .hero-preview-isi { position:relative; }
+    .hero-preview .pita { display:inline-block; font-size:.68rem; font-weight:700; padding:.2rem .65rem; border-radius:999px; color:#FCD34D; background:rgba(245,158,11,.14); border:1px solid rgba(245,158,11,.3); margin-bottom:.5rem; }
+    .hero-preview .jdl { color:#fff; font-weight:800; font-size:1.05rem; line-height:1.25; }
+    .hero-preview .sorot { font-weight:800; font-size:1.05rem; line-height:1.25; background:linear-gradient(135deg,#60A5FA,#38BDF8 50%,#34D399); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .hero-preview .dsk { color:#94A3B8; font-size:.75rem; margin-top:.35rem; }
+    .hero-preview .tbl { display:inline-block; margin-top:.6rem; font-size:.72rem; font-weight:700; color:#fff; background:#2563EB; padding:.3rem .85rem; border-radius:999px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-images text-warning me-2"></i>
+            {% if mode == 'tambah' %}Tambah Hero Slide{% else %}Edit Hero Slide{% endif %}
+        </h3>
+        <p class="text-muted small mb-0">
+            {% if mode == 'tambah' %}Buat slide baru untuk banner utama beranda.
+            {% else %}Perbarui isi slide. Simpan sebagai draft atau tayangkan langsung.{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'admin_hero' %}" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 px-3 small" style="border-radius:12px;">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+
+    <div class="row g-4">
+        {# Kolom kiri — konten #}
+        <div class="col-lg-8">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Teks Slide</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.label_promo.id_for_label }}">Label Promo</label>
+                    {{ form.label_promo }}
+                    {% if form.label_promo.errors %}<div class="text-danger small mt-1">{{ form.label_promo.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Pita kecil di atas judul, cocok untuk promo atau subsidi DP.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.judul.id_for_label }}">
+                        Judul <span class="text-danger">*</span>
+                    </label>
+                    {{ form.judul }}
+                    {% if form.judul.errors %}<div class="text-danger small mt-1">{{ form.judul.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.judul_sorot.id_for_label }}">Judul Sorotan</label>
+                    {{ form.judul_sorot }}
+                    {% if form.judul_sorot.errors %}<div class="text-danger small mt-1">{{ form.judul_sorot.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Baris kedua judul yang tampil dengan warna gradasi.</div>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.deskripsi.id_for_label }}">Deskripsi</label>
+                    {{ form.deskripsi }}
+                    {% if form.deskripsi.errors %}<div class="text-danger small mt-1">{{ form.deskripsi.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Satu atau dua kalimat di bawah judul.</div>
+                </div>
+            </div>
+
+            <div class="content-card mb-4">
+                <div class="form-section-title">Tombol Ajakan (opsional)</div>
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold" for="{{ form.teks_tombol.id_for_label }}">Teks Tombol</label>
+                        {{ form.teks_tombol }}
+                        {% if form.teks_tombol.errors %}<div class="text-danger small mt-1">{{ form.teks_tombol.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold" for="{{ form.link_tombol.id_for_label }}">Link Tombol</label>
+                        {{ form.link_tombol }}
+                        {% if form.link_tombol.errors %}<div class="text-danger small mt-1">{{ form.link_tombol.errors|join:", " }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="form-text mt-2">
+                    Isi keduanya atau kosongkan keduanya. Contoh link: <span class="font-monospace">/katalog/</span> (halaman internal),
+                    <span class="font-monospace">#titip-jual</span> (bagian di beranda), atau <span class="font-monospace">https://…</span> (alamat luar).
+                </div>
+            </div>
+
+            {# Pratinjau langsung #}
+            <div class="content-card">
+                <div class="form-section-title">Pratinjau</div>
+                <div class="hero-preview">
+                    <div class="hero-preview-bg" id="pv-bg"{% if slide and slide.gambar %} data-src="{{ slide.gambar.url }}"{% endif %}></div>
+                    <div class="hero-preview-scrim"></div>
+                    <div class="hero-preview-isi">
+                        <span class="pita" id="pv-pita" hidden></span>
+                        <div class="jdl" id="pv-judul">Judul slide</div>
+                        <div class="sorot" id="pv-sorot" hidden></div>
+                        <div class="dsk" id="pv-dsk" hidden></div>
+                        <span class="tbl" id="pv-tbl" hidden></span>
+                    </div>
+                </div>
+                <div class="form-text mt-2">Gambaran kasar saja; tampilan sebenarnya di beranda mengikuti lebar layar pengunjung.</div>
+            </div>
+        </div>
+
+        {# Kolom kanan — gambar & pengaturan #}
+        <div class="col-lg-4">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Gambar Latar</div>
+                {% if slide and slide.gambar %}
+                <div class="mb-3 text-center">
+                    <img src="{{ slide.gambar.url }}" alt="Gambar saat ini" class="img-fluid rounded-3" style="max-height:150px;object-fit:cover;">
+                    <div class="text-muted small mt-1">Gambar saat ini</div>
+                </div>
+                {% endif %}
+                {{ form.gambar }}
+                {% if form.gambar.errors %}<div class="text-danger small mt-1">{{ form.gambar.errors|join:", " }}</div>{% endif %}
+                <div class="form-text mt-1">JPG, PNG, atau WebP. Maks 5 MB. Disarankan landscape, sekitar 1920×800 px, dengan objek penting di sisi kanan karena teks berada di kiri.</div>
+                {% if slide and slide.gambar %}
+                <div class="form-check mt-3">
+                    {{ form.hapus_gambar }}
+                    <label class="form-check-label small" for="{{ form.hapus_gambar.id_for_label }}">{{ form.hapus_gambar.label }}</label>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="content-card">
+                <div class="form-section-title">Pengaturan Publikasi</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.status.id_for_label }}">Status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Hanya slide "Tayang" yang muncul di beranda.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" for="{{ form.urutan.id_for_label }}">Urutan tampil</label>
+                    {{ form.urutan }}
+                    {% if form.urutan.errors %}<div class="text-danger small mt-1">{{ form.urutan.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Angka kecil tampil lebih dulu. Beranda menampilkan maksimal {{ maks_slide }} slide.</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold">
+                        <i class="fa-solid fa-floppy-disk me-1"></i>
+                        {% if mode == 'tambah' %}Simpan Slide{% else %}Simpan Perubahan{% endif %}
+                    </button>
+                    <a href="{% url 'admin_hero' %}" class="btn btn-outline-secondary rounded-pill">Batal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Pratinjau langsung: teks diisi lewat textContent (bukan innerHTML) agar aman dari injeksi. */
+(function () {
+    const ambil = (id) => document.getElementById(id);
+    const peta = [
+        ['{{ form.label_promo.id_for_label }}', 'pv-pita'],
+        ['{{ form.judul.id_for_label }}',       'pv-judul'],
+        ['{{ form.judul_sorot.id_for_label }}', 'pv-sorot'],
+        ['{{ form.deskripsi.id_for_label }}',   'pv-dsk'],
+        ['{{ form.teks_tombol.id_for_label }}', 'pv-tbl'],
+    ];
+    function segarkan() {
+        peta.forEach(function (p) {
+            const sumber = ambil(p[0]), tujuan = ambil(p[1]);
+            if (!sumber || !tujuan) return;
+            const teks = sumber.value.trim();
+            if (p[1] === 'pv-judul') { tujuan.textContent = teks || 'Judul slide'; return; }
+            tujuan.textContent = teks;
+            tujuan.hidden = !teks;
+        });
+    }
+    peta.forEach(function (p) {
+        const el = ambil(p[0]);
+        if (el) el.addEventListener('input', segarkan);
+    });
+
+    const berkas = ambil('{{ form.gambar.id_for_label }}');
+    const bg = ambil('pv-bg');
+    if (bg && bg.dataset.src) bg.style.backgroundImage = 'url(' + JSON.stringify(bg.dataset.src) + ')';
+    if (berkas && bg) {
+        berkas.addEventListener('change', function () {
+            const f = berkas.files && berkas.files[0];
+            if (!f || !f.type.startsWith('image/')) return;
+            bg.style.backgroundImage = 'url("' + URL.createObjectURL(f) + '")';
+        });
+    }
+    segarkan();
+})();
+</script>
+{% endblock %}

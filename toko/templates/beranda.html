@@ -464,6 +464,37 @@
         }
         .hero-inspect-card .check-item i { color: var(--mbg-emerald); font-size: .8rem; }
 
+        /* ── Hero Slider (slide dikelola dari panel admin) ── */
+        .hero-bg-stack { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+        .hero-bg-layer {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; object-position: center;
+            opacity: 0; transition: opacity .8s ease;
+        }
+        .hero-bg-layer.active { opacity: 1; }
+        .hero-bg-scrim {
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, rgba(8,13,26,.93) 0%, rgba(8,13,26,.80) 45%, rgba(8,13,26,.55) 100%);
+        }
+        /* Semua slide ditumpuk di satu sel grid supaya tinggi area = slide tertinggi (tidak melompat). */
+        .hero-slider .carousel-inner { display: grid; overflow: visible; }
+        .hero-slider .carousel-inner::after { display: none; }
+        .hero-slider .carousel-item {
+            display: block; grid-area: 1 / 1; float: none; margin-right: 0;
+            visibility: hidden;
+        }
+        .hero-slider .carousel-item.active,
+        .hero-slider .carousel-item-next,
+        .hero-slider .carousel-item-prev { visibility: visible; }
+        .hero-slider .carousel-indicators {
+            position: static; justify-content: center; margin: 0 0 1.5rem; padding: 0;
+        }
+        @media (min-width: 992px) { .hero-slider .carousel-indicators { justify-content: flex-start; } }
+        .hero-slider .carousel-indicators [data-bs-target] { width: 32px; margin-left: 0; margin-right: 6px; }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-bg-layer, .hero-slider .carousel-item { transition: none !important; }
+        }
+
         /* ── Glassmorphism Filter Bar ─────────────── */
         .filter-float {
             margin-top: -3.5rem;
@@ -1190,6 +1221,15 @@
     {% endif %}
 
     <header class="hero">
+        {% if hero_slides %}
+        <!-- Latar slide: satu lapisan per slide, disinkronkan oleh JS di bawah -->
+        <div class="hero-bg-stack" aria-hidden="true">
+            {% for slide in hero_slides %}
+            {% if slide.gambar %}<img src="{{ slide.gambar.url }}" alt="" class="hero-bg-layer{% if forloop.first %} active{% endif %}" decoding="async"{% if forloop.first %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>{% else %}<div class="hero-bg-layer{% if forloop.first %} active{% endif %}"></div>{% endif %}
+            {% endfor %}
+            <div class="hero-bg-scrim"></div>
+        </div>
+        {% endif %}
         <div class="hero-grid-overlay"></div>
         <div class="hero-bottom-fade"></div>
 
@@ -1197,6 +1237,50 @@
             <div class="row align-items-center gy-5">
                 <!-- Left Column -->
                 <div class="col-lg-7 text-center text-lg-start" data-aos="fade-right" data-aos-duration="700">
+                    {% if hero_slides %}
+                    <!-- Hero Slider: isi dikelola dari panel admin (Hero Slide) -->
+                    <div id="heroSlider" class="carousel slide carousel-fade hero-slider" aria-roledescription="carousel" aria-label="Promo dan informasi utama MBG">
+                        <div class="carousel-inner">
+                            {% for slide in hero_slides %}
+                            <div class="carousel-item{% if forloop.first %} active{% endif %}" role="group" aria-roledescription="slide" aria-label="Slide {{ forloop.counter }} dari {{ hero_slides|length }}">
+                                {% if slide.label_promo %}
+                                <div class="mb-3">
+                                    <span class="hero-promo-pill">
+                                        <i class="fa-solid fa-bolt text-warning"></i>
+                                        <span>{{ slide.label_promo }}</span>
+                                    </span>
+                                </div>
+                                {% endif %}
+
+                                <{% if forloop.first %}h1{% else %}div{% endif %} class="hero-title mb-3">
+                                    {{ slide.judul }}{% if slide.judul_sorot %}<br>
+                                    <span class="gradient-text">{{ slide.judul_sorot }}</span>{% endif %}
+                                </{% if forloop.first %}h1{% else %}div{% endif %}>
+
+                                {% if slide.deskripsi %}
+                                <p class="hero-subtitle mb-4 mx-auto mx-lg-0">{{ slide.deskripsi|linebreaksbr }}</p>
+                                {% endif %}
+
+                                {% if slide.teks_tombol and slide.link_tombol %}
+                                <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start mb-4">
+                                    <a href="{{ slide.link_tombol }}"{% if slide.link_tombol|slice:":4" == "http" %} target="_blank" rel="noopener"{% endif %} class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
+                                        {{ slide.teks_tombol }} <i class="fa-solid fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% if hero_slides|length > 1 %}
+                        <div class="carousel-indicators">
+                            {% for slide in hero_slides %}
+                            <button type="button" data-bs-target="#heroSlider" data-bs-slide-to="{{ forloop.counter0 }}"{% if forloop.first %} class="active" aria-current="true"{% endif %} aria-label="Slide {{ forloop.counter }}"></button>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
                     <!-- Promo Tag Sulsel -->
                     <div class="mb-3">
                         <span class="hero-promo-pill">
@@ -1224,6 +1308,7 @@
                             <i class="fa-solid fa-gauge-high"></i> Titip Jual Cepat
                         </a>
                     </div>
+                    {% endif %}
 
                     <!-- Trust Chips -->
                     <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
@@ -1793,6 +1878,25 @@
     <!-- ── Scripts ──────────────────────────────── -->
     <!-- Bootstrap 5 JS Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Hero Slider: sinkronkan gambar latar dengan slide aktif; matikan autoplay bila pengunjung memilih mengurangi animasi -->
+    <script>
+        (function () {
+            var slider = document.getElementById('heroSlider');
+            var lapisan = document.querySelectorAll('.hero-bg-layer');
+            if (!slider || lapisan.length < 2 || !window.bootstrap) return;
+            var kurangiGerak = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            bootstrap.Carousel.getOrCreateInstance(slider, {
+                interval: kurangiGerak ? false : 6500,
+                ride: kurangiGerak ? false : 'carousel',
+                pause: 'hover',
+                touch: true
+            });
+            slider.addEventListener('slide.bs.carousel', function (e) {
+                lapisan.forEach(function (el, i) { el.classList.toggle('active', i === e.to); });
+            });
+        })();
+    </script>
 
     <!-- AOS.js — Animate On Scroll CDN -->
     <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>

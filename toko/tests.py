@@ -648,3 +648,292 @@ class HalamanWebsiteTests(TestCase):
                              data_halaman(judul='  ', isi='   '))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(HalamanWebsite.objects.count(), 2)   # tidak ada yang tersimpan
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# HERO SLIDE
+# ═══════════════════════════════════════════════════════════════════
+
+from .models import HeroSlide
+
+# Catatan: modul ini memakai kembali helper gambar_uji() dan impor (shutil, tempfile, mock,
+# DatabaseError, SimpleUploadedFile, override_settings, get_user_model) yang sudah ada di atas.
+
+
+def buat_slide(judul='Slide Uji', **kw):
+    data = dict(judul=judul, status='published')
+    data.update(kw)
+    return HeroSlide.objects.create(**data)
+
+
+class HeroSlidePublikTests(TestCase):
+    """Beranda: hero statis sebagai cadangan, slide Tayang menggantikannya."""
+
+    def setUp(self):
+        self.url = reverse('beranda')
+
+    def test_tanpa_slide_hero_statis_bawaan_tetap_tampil(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'id="heroSlider"')
+        self.assertContains(r, 'Subsidi DP s/d Rp 15 Juta')
+        self.assertContains(r, 'Jelajahi Unit Tersedia')
+
+    def test_slide_draft_tidak_tampil(self):
+        buat_slide('Rahasia Draft', status='draft')
+        r = self.client.get(self.url)
+        self.assertNotContains(r, 'Rahasia Draft')
+        self.assertContains(r, 'Subsidi DP s/d Rp 15 Juta')   # masih hero bawaan
+
+    def test_slide_tayang_menggantikan_hero_bawaan(self):
+        buat_slide('Promo Akhir Tahun', judul_sorot='Cicilan Ringan', label_promo='DP Murah',
+                   deskripsi='Baris satu\nBaris dua', teks_tombol='Lihat Katalog', link_tombol='/katalog/')
+        r = self.client.get(self.url)
+        self.assertContains(r, 'id="heroSlider"')
+        self.assertContains(r, 'Promo Akhir Tahun')
+        self.assertContains(r, 'Cicilan Ringan')
+        self.assertContains(r, 'DP Murah')
+        self.assertContains(r, 'Baris satu<br>Baris dua')
+        self.assertContains(r, 'href="/katalog/"')
+        self.assertNotContains(r, 'Subsidi DP s/d Rp 15 Juta')   # teks statis lama hilang
+        # chip kepercayaan & kartu inspeksi tetap ada
+        self.assertContains(r, 'Bebas Tabrak')
+        self.assertContains(r, 'Sertifikasi MBG Garasi')
+
+    def test_urutan_mengikuti_kolom_urutan(self):
+        buat_slide('Kedua', urutan=2)
+        buat_slide('Pertama', urutan=1)
+        html = self.client.get(self.url).content.decode()
+        self.assertLess(html.index('Pertama'), html.index('Kedua'))
+
+    def test_hanya_slide_pertama_memakai_h1(self):
+        buat_slide('Satu', urutan=1)
+        buat_slide('Dua', urutan=2)
+        html = self.client.get(self.url).content.decode()
+        self.assertEqual(html.count('<h1 class="hero-title'), 1)
+        self.assertIn('data-bs-slide-to="1"', html)
+
+    def test_satu_slide_tanpa_indikator(self):
+        buat_slide('Tunggal')
+        html = self.client.get(self.url).content.decode()
+        self.assertNotIn('data-bs-slide-to', html)
+
+    def test_maksimal_enam_slide_tampil(self):
+        for i in range(8):
+            buat_slide(f'Slide-{i}', urutan=i)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('Slide-5', html)
+        self.assertNotIn('Slide-6', html)
+
+    def test_tombol_tidak_dirender_jika_teks_atau_link_kosong(self):
+        # data lama/impor bisa saja tidak berpasangan; template tidak boleh membuat tombol kosong
+        buat_slide('Tanpa Tombol', teks_tombol='Klik', link_tombol='')
+        html = self.client.get(self.url).content.decode()
+        self.assertNotIn('>Klik', html)
+
+    def test_link_luar_dibuka_di_tab_baru(self):
+        buat_slide('Luar', teks_tombol='Kunjungi', link_tombol='https://contoh.id/promo')
+        r = self.client.get(self.url)
+        self.assertContains(r, 'href="https://contoh.id/promo" target="_blank" rel="noopener"')
+
+    def test_teks_slide_di_escape(self):
+        buat_slide('<script>alert(1)</script>')
+        r = self.client.get(self.url)
+        self.assertNotContains(r, '<script>alert(1)</script>')
+        self.assertContains(r, '&lt;script&gt;alert(1)&lt;/script&gt;')
+
+    def test_beranda_tetap_terbuka_jika_tabel_belum_dimigrasi(self):
+        with mock.patch('toko.views.HeroSlide.objects') as objek:
+            objek.filter.side_effect = DatabaseError('no such table')
+            r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Subsidi DP s/d Rp 15 Juta')
+
+
+class HeroSlideValidatorTests(TestCase):
+    def test_link_yang_diizinkan(self):
+        from .models import validasi_link_tombol
+        for ok in ('', '/katalog/', '/mobil/3/?a=1', '#titip-jual', 'https://a.id/x', 'http://a.id'):
+            validasi_link_tombol(ok)   # tidak boleh melempar
+
+    def test_link_berbahaya_ditolak(self):
+        from django.core.exceptions import ValidationError
+        from .models import validasi_link_tombol
+        for buruk in ('javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', '//evil.com',
+                      '/\\evil.com', 'ftp://x.id', 'katalog', 'https://', 'https://bad host/'):
+            with self.assertRaises(ValidationError, msg=buruk):
+                validasi_link_tombol(buruk)
+
+
+class HeroSlideAdminTests(TestCase):
+    def setUp(self):
+        self._media = tempfile.mkdtemp()
+        self._ov = override_settings(MEDIA_ROOT=self._media)
+        self._ov.enable()
+        self.addCleanup(self._ov.disable)
+        self.addCleanup(shutil.rmtree, self._media, ignore_errors=True)
+
+        User = get_user_model()
+        self.staf = User.objects.create_user('staf', 'staf@x.id', 'pw-uji-12345', is_staff=True)
+        self.biasa = User.objects.create_user('biasa', 'biasa@x.id', 'pw-uji-12345')
+        self.client.force_login(self.staf)
+
+    def _data(self, **kw):
+        d = {'judul': 'Judul Baru', 'judul_sorot': '', 'deskripsi': '', 'label_promo': '',
+             'teks_tombol': '', 'link_tombol': '', 'status': 'published', 'urutan': 0}
+        d.update(kw)
+        return d
+
+    # ── akses ──
+    def test_anonim_diarahkan_ke_login(self):
+        self.client.logout()
+        for nama, args in (('admin_hero', ()), ('admin_hero_tambah', ())):
+            r = self.client.get(reverse(nama, args=args))
+            self.assertEqual(r.status_code, 302)
+            self.assertIn('/login/', r['Location'])
+
+    def test_pengguna_biasa_ditolak(self):
+        s = buat_slide()
+        self.client.force_login(self.biasa)
+        for url in (reverse('admin_hero'), reverse('admin_hero_tambah'),
+                    reverse('admin_hero_edit', args=[s.id]), reverse('admin_hero_hapus', args=[s.id])):
+            self.assertRedirects(self.client.get(url), reverse('dashboard_user'), fetch_redirect_response=False)
+        # POST dari pengguna biasa tidak boleh mengubah apa pun
+        self.client.post(reverse('admin_hero_hapus', args=[s.id]))
+        self.client.post(reverse('admin_hero_status', args=[s.id]), {'status': 'draft'})
+        s.refresh_from_db()
+        self.assertEqual(s.status, 'published')
+
+    # ── daftar ──
+    def test_daftar_dan_filter(self):
+        buat_slide('Aktif Satu')
+        buat_slide('Konsep Dua', status='draft')
+        r = self.client.get(reverse('admin_hero'))
+        self.assertContains(r, 'Aktif Satu')
+        self.assertContains(r, 'Konsep Dua')
+        r = self.client.get(reverse('admin_hero'), {'status': 'draft'})
+        self.assertNotContains(r, 'Aktif Satu')
+        self.assertContains(r, 'Konsep Dua')
+        r = self.client.get(reverse('admin_hero'), {'q': 'aktif'})
+        self.assertContains(r, 'Aktif Satu')
+        self.assertNotContains(r, 'Konsep Dua')
+
+    def test_sidebar_memuat_menu_hero(self):
+        self.assertContains(self.client.get(reverse('admin_hero')), reverse('admin_hero'))
+
+    # ── tambah ──
+    def test_tambah_slide_tanpa_gambar(self):
+        r = self.client.post(reverse('admin_hero_tambah'), self._data(judul='  Judul   Ramai  '))
+        self.assertRedirects(r, reverse('admin_hero'))
+        self.assertEqual(HeroSlide.objects.get().judul, 'Judul Ramai')   # spasi dirapikan
+
+    def test_tambah_slide_dengan_gambar_diacak_namanya(self):
+        d = self._data()
+        d['gambar'] = gambar_uji('foto asli.png', 'PNG')
+        self.client.post(reverse('admin_hero_tambah'), d)
+        s = HeroSlide.objects.get()
+        self.assertTrue(s.gambar.name.startswith('hero/'))
+        self.assertNotIn('asli', s.gambar.name)
+        self.assertTrue(s.gambar.name.endswith('.png'))
+
+    def test_file_bukan_gambar_ditolak(self):
+        d = self._data()
+        d['gambar'] = SimpleUploadedFile('x.png', b'bukan gambar', content_type='image/png')
+        r = self.client.post(reverse('admin_hero_tambah'), d)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(HeroSlide.objects.count(), 0)
+        self.assertContains(r, 'Unggah gambar yang valid')
+
+    def test_judul_wajib(self):
+        r = self.client.post(reverse('admin_hero_tambah'), self._data(judul='   '))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(HeroSlide.objects.count(), 0)
+
+    def test_link_javascript_ditolak(self):
+        r = self.client.post(reverse('admin_hero_tambah'),
+                             self._data(teks_tombol='Klik', link_tombol='javascript:alert(1)'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(HeroSlide.objects.count(), 0)
+
+    def test_teks_dan_link_tombol_harus_berpasangan(self):
+        r = self.client.post(reverse('admin_hero_tambah'), self._data(teks_tombol='Klik'))
+        self.assertContains(r, 'Isi link tombol')
+        r = self.client.post(reverse('admin_hero_tambah'), self._data(link_tombol='/katalog/'))
+        self.assertContains(r, 'Isi teks tombol')
+        self.assertEqual(HeroSlide.objects.count(), 0)
+        r = self.client.post(reverse('admin_hero_tambah'),
+                             self._data(teks_tombol='Katalog', link_tombol='/katalog/'))
+        self.assertRedirects(r, reverse('admin_hero'))
+
+    # ── edit ──
+    def test_edit_mengganti_gambar_menghapus_file_lama(self):
+        d = self._data(); d['gambar'] = gambar_uji()
+        self.client.post(reverse('admin_hero_tambah'), d)
+        s = HeroSlide.objects.get()
+        lama = s.gambar.name
+        self.assertTrue(s.gambar.storage.exists(lama))
+
+        d2 = self._data(judul='Diedit'); d2['gambar'] = gambar_uji('baru.jpg', 'JPEG')
+        self.assertRedirects(self.client.post(reverse('admin_hero_edit', args=[s.id]), d2), reverse('admin_hero'))
+        s.refresh_from_db()
+        self.assertEqual(s.judul, 'Diedit')
+        self.assertNotEqual(s.gambar.name, lama)
+        self.assertFalse(s.gambar.storage.exists(lama))
+        self.assertTrue(s.gambar.storage.exists(s.gambar.name))
+
+    def test_edit_tanpa_unggahan_mempertahankan_gambar(self):
+        d = self._data(); d['gambar'] = gambar_uji()
+        self.client.post(reverse('admin_hero_tambah'), d)
+        s = HeroSlide.objects.get(); nama = s.gambar.name
+        self.client.post(reverse('admin_hero_edit', args=[s.id]), self._data(judul='Hanya teks'))
+        s.refresh_from_db()
+        self.assertEqual(s.gambar.name, nama)
+        self.assertTrue(s.gambar.storage.exists(nama))
+
+    def test_hapus_gambar_lewat_centang(self):
+        d = self._data(); d['gambar'] = gambar_uji()
+        self.client.post(reverse('admin_hero_tambah'), d)
+        s = HeroSlide.objects.get(); nama = s.gambar.name
+        self.client.post(reverse('admin_hero_edit', args=[s.id]), self._data(hapus_gambar='on'))
+        s.refresh_from_db()
+        self.assertFalse(s.gambar)
+        self.assertFalse(s.gambar.storage.exists(nama) if nama else True)
+
+    # ── status ──
+    def test_ubah_status_cepat(self):
+        s = buat_slide()
+        r = self.client.post(reverse('admin_hero_status', args=[s.id]),
+                             {'status': 'draft', 'next': reverse('admin_hero')})
+        self.assertRedirects(r, reverse('admin_hero'))
+        s.refresh_from_db(); self.assertEqual(s.status, 'draft')
+
+    def test_status_tidak_valid_ditolak(self):
+        s = buat_slide()
+        self.client.post(reverse('admin_hero_status', args=[s.id]), {'status': 'ngawur'})
+        s.refresh_from_db(); self.assertEqual(s.status, 'published')
+
+    def test_status_hanya_post(self):
+        s = buat_slide()
+        self.assertEqual(self.client.get(reverse('admin_hero_status', args=[s.id])).status_code, 405)
+
+    def test_next_ke_situs_lain_diabaikan(self):
+        s = buat_slide()
+        r = self.client.post(reverse('admin_hero_status', args=[s.id]),
+                             {'status': 'draft', 'next': 'https://evil.example/'})
+        self.assertRedirects(r, reverse('admin_hero'), fetch_redirect_response=False)
+
+    # ── hapus ──
+    def test_hapus_butuh_konfirmasi_lalu_menghapus_gambar(self):
+        d = self._data(); d['gambar'] = gambar_uji()
+        self.client.post(reverse('admin_hero_tambah'), d)
+        s = HeroSlide.objects.get(); nama = s.gambar.name
+        url = reverse('admin_hero_hapus', args=[s.id])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(HeroSlide.objects.count(), 1)           # GET tidak menghapus
+        self.assertRedirects(self.client.post(url), reverse('admin_hero'))
+        self.assertEqual(HeroSlide.objects.count(), 0)
+        self.assertFalse(s.gambar.storage.exists(nama))
+
+    def test_edit_slide_yang_tidak_ada_404(self):
+        self.assertEqual(self.client.get(reverse('admin_hero_edit', args=[9999])).status_code, 404)

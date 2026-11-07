@@ -8,7 +8,7 @@ import uuid
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite
+from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide
 
 User = get_user_model()
 
@@ -776,3 +776,127 @@ class HalamanWebsiteForm(forms.ModelForm):
             from django.utils.text import slugify
             slug = slugify(slug)
         return slug
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM HERO SLIDE
+# ═══════════════════════════════════════════════════════════════════
+
+class HeroSlideForm(forms.ModelForm):
+    """
+    Form tambah/ubah slide hero beranda. Gambar divalidasi dengan aturan yang sama
+    seperti foto mobil (maks 5 MB, format asli JPG/PNG/WEBP, nama file diacak).
+    """
+    hapus_gambar = forms.BooleanField(
+        required=False,
+        label='Hapus gambar latar saat ini',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
+    class Meta:
+        model  = HeroSlide
+        fields = [
+            'judul', 'judul_sorot', 'deskripsi', 'label_promo',
+            'gambar', 'teks_tombol', 'link_tombol', 'status', 'urutan',
+        ]
+        labels = {
+            'urutan': 'Urutan tampil',
+        }
+        widgets = {
+            'judul': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Mobil Bekas Berkualitas, 100% Lulus Inspeksi',
+                'maxlength': 200,
+            }),
+            'judul_sorot': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Transparan & Terpercaya di Makassar',
+                'maxlength': 200,
+            }),
+            'deskripsi': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Kalimat pendukung di bawah judul (opsional)',
+            }),
+            'label_promo': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: PROMO MAKASSAR — Subsidi DP s/d Rp 15 Juta',
+                'maxlength': 150,
+            }),
+            'gambar': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp',
+            }),
+            'teks_tombol': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Jelajahi Unit Tersedia',
+                'maxlength': 60,
+            }),
+            'link_tombol': forms.TextInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': '/katalog/  atau  #titip-jual  atau  https://...',
+                'maxlength': 300,
+                'autocomplete': 'off',
+            }),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'urutan': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'inputmode': 'numeric',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Catat gambar lama agar bisa dihapus dari storage saat diganti/dihapus.
+        self._gambar_lama = (
+            self.instance.gambar.name
+            if self.instance.pk and self.instance.gambar else None
+        )
+
+    def clean_judul(self):
+        judul = ' '.join((self.cleaned_data.get('judul') or '').split())
+        if not judul:
+            raise ValidationError("Judul slide tidak boleh kosong.")
+        return judul
+
+    def clean_judul_sorot(self):
+        return ' '.join((self.cleaned_data.get('judul_sorot') or '').split())
+
+    def clean_label_promo(self):
+        return ' '.join((self.cleaned_data.get('label_promo') or '').split())
+
+    def clean_deskripsi(self):
+        return (self.cleaned_data.get('deskripsi') or '').strip()
+
+    def clean_teks_tombol(self):
+        return ' '.join((self.cleaned_data.get('teks_tombol') or '').split())
+
+    def clean_link_tombol(self):
+        return (self.cleaned_data.get('link_tombol') or '').strip()
+
+    def clean_gambar(self):
+        return validasi_foto_mobil(self.cleaned_data.get('gambar'))
+
+    def clean(self):
+        data = super().clean()
+        teks, link = data.get('teks_tombol'), data.get('link_tombol')
+        # Tombol hanya tampil jika teks DAN link sama-sama terisi.
+        if teks and not link and 'link_tombol' not in self.errors:
+            self.add_error('link_tombol', "Isi link tombol, atau kosongkan teks tombol.")
+        if link and not teks and 'teks_tombol' not in self.errors:
+            self.add_error('teks_tombol', "Isi teks tombol, atau kosongkan link tombol.")
+        return data
+
+    def save(self, commit=True):
+        slide = super().save(commit=False)
+        ada_gambar_baru = isinstance(self.cleaned_data.get('gambar'), UploadedFile)
+        if self.cleaned_data.get('hapus_gambar') and not ada_gambar_baru:
+            slide.gambar = None
+        if commit:
+            slide.save()
+            # Hapus file lama dari storage jika sudah diganti atau dihapus.
+            nama_sekarang = slide.gambar.name if slide.gambar else None
+            if self._gambar_lama and self._gambar_lama != nama_sekarang:
+                slide.gambar.storage.delete(self._gambar_lama)
+        return slide

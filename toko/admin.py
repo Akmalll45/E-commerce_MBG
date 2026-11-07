@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     CustomUser, Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
-    KategoriArtikel, Artikel, HalamanWebsite,
+    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide,
 )
 
 class CustomUserAdmin(UserAdmin):
@@ -25,3 +25,4 @@ admin.site.register(BookingCekUnit)
 admin.site.register(Transaksi)
 admin.site.register(KategoriArtikel)
 admin.site.register(Artikel)
+admin.site.register(HeroSlide)

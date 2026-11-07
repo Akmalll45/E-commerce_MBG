@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,12 +14,12 @@ from urllib.parse import urlencode
 
 from .models import (
     Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
-    KategoriArtikel, Artikel, HalamanWebsite,
+    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
     ProdukForm, validasi_foto_mobil,
-    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm,
+    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm,
 )
 
 User = get_user_model()
@@ -30,6 +30,7 @@ User = get_user_model()
 # ═══════════════════════════════════════════════════════════════════
 
 JUMLAH_MOBIL_PILIHAN = 6      # jumlah mobil pilihan di beranda
+JUMLAH_MAKS_SLIDE = 6           # jumlah maksimal slide hero yang tampil di beranda
 KATALOG_PER_HALAMAN = 9       # jumlah kartu per halaman di katalog
 
 # Aturan bisnis "tayang untuk publik": hanya unit berstatus Ready Stock
@@ -40,6 +41,21 @@ STATUS_TAYANG_PUBLIK = 'ready'
 def produk_tayang():
     """Queryset dasar semua unit yang boleh dilihat publik."""
     return Produk.objects.filter(status_stok=STATUS_TAYANG_PUBLIK)
+
+
+def hero_slide_tayang():
+    """
+    Slide hero berstatus Tayang untuk beranda, terurut menurut kolom Urutan.
+
+    Sengaja tahan galat (sama seperti context processor `halaman_footer`): jika tabel
+    belum dimigrasi, beranda jatuh ke hero statis bawaan dan tidak ikut error 500.
+    """
+    try:
+        return list(
+            HeroSlide.objects.filter(status='published').order_by('urutan', 'id')[:JUMLAH_MAKS_SLIDE]
+        )
+    except DatabaseError:
+        return []
 
 
 def beranda(request):
@@ -53,6 +69,7 @@ def beranda(request):
     return render(request, 'beranda.html', {
         'katalog_mobil': katalog_mobil,
         'total_unit_tayang': semua_tayang.count(),
+        'hero_slides': hero_slide_tayang(),
     })
 
 
@@ -1250,3 +1267,123 @@ def halaman_detail(request, slug):
     """Halaman informasi publik — hanya yang berstatus Diterbitkan yang bisa dibuka."""
     halaman = get_object_or_404(HalamanWebsite, slug=slug, status='published')
     return render(request, 'halaman/halaman_detail.html', {'halaman': halaman})
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 11. HERO SLIDE — banner utama beranda
+# ═══════════════════════════════════════════════════════════════════
+
+HERO_PER_HALAMAN = 12
+
+
+@staf_required
+def admin_hero(request):
+    """Daftar Hero Slide dengan search, filter status, dan pagination."""
+    q        = request.GET.get('q', '').strip()
+    status_f = request.GET.get('status', '').strip()
+
+    qs = HeroSlide.objects.order_by('urutan', 'id')
+    if q:
+        qs = qs.filter(
+            Q(judul__icontains=q) | Q(judul_sorot__icontains=q) | Q(label_promo__icontains=q)
+        )
+    if status_f in ('draft', 'published'):
+        qs = qs.filter(status=status_f)
+
+    page = Paginator(qs, HERO_PER_HALAMAN).get_page(request.GET.get('page'))
+    jumlah = HeroSlide.objects.aggregate(
+        total=Count('id'),
+        pub=Count('id', filter=Q(status='published')),
+        draft=Count('id', filter=Q(status='draft')),
+    )
+
+    return render(request, 'dashboard/admin/hero_list.html', {
+        'page_obj':     page,
+        'q':            q,
+        'status_f':     status_f,
+        'page_title':   'Hero Slide',
+        'jumlah_total': jumlah['total'],
+        'jumlah_pub':   jumlah['pub'],
+        'jumlah_draft': jumlah['draft'],
+        'maks_slide':   JUMLAH_MAKS_SLIDE,
+    })
+
+
+@staf_required
+def admin_hero_tambah(request):
+    """Tambah Hero Slide baru."""
+    if request.method == 'POST':
+        form = HeroSlideForm(request.POST, request.FILES)
+        if form.is_valid():
+            slide = form.save()
+            messages.success(request, f"Slide '{slide.judul}' berhasil ditambahkan.")
+            return redirect('admin_hero')
+    else:
+        form = HeroSlideForm()
+    return render(request, 'dashboard/admin/hero_form.html', {
+        'form':       form,
+        'mode':       'tambah',
+        'page_title': 'Tambah Hero Slide',
+        'maks_slide': JUMLAH_MAKS_SLIDE,
+    })
+
+
+@staf_required
+def admin_hero_edit(request, id):
+    """Edit Hero Slide yang ada."""
+    slide = get_object_or_404(HeroSlide, id=id)
+    if request.method == 'POST':
+        form = HeroSlideForm(request.POST, request.FILES, instance=slide)
+        if form.is_valid():
+            slide = form.save()
+            messages.success(request, f"Slide '{slide.judul}' berhasil diperbarui.")
+            return redirect('admin_hero')
+    else:
+        form = HeroSlideForm(instance=slide)
+    return render(request, 'dashboard/admin/hero_form.html', {
+        'form':       form,
+        'slide':      slide,
+        'mode':       'edit',
+        'page_title': f'Edit Slide: {slide.judul}',
+        'maks_slide': JUMLAH_MAKS_SLIDE,
+    })
+
+
+@staf_required
+@require_POST
+def admin_hero_status(request, id):
+    """Ubah cepat status slide (Draft / Tayang) langsung dari daftar."""
+    slide  = get_object_or_404(HeroSlide, id=id)
+    status = request.POST.get('status', '')
+    if status not in dict(HeroSlide.STATUS_CHOICES):
+        messages.error(request, "Status slide tidak valid.")
+    else:
+        slide.status = status
+        slide.save(update_fields=['status', 'updated_at'])
+        messages.success(request, f"Slide “{slide.judul}” diubah menjadi {slide.get_status_display()}.")
+    tujuan = request.POST.get('next', '')
+    if tujuan and url_has_allowed_host_and_scheme(tujuan, allowed_hosts={request.get_host()}):
+        return redirect(tujuan)
+    return redirect('admin_hero')
+
+
+@staf_required
+def admin_hero_hapus(request, id):
+    """Konfirmasi & eksekusi hapus Hero Slide (GET=konfirmasi, POST=eksekusi)."""
+    slide = get_object_or_404(HeroSlide, id=id)
+    if request.method == 'POST':
+        judul = slide.judul
+        # Hapus gambar dari storage jika ada
+        if slide.gambar:
+            try:
+                slide.gambar.storage.delete(slide.gambar.name)
+            except Exception:
+                pass
+        slide.delete()
+        messages.success(request, f"Slide '{judul}' berhasil dihapus.")
+        return redirect('admin_hero')
+    return render(request, 'dashboard/admin/hero_hapus.html', {
+        'slide':      slide,
+        'page_title': f'Hapus Slide: {slide.judul}',
+    })

@@ -1,11 +1,35 @@
 from django.conf import settings
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, URLValidator
 from django.contrib.auth.models import AbstractUser
 from django.urls import reverse
 from django.utils.text import slugify
 import os
 import uuid
+
+
+def validasi_link_tombol(nilai):
+    """
+    Link tombol hero hanya boleh: alamat internal (/katalog/), anchor (#titip-jual),
+    atau URL http(s). Skema lain (javascript:, data:, dll.) ditolak karena link ini
+    dirender langsung ke atribut href di beranda.
+    """
+    nilai = (nilai or '').strip()
+    if not nilai:
+        return
+    if nilai.startswith('#'):
+        return
+    if nilai.startswith('/') and not nilai.startswith('//') and '\\' not in nilai:
+        return
+    if nilai.lower().startswith(('http://', 'https://')):
+        URLValidator(schemes=['http', 'https'])(nilai)
+        return
+    raise ValidationError(
+        "Link harus diawali '/' (halaman internal, mis. /katalog/), '#' (anchor), "
+        "atau 'https://' (alamat luar)."
+    )
+
 
 def foto_profil_upload_path(instance, filename):
     """
@@ -326,6 +350,52 @@ class HalamanWebsite(models.Model):
 
     def get_absolute_url(self):
         return reverse('halaman_detail', args=[self.slug])
+
+    def __str__(self):
+        return self.judul
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. HERO SLIDE / BANNER BERANDA
+# ═══════════════════════════════════════════════════════════════════
+
+class HeroSlide(models.Model):
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('published', 'Tayang'),
+    ]
+
+    judul       = models.CharField(max_length=200, verbose_name="Judul")
+    judul_sorot = models.CharField(
+                      max_length=200, blank=True, verbose_name="Judul Sorotan",
+                      help_text="Opsional. Baris kedua judul yang tampil dengan warna gradasi."
+                  )
+    deskripsi   = models.TextField(blank=True, verbose_name="Deskripsi")
+    label_promo = models.CharField(
+                      max_length=150, blank=True, verbose_name="Label Promo",
+                      help_text="Opsional. Teks pita kecil di atas judul, mis. promo atau subsidi DP."
+                  )
+    gambar      = models.ImageField(
+                      upload_to='hero/', blank=True, null=True,
+                      verbose_name="Gambar Latar"
+                  )
+    teks_tombol = models.CharField(max_length=60, blank=True, verbose_name="Teks Tombol")
+    link_tombol = models.CharField(
+                      max_length=300, blank=True, verbose_name="Link Tombol",
+                      validators=[validasi_link_tombol]
+                  )
+    status      = models.CharField(
+                      max_length=12, choices=STATUS_CHOICES,
+                      default='draft', verbose_name="Status"
+                  )
+    urutan      = models.PositiveSmallIntegerField(default=0, verbose_name="Urutan")
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Hero Slide"
+        verbose_name_plural = "Hero Slide"
+        ordering            = ['urutan', 'id']
 
     def __str__(self):
         return self.judul

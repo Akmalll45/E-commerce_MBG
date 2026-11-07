@@ -1,0 +1,185 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}Hero Slide — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tab-status { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .9rem; border-radius:999px; font-size:.82rem; font-weight:700; color:#475569; background:#fff; border:1.5px solid #E2E8F0; text-decoration:none; transition:all .2s; }
+    .tab-status:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); }
+    .tab-status.aktif { background:#080D1A; color:#fff; border-color:#080D1A; }
+    .tab-status .n { font-size:.72rem; padding:.1rem .45rem; border-radius:999px; background:rgba(100,116,139,.15); }
+    .tab-status.aktif .n { background:rgba(255,255,255,.2); }
+    .pill-published { background:rgba(16,185,129,.1); color:#047857; border:1px solid rgba(16,185,129,.3); padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; }
+    .pill-draft { background:rgba(100,116,139,.12); color:#475569; border:1px solid rgba(100,116,139,.3); padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700; }
+    .hero-thumb { width:112px; height:56px; object-fit:cover; border-radius:10px; border:1px solid #E2E8F0; background:#0F1B38; }
+    .hero-thumb-kosong { width:112px; height:56px; border-radius:10px; display:grid; place-items:center; color:#94A3B8; font-size:.7rem; background:linear-gradient(165deg,#080D1A,#0F1B38); border:1px solid #E2E8F0; }
+    .pagination .page-link { border-radius:10px !important; margin:0 .15rem; font-weight:700; font-size:.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-images text-warning me-2"></i> Hero Slide</h3>
+        <p class="text-muted small mb-0">Kelola banner utama di beranda: judul, promo, gambar latar, dan tombol ajakan.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'beranda' %}" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat Beranda
+        </a>
+        <a href="{% url 'admin_hero_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+            <i class="fa-solid fa-plus me-1"></i> Tambah Slide
+        </a>
+    </div>
+</div>
+
+{% if jumlah_pub > maks_slide %}
+<div class="alert alert-warning py-2 px-3 small" style="border-radius:12px;">
+    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+    Ada {{ jumlah_pub }} slide berstatus Tayang, tetapi beranda hanya menampilkan {{ maks_slide }} slide pertama menurut urutan.
+</div>
+{% elif jumlah_total and not jumlah_pub %}
+<div class="alert alert-info py-2 px-3 small" style="border-radius:12px;">
+    <i class="fa-solid fa-circle-info me-1"></i>
+    Belum ada slide berstatus Tayang, jadi beranda masih memakai hero bawaan.
+</div>
+{% endif %}
+
+{# Tab status #}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="tab-status {% if not status_f %}aktif{% endif %}" href="{% url 'admin_hero' %}{% if q %}?q={{ q|urlencode }}{% endif %}">
+        Semua <span class="n">{{ jumlah_total }}</span>
+    </a>
+    <a class="tab-status {% if status_f == 'published' %}aktif{% endif %}"
+       href="{% url 'admin_hero' %}?status=published{% if q %}&q={{ q|urlencode }}{% endif %}">
+        Tayang <span class="n">{{ jumlah_pub }}</span>
+    </a>
+    <a class="tab-status {% if status_f == 'draft' %}aktif{% endif %}"
+       href="{% url 'admin_hero' %}?status=draft{% if q %}&q={{ q|urlencode }}{% endif %}">
+        Draft <span class="n">{{ jumlah_draft }}</span>
+    </a>
+</div>
+
+<div class="content-card">
+    <form method="get" class="row g-2 mb-4">
+        {% if status_f %}<input type="hidden" name="status" value="{{ status_f }}">{% endif %}
+        <div class="col-12 col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:12px 0 0 12px;border:1.5px solid #E2E8F0;border-right:none;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="search" name="q" value="{{ q }}" class="form-control" style="border-left:none;" placeholder="Cari judul atau label promo…" maxlength="100">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary rounded-pill px-4">Cari</button>
+            {% if q %}<a href="{% url 'admin_hero' %}{% if status_f %}?status={{ status_f }}{% endif %}" class="btn btn-outline-secondary rounded-pill px-3 ms-1">Reset</a>{% endif %}
+        </div>
+    </form>
+
+    {% if page_obj.object_list %}
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead style="background:#F8FAFC;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:#64748B;">
+                <tr>
+                    <th class="ps-3">Slide</th>
+                    <th>Status</th>
+                    <th class="text-center">Urutan</th>
+                    <th>Tombol</th>
+                    <th>Diperbarui</th>
+                    <th class="text-end pe-3">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for slide in page_obj %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-3">
+                            {% if slide.gambar %}
+                            <img src="{{ slide.gambar.url }}" alt="" class="hero-thumb" loading="lazy">
+                            {% else %}
+                            <div class="hero-thumb-kosong">Tanpa gambar</div>
+                            {% endif %}
+                            <div style="max-width:300px;">
+                                <div class="fw-bold">{{ slide.judul|truncatechars:60 }}</div>
+                                {% if slide.judul_sorot %}<div class="small text-primary">{{ slide.judul_sorot|truncatechars:50 }}</div>{% endif %}
+                                {% if slide.label_promo %}<div class="text-muted small"><i class="fa-solid fa-bolt text-warning me-1"></i>{{ slide.label_promo|truncatechars:50 }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if slide.status == 'published' %}
+                        <span class="pill-published">Tayang</span>
+                        {% else %}
+                        <span class="pill-draft">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center text-muted small">{{ slide.urutan }}</td>
+                    <td class="small">
+                        {% if slide.teks_tombol %}
+                        <div class="fw-semibold">{{ slide.teks_tombol|truncatechars:28 }}</div>
+                        <div class="text-muted font-monospace" style="font-size:.72rem;">{{ slide.link_tombol|truncatechars:32 }}</div>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td class="text-muted small">{{ slide.updated_at|date:"d M Y" }}</td>
+                    <td class="text-end pe-3 text-nowrap">
+                        <form method="post" action="{% url 'admin_hero_status' slide.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            {% if slide.status == 'published' %}
+                            <input type="hidden" name="status" value="draft">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill me-1" title="Jadikan Draft (sembunyikan dari beranda)">
+                                <i class="fa-solid fa-eye-slash"></i>
+                            </button>
+                            {% else %}
+                            <input type="hidden" name="status" value="published">
+                            <button type="submit" class="btn btn-sm btn-outline-success rounded-pill me-1" title="Tayangkan di beranda">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            {% endif %}
+                        </form>
+                        <a href="{% url 'admin_hero_edit' slide.id %}" class="btn btn-sm btn-outline-primary rounded-pill me-1" title="Edit">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </a>
+                        <a href="{% url 'admin_hero_hapus' slide.id %}" class="btn btn-sm btn-outline-danger rounded-pill" title="Hapus">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4 d-flex justify-content-center">
+        <ul class="pagination pagination-sm gap-1 flex-wrap">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{% if status_f %}status={{ status_f }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+            {% endif %}
+            {% for n in page_obj.paginator.page_range %}
+                {% if n == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ n }}</span></li>
+                {% elif n >= page_obj.number|add:"-2" and n <= page_obj.number|add:"2" %}
+                <li class="page-item"><a class="page-link" href="?{% if status_f %}status={{ status_f }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}page={{ n }}">{{ n }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{% if status_f %}status={{ status_f }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fa-solid fa-images fa-3x mb-3 opacity-25"></i>
+        <p class="mb-2">
+            {% if q or status_f %}Tidak ada slide yang cocok dengan filter.
+            {% else %}Belum ada slide. Selama kosong, beranda memakai hero bawaan.{% endif %}
+        </p>
+        <a href="{% url 'admin_hero_tambah' %}" class="btn btn-primary rounded-pill px-4">
+            <i class="fa-solid fa-plus me-1"></i> Buat Slide Pertama
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

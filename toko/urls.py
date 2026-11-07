@@ -57,4 +57,11 @@ urlpatterns = [
 
     # Halaman Website — Publik
     path('halaman/<slug:slug>/', views.halaman_detail, name='halaman_detail'),
+
+    # Hero Slide — Admin
+    path('panel/hero/', views.admin_hero, name='admin_hero'),
+    path('panel/hero/tambah/', views.admin_hero_tambah, name='admin_hero_tambah'),
+    path('panel/hero/<int:id>/edit/', views.admin_hero_edit, name='admin_hero_edit'),
+    path('panel/hero/<int:id>/status/', views.admin_hero_status, name='admin_hero_status'),
+    path('panel/hero/<int:id>/hapus/', views.admin_hero_hapus, name='admin_hero_hapus'),
 ]
