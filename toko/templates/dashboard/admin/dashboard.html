@@ -201,6 +201,7 @@
             border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
     </style>
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
@@ -320,6 +321,9 @@
                     </a>
 
                     <div class="side-section-title">Akun & Pengaturan</div>
+                    <a class="admin-side-item" href="{% url 'admin_pengaturan' %}">
+                        <span><i class="fa-solid fa-sliders text-primary"></i> Pengaturan Website</span>
+                    </a>
                     <a class="admin-side-item" href="{% url 'profil_admin' %}">
                         <span><i class="fa-solid fa-user-gear"></i> Profil Admin</span>
                     </a>
@@ -414,6 +418,75 @@
                         </div>
                     </div>
                 </div>
+
+                {% if konten %}
+                <!-- Konten Website: ringkasan modul CMS (Artikel, Halaman, Hero Slide, Mitra, Pengaturan) -->
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-layer-group text-primary me-2"></i> Konten Website</h6>
+                </div>
+                <div class="row g-3 mb-4" id="ringkasan-konten">
+                    <div class="col-6 col-md-4 col-xl">
+                        <a href="{% url 'admin_artikel' %}" class="text-decoration-none d-block h-100">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-newspaper"></i></div>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary small">Artikel</span>
+                                </div>
+                                <div class="kpi-val">{{ konten.artikel.total }}</div>
+                                <div class="kpi-sub mt-1">Terbit: <strong class="text-success">{{ konten.artikel.tayang }}</strong> | Draft: <strong class="text-warning">{{ konten.artikel.draft }}</strong> | Kategori: <strong>{{ konten.kategori }}</strong></div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4 col-xl">
+                        <a href="{% url 'admin_halaman' %}" class="text-decoration-none d-block h-100">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fa-solid fa-file-lines"></i></div>
+                                    <span class="badge bg-info bg-opacity-10 text-info small">Halaman</span>
+                                </div>
+                                <div class="kpi-val">{{ konten.halaman.total }}</div>
+                                <div class="kpi-sub mt-1">Terbit: <strong class="text-success">{{ konten.halaman.tayang }}</strong> | Draft: <strong class="text-warning">{{ konten.halaman.draft }}</strong></div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4 col-xl">
+                        <a href="{% url 'admin_hero' %}" class="text-decoration-none d-block h-100">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-images"></i></div>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning small">Hero Slide</span>
+                                </div>
+                                <div class="kpi-val">{{ konten.hero.total }}</div>
+                                <div class="kpi-sub mt-1">Tayang: <strong class="text-success">{{ konten.hero.tayang }}</strong> | Draft: <strong class="text-warning">{{ konten.hero.draft }}</strong></div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4 col-xl">
+                        <a href="{% url 'admin_mitra' %}" class="text-decoration-none d-block h-100">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="fa-solid fa-handshake"></i></div>
+                                    <span class="badge bg-success bg-opacity-10 text-success small">Mitra</span>
+                                </div>
+                                <div class="kpi-val">{{ konten.mitra.total }}</div>
+                                <div class="kpi-sub mt-1">Tayang: <strong class="text-success">{{ konten.mitra.tayang }}</strong> | Draft: <strong class="text-warning">{{ konten.mitra.draft }}</strong></div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4 col-xl">
+                        <a href="{% url 'admin_pengaturan' %}" class="text-decoration-none d-block h-100">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fa-solid fa-sliders"></i></div>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger small">Pengaturan</span>
+                                </div>
+                                <div class="kpi-val">{% if konten.pengaturan_tersimpan %}{{ konten.pengaturan_terisi }}/{{ konten.pengaturan_total }}{% else %}Bawaan{% endif %}</div>
+                                <div class="kpi-sub mt-1">{% if konten.pengaturan_tersimpan %}Logo: <strong>{% if konten.logo_terpasang %}Ada{% else %}Bawaan{% endif %}</strong> | Favicon: <strong>{% if konten.favicon_terpasang %}Ada{% else %}Belum{% endif %}</strong>{% else %}Belum disimpan. Klik untuk mengisi{% endif %}</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
 
                 <div class="row g-4">
                     <!-- Left Column: Booking Terbaru & Titip-Jual Terbaru -->

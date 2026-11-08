@@ -51,6 +51,7 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
@@ -146,6 +147,9 @@
                     </a>
 
                     <div class="side-section-title">Akun &amp; Pengaturan</div>
+                    <a class="admin-side-item {% if request.resolver_match.url_name == 'admin_pengaturan' %}active{% endif %}" href="{% url 'admin_pengaturan' %}">
+                        <span><i class="fa-solid fa-sliders text-primary"></i> Pengaturan Website</span>
+                    </a>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'profil_admin' %}active{% endif %}" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'ubah_password_admin' %}active{% endif %}" href="{% url 'ubah_password_admin' %}"><span><i class="fa-solid fa-key"></i> Ubah Password</span></a>
                     <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}"><span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span></a>

@@ -292,7 +292,7 @@
                                 <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking">
                                     <i class="fa-solid fa-circle-info"></i><span>Lihat Detail &amp; Booking</span>
                                 </a>
-                                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma|urlencode }})%20masih%20tersedia?"
+                                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma|urlencode }})%20masih%20tersedia?"
                                    target="_blank" rel="noopener" class="btn-cta-wa">
                                     <i class="fa-brands fa-whatsapp"></i><span>Tanya via WhatsApp</span>
                                 </a>
@@ -309,12 +309,12 @@
                             <p class="text-muted mb-4 mx-auto" style="max-width:440px;">Coba kurangi filter atau ubah kata kunci. Anda juga bisa menghubungi tim kami untuk dicarikan unit sesuai budget.</p>
                             <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
                                 <a href="{% url 'katalog' %}" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-solid fa-rotate-left me-2"></i>Reset Pencarian</a>
-                                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20mencari%20mobil%20bekas%20sesuai%20budget" target="_blank" rel="noopener" class="btn btn-outline-success rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Minta Dicarikan Unit</a>
+                                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20mencari%20mobil%20bekas%20sesuai%20budget" target="_blank" rel="noopener" class="btn btn-outline-success rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Minta Dicarikan Unit</a>
                             </div>
                         {% else %}
                             <h2 class="h4 fw-bold mb-2" style="color:var(--mbg-navy);">Katalog Masih Kosong</h2>
                             <p class="text-muted mb-4 mx-auto" style="max-width:420px;">Belum ada unit yang tersedia saat ini di Garasi MBG. Silakan hubungi tim kami untuk memesan atau menitipkan mobil Anda.</p>
-                            <a href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar</a>
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" rel="noopener" class="btn btn-primary rounded-pill px-4 fw-bold"><i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar</a>
                         {% endif %}
                     </div>
                 </div>

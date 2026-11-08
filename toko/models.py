@@ -6,6 +6,7 @@ from django.contrib.auth.models import AbstractUser
 from django.urls import reverse
 from django.utils.text import slugify
 import os
+import re
 import uuid
 
 
@@ -42,6 +43,27 @@ def validasi_situs_mitra(nilai):
     if not nilai.lower().startswith(('http://', 'https://')):
         raise ValidationError("Alamat situs harus diawali 'https://' atau 'http://'.")
     URLValidator(schemes=['http', 'https'])(nilai)
+
+
+def normalisasi_whatsapp(teks):
+    """
+    Ubah input bebas ("0812-3456-7890", "+62 812 3456 7890", "812...") menjadi angka
+    format internasional tanpa tanda plus ("6281234567890") untuk tautan wa.me.
+    """
+    angka = re.sub(r'\D', '', teks or '')
+    if angka.startswith('0'):
+        angka = '62' + angka[1:]
+    elif angka.startswith('8'):
+        angka = '62' + angka
+    return angka
+
+
+def validasi_whatsapp(nilai):
+    """Nomor WhatsApp tersimpan harus berformat 62xxxxxxxxxx (8–13 digit setelah 62)."""
+    if not re.fullmatch(r'62\d{8,13}', nilai or ''):
+        raise ValidationError(
+            "Nomor WhatsApp tidak valid. Gunakan nomor Indonesia, mis. 0812-3456-7890."
+        )
 
 
 def foto_profil_upload_path(instance, filename):
@@ -459,3 +481,81 @@ class Mitra(models.Model):
 
     def __str__(self):
         return self.nama
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 12. PENGATURAN WEBSITE (informasi global, satu baris saja)
+# ═══════════════════════════════════════════════════════════════════
+
+class PengaturanWebsite(models.Model):
+    """
+    Informasi global situs (kontak, alamat, jam buka, media sosial). Hanya ada satu baris
+    (pk=1). Nilai bawaan sama dengan teks yang dulu ditulis langsung di template, sehingga
+    situs tampil seperti biasa sebelum admin pernah menyimpan pengaturan.
+    """
+    whatsapp         = models.CharField(
+                           max_length=15, default='6281234567890',
+                           validators=[validasi_whatsapp], verbose_name="Nomor WhatsApp"
+                       )
+    email            = models.EmailField(
+                           blank=True, default='halo@mobilbekasgarasi.com', verbose_name="Email"
+                       )
+    alamat           = models.CharField(
+                           max_length=250,
+                           default='Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222',
+                           verbose_name="Alamat Lengkap"
+                       )
+    alamat_singkat   = models.CharField(
+                           max_length=120, default='Jl. A.P. Pettarani No. 88, Makassar',
+                           verbose_name="Alamat Singkat"
+                       )
+    jam_buka         = models.CharField(
+                           max_length=120, default='08.30 – 18.00 WITA Setiap Hari',
+                           verbose_name="Jam Operasional"
+                       )
+    link_peta        = models.CharField(
+                           max_length=500, blank=True, validators=[validasi_situs_mitra],
+                           verbose_name="Link Google Maps"
+                       )
+    deskripsi_footer = models.TextField(
+                           blank=True,
+                           default='Platform e-commerce otomotif terpercaya di Makassar dan Sulawesi Selatan. Mengutamakan transparansi harga, garansi mesin, dan jaminan 100% lulus 150 titik inspeksi dengan model Online-to-Offline (O2O).',
+                           verbose_name="Deskripsi Footer"
+                       )
+    instagram        = models.CharField(max_length=300, blank=True, validators=[validasi_situs_mitra], verbose_name="Instagram")
+    facebook         = models.CharField(max_length=300, blank=True, validators=[validasi_situs_mitra], verbose_name="Facebook")
+    tiktok           = models.CharField(max_length=300, blank=True, validators=[validasi_situs_mitra], verbose_name="TikTok")
+    youtube          = models.CharField(max_length=300, blank=True, validators=[validasi_situs_mitra], verbose_name="YouTube")
+    logo             = models.ImageField(
+                           upload_to='situs/', blank=True, null=True, verbose_name="Logo Website"
+                       )
+    favicon          = models.ImageField(
+                           upload_to='situs/', blank=True, null=True, verbose_name="Favicon"
+                       )
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Pengaturan Website"
+        verbose_name_plural = "Pengaturan Website"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1   # singleton: selalu satu baris
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan (dibuat dengan nilai bawaan jika belum ada)."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def whatsapp_tampil(self):
+        """'6281234567890' → '+62 812-3456-7890' untuk ditampilkan ke pengunjung."""
+        angka = self.whatsapp or ''
+        if not angka.startswith('62') or len(angka) < 10:
+            return angka
+        sisa = angka[2:]
+        return f"+62 {sisa[:3]}-{sisa[3:7]}-{sisa[7:]}" if len(sisa) > 7 else f"+62 {sisa}"
+
+    def __str__(self):
+        return "Pengaturan Website"

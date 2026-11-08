@@ -217,22 +217,23 @@
         }
         .foto-preview img { width: 100%; height: 100%; object-fit: cover; }
     </style>
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
-    <!-- Top Bar -->
+    <!-- Top Bar
     <div class="top-ticker py-1.5 d-none d-md-block">
         <div class="container d-flex justify-content-between align-items-center">
-            <span><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom: Jl. A.P. Pettarani No. 88, Makassar</span>
+            <span><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom: {{ pengaturan.alamat_singkat }}</span>
             <span><i class="fa-solid fa-shield-halved text-success me-1"></i> 100% Lulus 150 Titik Inspeksi MBG</span>
         </div>
-    </div>
+    </div> -->
 
     <!-- Main Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-mbg sticky-top">
         <div class="container">
             <a class="brand-lockup" href="{% url 'beranda' %}">
-                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
                     <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>

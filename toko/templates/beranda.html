@@ -1006,6 +1006,7 @@
         }
         .mitra-ket { font-size: .78rem; color: #64748B; line-height: 1.4; margin: 0; }
     </style>
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
@@ -1020,7 +1021,7 @@
         <div class="container">
             <!-- Brand Logo -->
             <a class="brand-lockup" href="{% url 'beranda' %}" aria-label="Beranda MBG Makassar">
-                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
                     <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
@@ -1097,7 +1098,7 @@
                             <i class="fa-solid fa-user-plus"></i> Daftar
                         </a>
                     {% endif %}
-                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn-nav-cta">
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn-nav-cta">
                         <i class="fa-solid fa-calendar-check"></i> <span>Booking Cek Unit</span>
                     </a>
                 </div>
@@ -1105,7 +1106,7 @@
 
             <!-- Mobile Action & Hamburger Button (< 1200px) -->
             <div class="d-flex align-items-center gap-2 d-xl-none">
-                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn btn-primary rounded-pill px-3 fw-bold d-none d-sm-inline-flex align-items-center gap-1.5 shadow-sm text-decoration-none" style="font-size: 0.84rem; height: 44px;">
+                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" target="_blank" class="btn btn-primary rounded-pill px-3 fw-bold d-none d-sm-inline-flex align-items-center gap-1.5 shadow-sm text-decoration-none" style="font-size: 0.84rem; height: 44px;">
                     <i class="fa-solid fa-calendar-check"></i> Booking Unit
                 </a>
                 <button class="btn-hamburger-mbg" 
@@ -1125,9 +1126,9 @@
     <div class="offcanvas offcanvas-end offcanvas-mbg" tabindex="-1" id="mbgOffcanvasNavbar" aria-labelledby="mbgOffcanvasLabel">
         <div class="offcanvas-header border-bottom border-secondary border-opacity-25 py-3 px-3.5">
             <div class="d-flex align-items-center gap-2.5">
-                <div class="brand-icon" style="width: 42px; height: 42px; font-size: 1.1rem; border-radius: 10px;">
+                {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:42px;width:auto;max-width:168px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon" style="width: 42px; height: 42px; font-size: 1.1rem; border-radius: 10px;">
                     <i class="fa-solid fa-car-side"></i>
-                </div>
+                </div>{% endif %}
                 <div>
                     <h6 class="fw-bold text-white mb-0" id="mbgOffcanvasLabel">MBG Makassar</h6>
                     <small class="text-white-50" style="font-size: 0.72rem;">Mobil Bekas Garasi</small>
@@ -1202,7 +1203,7 @@
                 </ul>
 
                 <!-- Prominent CTA Button in Mobile Offcanvas -->
-                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" 
+                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit" 
                    target="_blank" 
                    class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm d-flex align-items-center justify-content-center gap-2 mb-3 text-decoration-none"
                    style="height: 48px; font-size: 0.92rem; background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); border: none;">
@@ -1214,10 +1215,10 @@
             <div class="pt-3 border-top border-secondary border-opacity-25 mt-3">
                 <div class="p-3 rounded-3 mb-2.5" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);">
                     <small class="text-white-50 d-block mb-1"><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom Makassar</small>
-                    <div class="fw-bold text-white small">Jl. A.P. Pettarani No. 88</div>
-                    <small class="text-white-50" style="font-size: 0.72rem;">08.30 – 18.00 WITA Setiap Hari</small>
+                    <div class="fw-bold text-white small">{{ pengaturan.alamat_singkat }}</div>
+                    <small class="text-white-50" style="font-size: 0.72rem;">{{ pengaturan.jam_buka }}</small>
                 </div>
-                <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20konsultasi%20cek%20unit" 
+                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20konsultasi%20cek%20unit" 
                    target="_blank" 
                    class="btn btn-success w-100 fw-bold py-2.5 rounded-pill shadow-sm d-flex align-items-center justify-content-center gap-2 text-decoration-none"
                    style="height: 46px; font-size: 0.90rem;">
@@ -1579,7 +1580,7 @@
                             </a>
 
                             <!-- CTA Tambahan WhatsApp Konsultasi -->
-                            <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma }})%20masih%20tersedia?%20Bisa%20minta%20info%20detail%20dan%20laporan%20inspeksinya?"
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma }})%20masih%20tersedia?%20Bisa%20minta%20info%20detail%20dan%20laporan%20inspeksinya?"
                                target="_blank"
                                class="btn-cta-wa">
                                 <i class="fa-brands fa-whatsapp"></i>
@@ -1601,7 +1602,7 @@
                     </div>
                     <h4 class="fw-bold mb-2" style="color:var(--mbg-navy);">Katalog Masih Kosong</h4>
                     <p class="text-muted mb-4 mx-auto" style="max-width:420px;">Belum ada unit yang tersedia saat ini di Garasi MBG. Silakan hubungi tim kami untuk memesan atau menitipkan mobil Anda.</p>
-                    <a href="https://wa.me/6281234567890" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
                         <i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar
                     </a>
                 </div>
@@ -1678,7 +1679,7 @@
                             Dapatkan harga terbaik tanpa pusing meladeni calon pembeli yang tidak serius. Mobil Anda akan diinspeksi, difoto profesional, dan dipamerkan langsung di showroom Garasi Makassar serta website kami.
                         </p>
                         <div class="d-flex flex-wrap gap-3">
-                            <a href="https://wa.me/6281234567890?text=Halo%20MBG,%20saya%20ingin%20titip%20jual%20mobil%20saya%20di%20Garasi%20Makassar" target="_blank"
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20MBG,%20saya%20ingin%20titip%20jual%20mobil%20saya%20di%20Garasi%20Makassar" target="_blank"
                                class="btn btn-warning fw-bold px-4 py-2.5 rounded-pill text-dark">
                                 <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Konsultasi Titip Jual Mobil
                             </a>
@@ -1727,7 +1728,7 @@
                             </div>
                         </div>
                     </div>
-                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20ingin%20konsultasi%20simulasi%20kredit%20mobil%20bekas" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20konsultasi%20simulasi%20kredit%20mobil%20bekas" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
                         <i class="fa-brands fa-whatsapp me-2"></i>Hitung Simulasi via WhatsApp
                     </a>
                 </div>
@@ -1769,25 +1770,25 @@
                         <div class="loc-icon-box bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-location-dot"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Alamat Showroom</h6>
-                            <p class="text-muted small mb-0">Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222</p>
+                            <p class="text-muted small mb-0">{{ pengaturan.alamat }}</p>
                         </div>
                     </div>
                     <div class="loc-detail-item">
                         <div class="loc-icon-box bg-warning bg-opacity-10 text-warning"><i class="fa-regular fa-clock"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Jam Operasional</h6>
-                            <p class="text-muted small mb-0">Senin – Minggu: 08.30 – 18.00 WITA (Termasuk Hari Libur Nasional)</p>
+                            <p class="text-muted small mb-0">{{ pengaturan.jam_buka }}</p>
                         </div>
                     </div>
                     <div class="loc-detail-item">
                         <div class="loc-icon-box bg-success bg-opacity-10 text-success"><i class="fa-brands fa-whatsapp"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1" style="font-size:.88rem;color:var(--mbg-navy);">Booking &amp; Test Drive</h6>
-                            <p class="text-muted small mb-0">WhatsApp Center: +62 812-3456-7890 (Respon Cepat)</p>
+                            <p class="text-muted small mb-0">WhatsApp Center: {{ pengaturan.whatsapp_tampil }} (Respon Cepat)</p>
                         </div>
                     </div>
 
-                    <a href="https://maps.google.com" target="_blank" class="btn btn-outline-primary rounded-pill px-4 fw-semibold mt-2">
+                    <a href="{{ pengaturan.link_peta|default:'https://maps.google.com' }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary rounded-pill px-4 fw-semibold mt-2">
                         <i class="fa-solid fa-diamond-turn-right me-2"></i>Buka Petunjuk Arah di Google Maps
                     </a>
                 </div>
@@ -1848,22 +1849,22 @@
                 <!-- Kolom 1: Logo & Slogan MBG -->
                 <div class="col-lg-4 col-md-6">
                     <div class="d-flex align-items-center gap-2 mb-3">
-                        <div class="brand-icon" style="width:38px;height:38px;font-size:1rem;border-radius:10px;">
+                        {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:38px;width:auto;max-width:152px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon" style="width:38px;height:38px;font-size:1rem;border-radius:10px;">
                             <i class="fa-solid fa-car-side"></i>
-                        </div>
+                        </div>{% endif %}
                         <div>
                             <h4 class="fw-bold text-white mb-0" style="font-size:1.15rem;">MBG</h4>
                             <small class="text-white-50" style="font-size:0.75rem;">Mobil Bekas Garasi Makassar</small>
                         </div>
                     </div>
-                    <p class="small mb-3" style="color:#94A3B8; line-height: 1.6;">
-                        Platform e-commerce otomotif terpercaya di Makassar dan Sulawesi Selatan. Mengutamakan transparansi harga, garansi mesin, dan jaminan 100% lulus 150 titik inspeksi dengan model Online-to-Offline (O2O).
-                    </p>
+                    {% if pengaturan.deskripsi_footer %}<p class="small mb-3" style="color:#94A3B8; line-height: 1.6;">
+                        {{ pengaturan.deskripsi_footer }}
+                    </p>{% endif %}
                     <div class="d-flex gap-2">
-                        <a href="#" class="social-btn"><i class="fa-brands fa-instagram"></i></a>
-                        <a href="#" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
-                        <a href="#" class="social-btn"><i class="fa-brands fa-tiktok"></i></a>
-                        <a href="#" class="social-btn"><i class="fa-brands fa-youtube"></i></a>
+                        {% if pengaturan.instagram %}<a href="{{ pengaturan.instagram }}" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>{% endif %}
+                        {% if pengaturan.facebook %}<a href="{{ pengaturan.facebook }}" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>{% endif %}
+                        {% if pengaturan.tiktok %}<a href="{{ pengaturan.tiktok }}" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>{% endif %}
+                        {% if pengaturan.youtube %}<a href="{{ pengaturan.youtube }}" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>{% endif %}
                     </div>
                 </div>
 
@@ -1897,19 +1898,19 @@
                     <ul class="list-unstyled small" style="color:#94A3B8;">
                         <li class="mb-2.5 d-flex align-items-start gap-2">
                             <i class="fa-solid fa-location-dot text-danger mt-1"></i>
-                            <span>Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222</span>
+                            <span>{{ pengaturan.alamat }}</span>
                         </li>
                         <li class="mb-2.5 d-flex align-items-center gap-2">
                             <i class="fa-brands fa-whatsapp text-success"></i>
-                            <a href="https://wa.me/6281234567890" target="_blank" class="text-white text-decoration-none fw-semibold">+62 812-3456-7890 (CS WhatsApp)</a>
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="text-white text-decoration-none fw-semibold">{{ pengaturan.whatsapp_tampil }} (CS WhatsApp)</a>
                         </li>
-                        <li class="mb-2.5 d-flex align-items-center gap-2">
+                        {% if pengaturan.email %}<li class="mb-2.5 d-flex align-items-center gap-2">
                             <i class="fa-solid fa-envelope text-primary"></i>
-                            <span>halo@mobilbekasgarasi.com</span>
-                        </li>
+                            <span>{{ pengaturan.email }}</span>
+                        </li>{% endif %}
                         <li class="d-flex align-items-center gap-2">
                             <i class="fa-regular fa-clock text-warning"></i>
-                            <span>Buka: 08.30 – 18.00 WITA Setiap Hari</span>
+                            <span>Buka: {{ pengaturan.jam_buka }}</span>
                         </li>
                     </ul>
                 </div>
@@ -1928,7 +1929,7 @@
                     <a href="#" class="text-decoration-none text-secondary">Kebijakan Privasi</a>
                     <span>&middot;</span>
                     {% endfor %}
-                    <a href="https://wa.me/6281234567890" target="_blank" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
                 </div>
             </div>
         </div>

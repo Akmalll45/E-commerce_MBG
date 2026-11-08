@@ -71,4 +71,7 @@ urlpatterns = [
     path('panel/mitra/<int:id>/edit/', views.admin_mitra_edit, name='admin_mitra_edit'),
     path('panel/mitra/<int:id>/status/', views.admin_mitra_status, name='admin_mitra_status'),
     path('panel/mitra/<int:id>/hapus/', views.admin_mitra_hapus, name='admin_mitra_hapus'),
+
+    # Pengaturan Website — Admin
+    path('panel/pengaturan/', views.admin_pengaturan, name='admin_pengaturan'),
 ]

@@ -8,7 +8,7 @@ import uuid
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra
+from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp
 
 User = get_user_model()
 
@@ -372,6 +372,7 @@ class UbahPasswordForm(PasswordChangeForm):
 # ═══════════════════════════════════════════════════════════════════
 
 FOTO_MOBIL_MAKS_BYTE = 5 * 1024 * 1024  # 5 MB per foto
+FAVICON_MAKS_BYTE = 1 * 1024 * 1024   # favicon cukup kecil; maksimal 1 MB
 FOTO_MOBIL_EKSTENSI = {'JPEG': 'jpg', 'MPO': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}
 
 
@@ -999,3 +1000,151 @@ class MitraForm(forms.ModelForm):
             if self._logo_lama and self._logo_lama != nama_sekarang:
                 mitra.logo.storage.delete(self._logo_lama)
         return mitra
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM PENGATURAN WEBSITE
+# ═══════════════════════════════════════════════════════════════════
+
+class PengaturanWebsiteForm(forms.ModelForm):
+    # whatsapp dideklarasikan CharField (tanpa validator model) agar input longgar seperti
+    # "0812-3456-7890" dinormalkan lebih dulu oleh clean_whatsapp(), baru divalidasi.
+    whatsapp = forms.CharField(
+        max_length=30, label='Nomor WhatsApp',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control font-monospace',
+            'placeholder': '0812-3456-7890',
+            'inputmode': 'tel',
+            'autocomplete': 'off',
+        }),
+    )
+
+    hapus_logo = forms.BooleanField(
+        required=False, label='Hapus logo saat ini',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    hapus_favicon = forms.BooleanField(
+        required=False, label='Hapus favicon saat ini',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
+    class Meta:
+        model  = PengaturanWebsite
+        fields = [
+            'whatsapp', 'email', 'alamat', 'alamat_singkat', 'jam_buka', 'link_peta',
+            'deskripsi_footer', 'instagram', 'facebook', 'tiktok', 'youtube',
+            'logo', 'favicon',
+        ]
+        widgets = {
+            'logo': forms.FileInput(attrs={
+                'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp',
+            }),
+            'favicon': forms.FileInput(attrs={
+                'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp',
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control', 'placeholder': 'halo@contoh.com',
+            }),
+            'alamat': forms.Textarea(attrs={
+                'class': 'form-control', 'rows': 2, 'maxlength': 250,
+                'placeholder': 'Alamat lengkap showroom/garasi',
+            }),
+            'alamat_singkat': forms.TextInput(attrs={
+                'class': 'form-control', 'maxlength': 120,
+                'placeholder': 'Contoh: Jl. A.P. Pettarani No. 88, Makassar',
+            }),
+            'jam_buka': forms.TextInput(attrs={
+                'class': 'form-control', 'maxlength': 120,
+                'placeholder': 'Contoh: 08.30 – 18.00 WITA Setiap Hari',
+            }),
+            'link_peta': forms.URLInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': 'https://maps.app.goo.gl/...',
+                'autocomplete': 'off',
+            }),
+            'deskripsi_footer': forms.Textarea(attrs={
+                'class': 'form-control', 'rows': 3,
+                'placeholder': 'Kalimat singkat tentang MBG di footer (kosongkan untuk menyembunyikan)',
+            }),
+            'instagram': forms.URLInput(attrs={'class': 'form-control font-monospace', 'placeholder': 'https://instagram.com/akun', 'autocomplete': 'off'}),
+            'facebook':  forms.URLInput(attrs={'class': 'form-control font-monospace', 'placeholder': 'https://facebook.com/halaman', 'autocomplete': 'off'}),
+            'tiktok':    forms.URLInput(attrs={'class': 'form-control font-monospace', 'placeholder': 'https://tiktok.com/@akun', 'autocomplete': 'off'}),
+            'youtube':   forms.URLInput(attrs={'class': 'form-control font-monospace', 'placeholder': 'https://youtube.com/@kanal', 'autocomplete': 'off'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Catat nama berkas lama agar bisa dihapus dari storage saat diganti/dihapus.
+        self._berkas_lama = {
+            kolom: (getattr(self.instance, kolom).name
+                    if self.instance.pk and getattr(self.instance, kolom) else None)
+            for kolom in ('logo', 'favicon')
+        }
+
+    def clean_logo(self):
+        return validasi_foto_mobil(self.cleaned_data.get('logo'))
+
+    def clean_favicon(self):
+        favicon = self.cleaned_data.get('favicon')
+        if isinstance(favicon, UploadedFile) and favicon.size > FAVICON_MAKS_BYTE:
+            raise ValidationError("Ukuran favicon terlalu besar. Maksimal 1 MB.")
+        return validasi_foto_mobil(favicon)
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        for kolom in ('logo', 'favicon'):
+            ada_baru = isinstance(self.cleaned_data.get(kolom), UploadedFile)
+            if self.cleaned_data.get(f'hapus_{kolom}') and not ada_baru:
+                setattr(obj, kolom, None)
+        if commit:
+            obj.save()
+            for kolom, lama in self._berkas_lama.items():
+                berkas = getattr(obj, kolom)
+                if lama and lama != (berkas.name if berkas else None):
+                    berkas.storage.delete(lama)
+        return obj
+
+    def clean_whatsapp(self):
+        nomor = normalisasi_whatsapp(self.cleaned_data.get('whatsapp'))
+        validasi_whatsapp(nomor)   # melempar ValidationError jika bukan nomor Indonesia
+        return nomor
+
+    def clean_alamat(self):
+        alamat = ' '.join((self.cleaned_data.get('alamat') or '').split())
+        if not alamat:
+            raise ValidationError("Alamat lengkap tidak boleh kosong.")
+        return alamat
+
+    def clean_alamat_singkat(self):
+        alamat = ' '.join((self.cleaned_data.get('alamat_singkat') or '').split())
+        if not alamat:
+            raise ValidationError("Alamat singkat tidak boleh kosong.")
+        return alamat
+
+    def clean_jam_buka(self):
+        jam = ' '.join((self.cleaned_data.get('jam_buka') or '').split())
+        if not jam:
+            raise ValidationError("Jam operasional tidak boleh kosong.")
+        return jam
+
+    def clean_deskripsi_footer(self):
+        return ' '.join((self.cleaned_data.get('deskripsi_footer') or '').split())
+
+    def _bersihkan_url(self, nama):
+        return (self.cleaned_data.get(nama) or '').strip()
+
+    def clean_link_peta(self):
+        return self._bersihkan_url('link_peta')
+
+    def clean_instagram(self):
+        return self._bersihkan_url('instagram')
+
+    def clean_facebook(self):
+        return self._bersihkan_url('facebook')
+
+    def clean_tiktok(self):
+        return self._bersihkan_url('tiktok')
+
+    def clean_youtube(self):
+        return self._bersihkan_url('youtube')

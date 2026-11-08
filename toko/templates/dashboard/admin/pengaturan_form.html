@@ -1,0 +1,257 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}Pengaturan Website — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section-title { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; margin-bottom:1rem; }
+    .sosmed-ikon { width:44px; justify-content:center; background:#F8FAFC; border:1.5px solid #E2E8F0; border-right:none; border-radius:12px 0 0 12px; color:#475569; }
+    .sosmed-input .form-control { border-radius:0 12px 12px 0; }
+    .logo-pv { display:flex; align-items:center; justify-content:center; min-height:96px; padding:1rem; background:#F8FAFC; border:1.5px dashed #CBD5E1; border-radius:14px; }
+    .logo-pv img { max-height:64px; max-width:100%; object-fit:contain; }
+    .logo-pv .ikon-bawaan { width:48px; height:48px; border-radius:12px; display:grid; place-items:center; color:#fff; font-size:1.25rem; background:linear-gradient(135deg,#2563EB,#1D4ED8); }
+    .fav-pv { display:flex; align-items:center; gap:.9rem; padding:1rem; background:#F8FAFC; border:1.5px dashed #CBD5E1; border-radius:14px; min-height:96px; }
+    .fav-pv img { object-fit:contain; background:#fff; border:1px solid #E2E8F0; border-radius:6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-sliders text-primary me-2"></i> Pengaturan Website</h3>
+        <p class="text-muted small mb-0">
+            Informasi global yang tampil di footer, beranda, katalog, dan detail mobil. Perubahan langsung berlaku di seluruh situs.
+        </p>
+    </div>
+    <a href="{% url 'beranda' %}" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-3">
+        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat Beranda
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 px-3 small" style="border-radius:12px;">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+
+            {# Identitas visual #}
+            <div class="content-card mb-4">
+                <div class="form-section-title"><i class="fa-solid fa-image text-warning me-1"></i> Logo &amp; Favicon</div>
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold" for="{{ form.logo.id_for_label }}">Logo Website</label>
+                        <div class="logo-pv mb-2">
+                            <img id="pv-logo" alt="Logo saat ini"{% if pengaturan.logo %} src="{{ pengaturan.logo.url }}"{% else %} hidden{% endif %}>
+                            <div class="ikon-bawaan" id="pv-logo-bawaan"{% if pengaturan.logo %} hidden{% endif %}><i class="fa-solid fa-car-side"></i></div>
+                        </div>
+                        {{ form.logo }}
+                        {% if form.logo.errors %}<div class="text-danger small mt-1">{{ form.logo.errors|join:", " }}</div>{% endif %}
+                        <div class="form-text">JPG, PNG, atau WebP, maks 5 MB. Disarankan PNG/WebP berlatar transparan. Logo tampil setinggi sekitar 44 px di navbar dan footer, jadi logo mendatar pun muat. Tanpa logo, situs memakai ikon mobil bawaan.</div>
+                        {% if pengaturan.logo %}
+                        <div class="form-check mt-2">
+                            {{ form.hapus_logo }}
+                            <label class="form-check-label small" for="{{ form.hapus_logo.id_for_label }}">{{ form.hapus_logo.label }} (kembali ke ikon bawaan)</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold" for="{{ form.favicon.id_for_label }}">Favicon</label>
+                        <div class="fav-pv mb-2">
+                            {% if pengaturan.favicon %}
+                            <img id="pv-fav" src="{{ pengaturan.favicon.url }}" alt="Favicon saat ini" width="32" height="32">
+                            {% else %}
+                            <img id="pv-fav" alt="Favicon" width="32" height="32" hidden>
+                            <span class="text-muted small" id="pv-fav-kosong">Belum ada favicon</span>
+                            {% endif %}
+                        </div>
+                        {{ form.favicon }}
+                        {% if form.favicon.errors %}<div class="text-danger small mt-1">{{ form.favicon.errors|join:", " }}</div>{% endif %}
+                        <div class="form-text">Gambar persegi (mis. 256&times;256 px), PNG disarankan, maks 1 MB. Ikon kecil di tab browser. Browser menyimpannya di cache, jadi perubahan bisa butuh refresh paksa (Ctrl+F5).</div>
+                        {% if pengaturan.favicon %}
+                        <div class="form-check mt-2">
+                            {{ form.hapus_favicon }}
+                            <label class="form-check-label small" for="{{ form.hapus_favicon.id_for_label }}">{{ form.hapus_favicon.label }}</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# Kontak #}
+            <div class="content-card mb-4">
+                <div class="form-section-title"><i class="fa-brands fa-whatsapp text-success me-1"></i> Kontak</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.whatsapp.id_for_label }}">Nomor WhatsApp <span class="text-danger">*</span></label>
+                    {{ form.whatsapp }}
+                    {% if form.whatsapp.errors %}<div class="text-danger small mt-1">{{ form.whatsapp.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">
+                        Tulis bebas, mis. <span class="font-monospace">0812-3456-7890</span>. Dipakai di semua tombol WhatsApp.
+                        <span id="wa-pratinjau" class="fw-semibold text-success"></span>
+                    </div>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.email.id_for_label }}">Email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Jika dikosongkan, baris email disembunyikan dari footer.</div>
+                </div>
+            </div>
+
+            {# Lokasi #}
+            <div class="content-card mb-4">
+                <div class="form-section-title"><i class="fa-solid fa-location-dot text-danger me-1"></i> Lokasi &amp; Jam Operasional</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.alamat.id_for_label }}">Alamat Lengkap <span class="text-danger">*</span></label>
+                    {{ form.alamat }}
+                    {% if form.alamat.errors %}<div class="text-danger small mt-1">{{ form.alamat.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Tampil di footer dan bagian lokasi beranda.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.alamat_singkat.id_for_label }}">Alamat Singkat <span class="text-danger">*</span></label>
+                    {{ form.alamat_singkat }}
+                    {% if form.alamat_singkat.errors %}<div class="text-danger small mt-1">{{ form.alamat_singkat.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Versi pendek untuk bilah info, detail mobil, dan dasbor pengguna.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.jam_buka.id_for_label }}">Jam Operasional <span class="text-danger">*</span></label>
+                    {{ form.jam_buka }}
+                    {% if form.jam_buka.errors %}<div class="text-danger small mt-1">{{ form.jam_buka.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.link_peta.id_for_label }}">Link Google Maps</label>
+                    {{ form.link_peta }}
+                    {% if form.link_peta.errors %}<div class="text-danger small mt-1">{{ form.link_peta.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Untuk tombol "Buka Petunjuk Arah". Jika kosong, tombol membuka Google Maps umum.</div>
+                </div>
+            </div>
+
+            {# Footer #}
+            <div class="content-card mb-4">
+                <div class="form-section-title"><i class="fa-solid fa-align-left text-primary me-1"></i> Footer</div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.deskripsi_footer.id_for_label }}">Deskripsi Singkat</label>
+                    {{ form.deskripsi_footer }}
+                    {% if form.deskripsi_footer.errors %}<div class="text-danger small mt-1">{{ form.deskripsi_footer.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Paragraf di bawah logo pada footer. Kosongkan untuk menyembunyikannya.</div>
+                </div>
+            </div>
+
+            {# Media sosial #}
+            <div class="content-card">
+                <div class="form-section-title"><i class="fa-solid fa-share-nodes text-info me-1"></i> Media Sosial</div>
+                <p class="text-muted small">Hanya akun yang diisi yang tampil sebagai ikon di footer. Alamat harus diawali <span class="font-monospace">https://</span>.</p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.instagram.id_for_label }}">Instagram</label>
+                    <div class="input-group sosmed-input">
+                        <span class="input-group-text sosmed-ikon"><i class="fa-brands fa-instagram"></i></span>
+                        {{ form.instagram }}
+                    </div>
+                    {% if form.instagram.errors %}<div class="text-danger small mt-1">{{ form.instagram.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.facebook.id_for_label }}">Facebook</label>
+                    <div class="input-group sosmed-input">
+                        <span class="input-group-text sosmed-ikon"><i class="fa-brands fa-facebook-f"></i></span>
+                        {{ form.facebook }}
+                    </div>
+                    {% if form.facebook.errors %}<div class="text-danger small mt-1">{{ form.facebook.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.tiktok.id_for_label }}">TikTok</label>
+                    <div class="input-group sosmed-input">
+                        <span class="input-group-text sosmed-ikon"><i class="fa-brands fa-tiktok"></i></span>
+                        {{ form.tiktok }}
+                    </div>
+                    {% if form.tiktok.errors %}<div class="text-danger small mt-1">{{ form.tiktok.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.youtube.id_for_label }}">YouTube</label>
+                    <div class="input-group sosmed-input">
+                        <span class="input-group-text sosmed-ikon"><i class="fa-brands fa-youtube"></i></span>
+                        {{ form.youtube }}
+                    </div>
+                    {% if form.youtube.errors %}<div class="text-danger small mt-1">{{ form.youtube.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="content-card" style="position:sticky;top:1rem;">
+                <div class="form-section-title">Simpan</div>
+                <p class="small text-muted">
+                    {% if terakhir %}
+                    Terakhir diperbarui <strong>{{ terakhir|date:"d M Y, H:i" }}</strong>.
+                    {% else %}
+                    Belum pernah disimpan. Situs memakai nilai bawaan yang terisi di formulir ini.
+                    {% endif %}
+                </p>
+                <ul class="small text-muted ps-3 mb-4">
+                    <li>Logo dan favicon tampil di seluruh halaman situs.</li>
+                    <li>Nomor WhatsApp dipakai di seluruh tombol hubungi.</li>
+                    <li>Alamat, jam buka, dan email tampil di footer.</li>
+                    <li>Ikon media sosial hanya muncul jika diisi.</li>
+                </ul>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Pengaturan
+                    </button>
+                    <a href="{% url 'dashboard_admin' %}" class="btn btn-outline-secondary rounded-pill">Batal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Pratinjau gambar yang baru dipilih (hanya di browser; belum tersimpan). */
+(function () {
+    function pratinjau(idInput, aksi) {
+        const el = document.getElementById(idInput);
+        if (!el) return;
+        el.addEventListener('change', function () {
+            const f = el.files && el.files[0];
+            if (f && f.type.startsWith('image/')) aksi(URL.createObjectURL(f));
+        });
+    }
+    pratinjau('{{ form.logo.id_for_label }}', function (url) {
+        const img = document.getElementById('pv-logo');
+        img.src = url; img.hidden = false;
+        const b = document.getElementById('pv-logo-bawaan'); if (b) b.hidden = true;
+    });
+    pratinjau('{{ form.favicon.id_for_label }}', function (url) {
+        const img = document.getElementById('pv-fav');
+        img.src = url; img.hidden = false;
+        const k = document.getElementById('pv-fav-kosong'); if (k) k.hidden = true;
+    });
+})();
+
+/* Pratinjau nomor WhatsApp: meniru normalisasi di server (hanya untuk membantu admin). */
+(function () {
+    const input = document.getElementById('{{ form.whatsapp.id_for_label }}');
+    const out = document.getElementById('wa-pratinjau');
+    if (!input || !out) return;
+    function segarkan() {
+        let d = (input.value || '').replace(/\D/g, '');
+        if (d.startsWith('0')) d = '62' + d.slice(1);
+        else if (d.startsWith('8')) d = '62' + d;
+        if (!/^62\d{8,13}$/.test(d)) { out.textContent = d ? '— belum valid' : ''; return; }
+        const s = d.slice(2);
+        out.textContent = '→ +62 ' + (s.length > 7 ? s.slice(0, 3) + '-' + s.slice(3, 7) + '-' + s.slice(7) : s);
+    }
+    input.addEventListener('input', segarkan);
+    segarkan();
+})();
+</script>
+{% endblock %}

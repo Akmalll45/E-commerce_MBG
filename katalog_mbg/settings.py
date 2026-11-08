@@ -97,6 +97,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'toko.context_processors.halaman_footer',
+                'toko.context_processors.pengaturan_situs',
             ],
         },
     },

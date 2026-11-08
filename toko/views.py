@@ -14,12 +14,12 @@ from urllib.parse import urlencode
 
 from .models import (
     Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
-    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
+    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
     ProdukForm, validasi_foto_mobil,
-    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm,
+    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm, PengaturanWebsiteForm,
 )
 
 User = get_user_model()
@@ -454,6 +454,47 @@ def ubah_password_user(request):
 # 4. DASHBOARD ADMIN (MBG MANAGEMENT PANEL)
 # ═══════════════════════════════════════════════════════════════════
 
+# Kolom Pengaturan Website yang dihitung untuk "kelengkapan" di dashboard.
+KOLOM_KELENGKAPAN_PENGATURAN = (
+    'whatsapp', 'email', 'alamat', 'alamat_singkat', 'jam_buka', 'link_peta', 'deskripsi_footer',
+    'instagram', 'facebook', 'tiktok', 'youtube', 'logo', 'favicon',
+)
+
+
+def ringkasan_konten():
+    """
+    Hitungan modul CMS (Artikel, Halaman, Hero Slide, Mitra, Pengaturan) untuk kartu KPI di
+    dashboard admin. Mengembalikan None jika salah satu tabel belum dimigrasi, supaya
+    dashboard tetap terbuka dan hanya bagian ini yang disembunyikan.
+    """
+    def hitung(model):
+        return model.objects.aggregate(
+            total=Count('id'),
+            tayang=Count('id', filter=Q(status='published')),
+            draft=Count('id', filter=Q(status='draft')),
+        )
+
+    try:
+        pengaturan = PengaturanWebsite.objects.filter(pk=1).first()
+        return {
+            'artikel':  hitung(Artikel),
+            'kategori': KategoriArtikel.objects.count(),
+            'halaman':  hitung(HalamanWebsite),
+            'hero':     hitung(HeroSlide),
+            'mitra':    hitung(Mitra),
+            'pengaturan_tersimpan': pengaturan is not None,
+            'pengaturan_terisi': (
+                sum(1 for kolom in KOLOM_KELENGKAPAN_PENGATURAN if getattr(pengaturan, kolom))
+                if pengaturan else 0
+            ),
+            'pengaturan_total':  len(KOLOM_KELENGKAPAN_PENGATURAN),
+            'logo_terpasang':    bool(pengaturan and pengaturan.logo),
+            'favicon_terpasang': bool(pengaturan and pengaturan.favicon),
+        }
+    except DatabaseError:
+        return None
+
+
 @login_required(login_url='login')
 def dashboard_admin(request):
     """
@@ -516,6 +557,7 @@ def dashboard_admin(request):
         'recent_titip_jual': recent_titip_jual,
         'recent_transaksi': recent_transaksi,
         'recent_produk': recent_produk,
+        'konten': ringkasan_konten(),
     }
     return render(request, 'dashboard/admin/dashboard.html', context)
 
@@ -1521,4 +1563,28 @@ def admin_mitra_hapus(request, id):
     return render(request, 'dashboard/admin/mitra_hapus.html', {
         'mitra':      mitra,
         'page_title': f'Hapus Mitra: {mitra.nama}',
+    })
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. PENGATURAN WEBSITE — informasi global (kontak, alamat, footer, sosmed)
+# ═══════════════════════════════════════════════════════════════════
+
+@staf_required
+def admin_pengaturan(request):
+    """Satu halaman untuk mengubah informasi global situs (hanya ada satu baris data)."""
+    pengaturan = PengaturanWebsite.objects.filter(pk=1).first() or PengaturanWebsite()
+    if request.method == 'POST':
+        form = PengaturanWebsiteForm(request.POST, request.FILES, instance=pengaturan)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Pengaturan website berhasil disimpan.")
+            return redirect('admin_pengaturan')
+    else:
+        form = PengaturanWebsiteForm(instance=pengaturan)
+    return render(request, 'dashboard/admin/pengaturan_form.html', {
+        'form':       form,
+        'page_title': 'Pengaturan Website',
+        'terakhir':   pengaturan.updated_at if pengaturan.pk else None,
     })

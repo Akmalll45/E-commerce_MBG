@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    CustomUser, Mitra, Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
+    CustomUser, Mitra, PengaturanWebsite, Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide,
 )
 
@@ -28,3 +28,4 @@ admin.site.register(Artikel)
 admin.site.register(HalamanWebsite)
 admin.site.register(HeroSlide)
 admin.site.register(Mitra)
+admin.site.register(PengaturanWebsite)

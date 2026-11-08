@@ -216,6 +216,7 @@
             color: #fff;
         }
     </style>
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
@@ -227,7 +228,7 @@
         <div class="auth-card">
             <!-- Brand -->
             <a class="brand-lockup" href="{% url 'beranda' %}">
-                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
                     <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>

@@ -259,26 +259,27 @@
         .user-avatar-badge img { width: 100%; height: 100%; object-fit: cover; }
         .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
     </style>
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
 <body>
 
-    <!-- Top Info Bar -->
+    <!-- Top Info Bar
     <div class="top-ticker py-1.5 d-none d-md-block">
         <div class="container d-flex justify-content-between align-items-center">
             <div>
-                <span><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom: Jl. A.P. Pettarani No. 88, Makassar</span>
+                <span><i class="fa-solid fa-location-dot text-danger me-1"></i> Garasi Showroom: {{ pengaturan.alamat_singkat }}</span>
             </div>
             <div>
                 <span><i class="fa-solid fa-shield-halved text-success me-1"></i> 100% Lulus 150 Titik Inspeksi MBG</span>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <!-- Main Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-mbg sticky-top">
         <div class="container">
             <a class="brand-lockup" href="{% url 'beranda' %}">
-                <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+                {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
                     <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
@@ -408,7 +409,7 @@
                             <small class="text-muted">CS MBG Makassar siap melayani</small>
                         </div>
                     </div>
-                    <a href="https://wa.me/6281234567890?text=Halo%20Admin%20MBG,%20saya%20butuh%20bantuan%20terkait%20akun%20saya" target="_blank" class="btn btn-outline-success btn-sm w-100 rounded-pill mt-3 fw-bold">
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20butuh%20bantuan%20terkait%20akun%20saya" target="_blank" class="btn btn-outline-success btn-sm w-100 rounded-pill mt-3 fw-bold">
                         <i class="fa-brands fa-whatsapp me-1"></i> WhatsApp CS MBG
                     </a>
                 </div>

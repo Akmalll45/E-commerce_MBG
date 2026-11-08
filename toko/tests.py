@@ -1229,3 +1229,469 @@ class MitraAdminTests(TestCase):
 
     def test_edit_mitra_yang_tidak_ada_404(self):
         self.assertEqual(self.client.get(reverse('admin_mitra_edit', args=[9999])).status_code, 404)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODUL 5 — PENGATURAN WEBSITE
+# ═══════════════════════════════════════════════════════════════════
+
+from .models import PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp
+
+# Catatan: memakai kembali buat_produk() dan impor yang sudah ada di atas.
+
+ALAMAT_BAWAAN = 'Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222'
+
+
+def buat_pengaturan(**kw):
+    data = dict(
+        whatsapp='6285200001111', email='info@contoh.id',
+        alamat='Jl. Uji No. 1, Gowa', alamat_singkat='Jl. Uji 1, Gowa',
+        jam_buka='Senin-Jumat 09.00-16.00 WITA',
+    )
+    data.update(kw)
+    return PengaturanWebsite.objects.create(**data)
+
+
+class PengaturanModelTests(TestCase):
+    def test_normalisasi_whatsapp(self):
+        for masuk in ('0812-3456-7890', '+62 812 3456 7890', '6281234567890', '81234567890',
+                      '(0812) 3456.7890'):
+            self.assertEqual(normalisasi_whatsapp(masuk), '6281234567890', masuk)
+
+    def test_validasi_whatsapp(self):
+        from django.core.exceptions import ValidationError
+        validasi_whatsapp('6281234567890')
+        for buruk in ('', 'abc', '62', '62123', '08123456789', '+6281234567890', '62' + '1' * 14):
+            with self.assertRaises(ValidationError, msg=buruk):
+                validasi_whatsapp(buruk)
+
+    def test_whatsapp_tampil(self):
+        self.assertEqual(PengaturanWebsite(whatsapp='6281234567890').whatsapp_tampil, '+62 812-3456-7890')
+
+    def test_hanya_satu_baris(self):
+        PengaturanWebsite().save()
+        PengaturanWebsite(whatsapp='6281111111111').save()
+        self.assertEqual(PengaturanWebsite.objects.count(), 1)
+        self.assertEqual(PengaturanWebsite.objects.get().whatsapp, '6281111111111')
+
+    def test_ambil_membuat_sekali_dengan_nilai_bawaan(self):
+        a = PengaturanWebsite.ambil()
+        b = PengaturanWebsite.ambil()
+        self.assertEqual(PengaturanWebsite.objects.count(), 1)
+        self.assertEqual(a.pk, b.pk)
+        self.assertEqual(a.alamat, ALAMAT_BAWAAN)
+
+
+class PengaturanPublikTests(TestCase):
+    """Situs publik: nilai bawaan = teks lama; nilai tersimpan menggantikannya di semua halaman."""
+
+    def setUp(self):
+        self.beranda = reverse('beranda')
+        self.katalog = reverse('katalog')
+        self.produk = buat_produk('Avanza Uji')
+        self.detail = reverse('detail_produk', args=[self.produk.id])
+
+    def test_tanpa_data_memakai_nilai_bawaan(self):
+        r = self.client.get(self.beranda)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'wa.me/6281234567890')
+        self.assertContains(r, '+62 812-3456-7890')
+        self.assertContains(r, 'halo@mobilbekasgarasi.com')
+        self.assertContains(r, ALAMAT_BAWAAN)
+        self.assertContains(r, 'Platform e-commerce otomotif')
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)   # membaca tidak membuat baris
+
+    def test_nilai_tersimpan_tampil_di_semua_halaman_publik(self):
+        buat_pengaturan()
+        for url in (self.beranda, self.katalog, self.detail):
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200, url)
+            self.assertContains(r, 'wa.me/6285200001111')
+            self.assertNotContains(r, 'wa.me/6281234567890')
+            self.assertNotContains(r, 'halo@mobilbekasgarasi.com')
+            self.assertNotContains(r, 'Pettarani No. 88')
+        r = self.client.get(self.beranda)
+        self.assertContains(r, '+62 852-0000-1111')
+        self.assertContains(r, 'info@contoh.id')
+        self.assertContains(r, 'Jl. Uji No. 1, Gowa')
+        self.assertContains(r, 'Senin-Jumat 09.00-16.00 WITA')
+        self.assertNotContains(r, '08.30')
+
+    def test_email_kosong_menyembunyikan_baris_email(self):
+        buat_pengaturan(email='')
+        self.assertNotContains(self.client.get(self.beranda), 'fa-envelope')
+        self.assertNotContains(self.client.get(self.detail), 'fa-envelope')
+
+    def test_deskripsi_footer_kosong_disembunyikan(self):
+        buat_pengaturan(deskripsi_footer='')
+        self.assertNotContains(self.client.get(self.beranda), 'Platform e-commerce otomotif')
+
+    def test_ikon_sosmed_hanya_jika_diisi(self):
+        r = self.client.get(self.beranda)
+        self.assertNotContains(r, '<a href="#" class="social-btn"')
+        self.assertNotContains(r, 'aria-label="Instagram"')
+        buat_pengaturan(instagram='https://instagram.com/mbg', youtube='https://youtube.com/@mbg')
+        for url in (self.beranda, self.detail, self.katalog):
+            r = self.client.get(url)
+            self.assertContains(r, 'href="https://instagram.com/mbg" target="_blank" '
+                                   'rel="noopener noreferrer" class="social-btn" aria-label="Instagram"')
+            self.assertContains(r, 'aria-label="YouTube"')
+            self.assertNotContains(r, 'aria-label="Facebook"')
+            self.assertNotContains(r, 'aria-label="TikTok"')
+
+    def test_link_peta_bawaan_dan_khusus(self):
+        self.assertContains(self.client.get(self.beranda), 'href="https://maps.google.com"')
+        buat_pengaturan(link_peta='https://maps.app.goo.gl/abc123')
+        r = self.client.get(self.beranda)
+        self.assertContains(r, 'href="https://maps.app.goo.gl/abc123"')
+        self.assertNotContains(r, 'href="https://maps.google.com"')
+
+    def test_teks_di_escape(self):
+        buat_pengaturan(alamat='<script>alert(1)</script>', jam_buka='<b>x</b>')
+        r = self.client.get(self.beranda)
+        self.assertNotContains(r, '<script>alert(1)</script>')
+        self.assertNotContains(r, '<b>x</b>')
+        self.assertContains(r, '&lt;script&gt;alert(1)&lt;/script&gt;')
+
+    def test_halaman_tetap_terbuka_jika_tabel_belum_dimigrasi(self):
+        with mock.patch('toko.context_processors.PengaturanWebsite.objects') as objek:
+            objek.filter.side_effect = DatabaseError('no such table')
+            r = self.client.get(self.beranda)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'wa.me/6281234567890')
+        self.assertContains(r, ALAMAT_BAWAAN)
+
+
+class PengaturanAdminTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staf = User.objects.create_user('staf', 'staf@x.id', 'pw-uji-12345', is_staff=True)
+        self.biasa = User.objects.create_user('biasa', 'biasa@x.id', 'pw-uji-12345')
+        self.client.force_login(self.staf)
+        self.url = reverse('admin_pengaturan')
+
+    def _data(self, **kw):
+        d = {'whatsapp': '0852-0000-1111', 'email': 'info@contoh.id',
+             'alamat': 'Jl. Baru No. 5, Makassar', 'alamat_singkat': 'Jl. Baru 5',
+             'jam_buka': '09.00 - 17.00 WITA', 'link_peta': '', 'deskripsi_footer': '',
+             'instagram': '', 'facebook': '', 'tiktok': '', 'youtube': ''}
+        d.update(kw)
+        return d
+
+    # ── akses ──
+    def test_anonim_diarahkan_ke_login(self):
+        self.client.logout()
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login/', r['Location'])
+
+    def test_pengguna_biasa_ditolak(self):
+        self.client.force_login(self.biasa)
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard_user'), fetch_redirect_response=False)
+        self.client.post(self.url, self._data())
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    # ── tampil ──
+    def test_form_menampilkan_nilai_bawaan_sebelum_pernah_disimpan(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, ALAMAT_BAWAAN)
+        self.assertContains(r, 'Belum pernah disimpan')
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_sidebar_memuat_menu_pengaturan(self):
+        self.assertContains(self.client.get(reverse('admin_hero')), self.url)
+        self.assertContains(self.client.get(reverse('dashboard_admin')), self.url)
+
+    # ── simpan ──
+    def test_simpan_membuat_satu_baris_dan_menormalkan_whatsapp(self):
+        self.assertRedirects(self.client.post(self.url, self._data()), self.url)
+        p = PengaturanWebsite.objects.get()
+        self.assertEqual(p.pk, 1)
+        self.assertEqual(p.whatsapp, '6285200001111')
+        self.assertEqual(p.alamat_singkat, 'Jl. Baru 5')
+
+    def test_simpan_kedua_memperbarui_bukan_menambah(self):
+        self.client.post(self.url, self._data())
+        self.client.post(self.url, self._data(jam_buka='24 jam'))
+        self.assertEqual(PengaturanWebsite.objects.count(), 1)
+        self.assertEqual(PengaturanWebsite.objects.get().jam_buka, '24 jam')
+        self.assertContains(self.client.get(self.url), 'Terakhir diperbarui')
+
+    def test_perubahan_langsung_tampil_di_beranda(self):
+        self.client.post(self.url, self._data(instagram='https://instagram.com/mbg'))
+        r = self.client.get(reverse('beranda'))
+        self.assertContains(r, 'wa.me/6285200001111')
+        self.assertContains(r, 'Jl. Baru No. 5, Makassar')
+        self.assertContains(r, 'https://instagram.com/mbg')
+
+    def test_spasi_dirapikan(self):
+        self.client.post(self.url, self._data(alamat='  Jl.   Baru    No. 5  '))
+        self.assertEqual(PengaturanWebsite.objects.get().alamat, 'Jl. Baru No. 5')
+
+    def test_email_deskripsi_dan_sosmed_boleh_kosong(self):
+        r = self.client.post(self.url, self._data(email=''))
+        self.assertRedirects(r, self.url)
+        self.assertEqual(PengaturanWebsite.objects.get().email, '')
+
+    # ── validasi ──
+    def test_whatsapp_tidak_valid_ditolak(self):
+        for buruk in ('abc', '12345', '', '0812'):
+            r = self.client.post(self.url, self._data(whatsapp=buruk))
+            self.assertEqual(r.status_code, 200, buruk)
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_url_berbahaya_atau_tanpa_skema_ditolak(self):
+        for kolom in ('instagram', 'facebook', 'tiktok', 'youtube', 'link_peta'):
+            for buruk in ('javascript:alert(1)', 'instagram.com/mbg', '//evil.com', 'ftp://x.id'):
+                r = self.client.post(self.url, self._data(**{kolom: buruk}))
+                self.assertEqual(r.status_code, 200, (kolom, buruk))
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_alamat_jam_dan_alamat_singkat_wajib(self):
+        for kolom in ('alamat', 'alamat_singkat', 'jam_buka'):
+            r = self.client.post(self.url, self._data(**{kolom: '   '}))
+            self.assertEqual(r.status_code, 200, kolom)
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_email_tidak_valid_ditolak(self):
+        r = self.client.post(self.url, self._data(email='bukan-email'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODUL 5 (lanjutan) — LOGO & FAVICON WEBSITE
+# ═══════════════════════════════════════════════════════════════════
+
+def gambar_besar(nama='besar.png'):
+    """PNG acak (tidak bisa dikompres) berukuran sedikit di atas 1 MB, untuk uji batas favicon."""
+    import io
+    import os as _os
+    from PIL import Image
+    gambar = Image.frombytes('RGB', (600, 600), _os.urandom(600 * 600 * 3))
+    buf = io.BytesIO()
+    gambar.save(buf, 'PNG')
+    return SimpleUploadedFile(nama, buf.getvalue(), content_type='image/png')
+
+
+class PengaturanLogoTests(TestCase):
+    def setUp(self):
+        self._media = tempfile.mkdtemp()
+        self._ov = override_settings(MEDIA_ROOT=self._media)
+        self._ov.enable()
+        self.addCleanup(self._ov.disable)
+        self.addCleanup(shutil.rmtree, self._media, ignore_errors=True)
+
+        User = get_user_model()
+        self.staf = User.objects.create_user('staf', 'staf@x.id', 'pw-uji-12345', is_staff=True)
+        self.client.force_login(self.staf)
+        from django.test import Client
+        self.anon = Client()     # pengunjung biasa: halaman login hanya terbuka untuk yang belum masuk
+        self.url = reverse('admin_pengaturan')
+        self.produk = buat_produk('Avanza Uji')
+
+    def _data(self, **kw):
+        d = {'whatsapp': '0852-0000-1111', 'email': 'info@contoh.id',
+             'alamat': 'Jl. Baru No. 5, Makassar', 'alamat_singkat': 'Jl. Baru 5',
+             'jam_buka': '09.00 - 17.00 WITA', 'link_peta': '', 'deskripsi_footer': '',
+             'instagram': '', 'facebook': '', 'tiktok': '', 'youtube': ''}
+        d.update(kw)
+        return d
+
+    def _halaman_publik(self):
+        return [reverse('beranda'), reverse('katalog'),
+                reverse('detail_produk', args=[self.produk.id]), reverse('login')]
+
+    def _ambil(self, url):
+        """Halaman panel dibuka sebagai staf; halaman lain sebagai pengunjung anonim."""
+        return (self.client if url.startswith('/panel/') else self.anon).get(url)
+
+    # ── tampilan ──
+    def test_tanpa_logo_dan_favicon_memakai_bawaan(self):
+        for url in self._halaman_publik():
+            r = self._ambil(url)
+            self.assertContains(r, 'class="brand-icon"', msg_prefix=url)
+            self.assertNotContains(r, 'brand-logo-img', msg_prefix=url)
+            self.assertNotContains(r, 'rel="icon"', msg_prefix=url)
+
+    def test_form_memakai_multipart(self):
+        self.assertContains(self.client.get(self.url), 'enctype="multipart/form-data"')
+
+    def test_logo_tampil_di_semua_halaman_publik(self):
+        d = self._data(); d['logo'] = gambar_uji('logo asli.png', 'PNG')
+        self.assertRedirects(self.client.post(self.url, d), self.url)
+        p = PengaturanWebsite.objects.get()
+        self.assertTrue(p.logo.name.startswith('situs/'))
+        self.assertTrue(p.logo.name.endswith('.png'))
+        self.assertNotIn('asli', p.logo.name)      # nama file diacak
+        for url in self._halaman_publik():
+            r = self._ambil(url)
+            self.assertContains(r, f'<img src="{p.logo.url}" alt="Logo MBG" class="brand-logo-img"', msg_prefix=url)
+
+    def test_favicon_tampil_di_semua_halaman_termasuk_panel(self):
+        d = self._data(); d['favicon'] = gambar_uji('fav.png', 'PNG', (32, 32))
+        self.client.post(self.url, d)
+        p = PengaturanWebsite.objects.get()
+        tag = f'<link rel="icon" href="{p.favicon.url}">'
+        for url in self._halaman_publik() + [reverse('dashboard_admin'), self.url]:
+            self.assertContains(self._ambil(url), tag, msg_prefix=url)
+
+    def test_logo_dan_favicon_berdiri_sendiri(self):
+        d = self._data(); d['logo'] = gambar_uji('l.png', 'PNG')
+        self.client.post(self.url, d)
+        self.assertTrue(PengaturanWebsite.objects.get().logo)
+        self.assertFalse(PengaturanWebsite.objects.get().favicon)
+        self.assertNotContains(self.anon.get(reverse('beranda')), 'rel="icon"')
+
+    # ── validasi ──
+    def test_logo_bukan_gambar_ditolak(self):
+        d = self._data(); d['logo'] = SimpleUploadedFile('x.png', b'bukan gambar', content_type='image/png')
+        r = self.client.post(self.url, d)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_favicon_bukan_gambar_ditolak(self):
+        d = self._data(); d['favicon'] = SimpleUploadedFile('x.png', b'bukan gambar', content_type='image/png')
+        self.assertEqual(self.client.post(self.url, d).status_code, 200)
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+
+    def test_favicon_lebih_dari_1mb_ditolak_tapi_logo_boleh(self):
+        d = self._data(); d['favicon'] = gambar_besar()
+        r = self.client.post(self.url, d)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Maksimal 1 MB')
+        self.assertEqual(PengaturanWebsite.objects.count(), 0)
+        d = self._data(); d['logo'] = gambar_besar()      # logo batasnya 5 MB
+        self.assertRedirects(self.client.post(self.url, d), self.url)
+
+    # ── ganti & hapus ──
+    def test_ganti_logo_menghapus_berkas_lama(self):
+        d = self._data(); d['logo'] = gambar_uji('a.png', 'PNG')
+        self.client.post(self.url, d)
+        p = PengaturanWebsite.objects.get(); lama = p.logo.name
+        self.assertTrue(p.logo.storage.exists(lama))
+        d = self._data(); d['logo'] = gambar_uji('b.jpg', 'JPEG')
+        self.client.post(self.url, d)
+        p.refresh_from_db()
+        self.assertNotEqual(p.logo.name, lama)
+        self.assertFalse(p.logo.storage.exists(lama))
+        self.assertTrue(p.logo.storage.exists(p.logo.name))
+
+    def test_simpan_tanpa_unggahan_mempertahankan_logo_dan_favicon(self):
+        d = self._data(); d['logo'] = gambar_uji('a.png', 'PNG'); d['favicon'] = gambar_uji('f.png', 'PNG')
+        self.client.post(self.url, d)
+        p = PengaturanWebsite.objects.get(); logo, fav = p.logo.name, p.favicon.name
+        self.client.post(self.url, self._data(jam_buka='24 jam'))
+        p.refresh_from_db()
+        self.assertEqual((p.logo.name, p.favicon.name), (logo, fav))
+        self.assertTrue(p.logo.storage.exists(logo) and p.favicon.storage.exists(fav))
+
+    def test_hapus_logo_kembali_ke_ikon_bawaan(self):
+        d = self._data(); d['logo'] = gambar_uji('a.png', 'PNG'); d['favicon'] = gambar_uji('f.png', 'PNG')
+        self.client.post(self.url, d)
+        p = PengaturanWebsite.objects.get(); logo, fav = p.logo.name, p.favicon.name
+        self.client.post(self.url, self._data(hapus_logo='on'))
+        p.refresh_from_db()
+        self.assertFalse(p.logo)
+        self.assertFalse(p.logo.storage.exists(logo))
+        self.assertTrue(p.favicon and p.favicon.storage.exists(fav))     # favicon tidak ikut terhapus
+        self.assertContains(self.anon.get(reverse('beranda')), 'class="brand-icon"')
+        self.assertNotContains(self.anon.get(reverse('beranda')), 'brand-logo-img')
+
+    def test_hapus_favicon(self):
+        d = self._data(); d['favicon'] = gambar_uji('f.png', 'PNG')
+        self.client.post(self.url, d)
+        p = PengaturanWebsite.objects.get(); fav = p.favicon.name
+        self.client.post(self.url, self._data(hapus_favicon='on'))
+        p.refresh_from_db()
+        self.assertFalse(p.favicon)
+        self.assertFalse(p.favicon.storage.exists(fav))
+        self.assertNotContains(self.anon.get(reverse('beranda')), 'rel="icon"')
+
+    def test_unggahan_baru_menang_atas_centang_hapus(self):
+        d = self._data(); d['logo'] = gambar_uji('a.png', 'PNG')
+        self.client.post(self.url, d)
+        d = self._data(hapus_logo='on'); d['logo'] = gambar_uji('b.png', 'PNG')
+        self.client.post(self.url, d)
+        self.assertTrue(PengaturanWebsite.objects.get().logo)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# DASHBOARD ADMIN — RINGKASAN KONTEN WEBSITE (KPI modul CMS)
+# ═══════════════════════════════════════════════════════════════════
+
+from .models import Artikel, KategoriArtikel
+
+
+class DashboardKontenTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.staf = User.objects.create_user('staf', 'staf@x.id', 'pw-uji-12345', is_staff=True)
+        self.client.force_login(self.staf)
+        self.url = reverse('dashboard_admin')
+
+    def test_tanpa_data_semua_nol_dan_pengaturan_bawaan(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'id="ringkasan-konten"')
+        k = r.context['konten']
+        nol = {'total': 0, 'tayang': 0, 'draft': 0}
+        for kunci in ('artikel', 'halaman', 'hero', 'mitra'):
+            self.assertEqual(k[kunci], nol, kunci)
+        self.assertEqual(k['kategori'], 0)
+        self.assertFalse(k['pengaturan_tersimpan'])
+        self.assertContains(r, 'Belum disimpan. Klik untuk mengisi')
+
+    def test_angka_sesuai_data(self):
+        kat = KategoriArtikel.objects.create(nama='Tips')
+        Artikel.objects.create(judul='A1', ringkasan='r', isi='i', status='published', kategori=kat)
+        Artikel.objects.create(judul='A2', ringkasan='r', isi='i', status='published')
+        Artikel.objects.create(judul='A3', ringkasan='r', isi='i', status='draft')
+        HalamanWebsite.objects.create(judul='H1', isi='x', status='published')
+        HalamanWebsite.objects.create(judul='H2', isi='x', status='draft')
+        buat_slide('S1'); buat_slide('S2'); buat_slide('S3', status='draft')
+        buat_mitra('M1'); buat_mitra('M2', status='draft'); buat_mitra('M3', status='draft')
+
+        k = self.client.get(self.url).context['konten']
+        self.assertEqual(k['artikel'],  {'total': 3, 'tayang': 2, 'draft': 1})
+        self.assertEqual(k['kategori'], 1)
+        self.assertEqual(k['halaman'],  {'total': 2, 'tayang': 1, 'draft': 1})
+        self.assertEqual(k['hero'],     {'total': 3, 'tayang': 2, 'draft': 1})
+        self.assertEqual(k['mitra'],    {'total': 3, 'tayang': 1, 'draft': 2})
+
+    def test_kartu_menaut_ke_modul_masing_masing(self):
+        r = self.client.get(self.url)
+        for nama in ('admin_artikel', 'admin_halaman', 'admin_hero', 'admin_mitra', 'admin_pengaturan'):
+            self.assertContains(r, f'<a href="{reverse(nama)}" class="text-decoration-none d-block h-100">')
+
+    def test_kelengkapan_pengaturan(self):
+        buat_pengaturan()   # 5 field diisi + deskripsi footer bawaan = 6 dari 13
+        r = self.client.get(self.url)
+        k = r.context['konten']
+        self.assertTrue(k['pengaturan_tersimpan'])
+        self.assertEqual((k['pengaturan_terisi'], k['pengaturan_total']), (6, 13))
+        self.assertContains(r, '6/13')
+        PengaturanWebsite.objects.update(instagram='https://instagram.com/mbg')
+        self.assertEqual(self.client.get(self.url).context['konten']['pengaturan_terisi'], 7)
+
+    def test_status_logo_dan_favicon(self):
+        buat_pengaturan()
+        r = self.client.get(self.url)
+        self.assertContains(r, 'Logo: <strong>Bawaan</strong>')
+        self.assertContains(r, 'Favicon: <strong>Belum</strong>')
+        PengaturanWebsite.objects.update(logo='situs/uji.png', favicon='situs/fav.png')
+        r = self.client.get(self.url)
+        self.assertContains(r, 'Logo: <strong>Ada</strong>')
+        self.assertContains(r, 'Favicon: <strong>Ada</strong>')
+
+    def test_dashboard_tetap_terbuka_jika_tabel_konten_belum_dimigrasi(self):
+        with mock.patch('toko.views.Artikel.objects') as objek:
+            objek.aggregate.side_effect = DatabaseError('no such table')
+            r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'id="ringkasan-konten"')
+        self.assertContains(r, 'Ringkasan Bisnis')    # bagian lain dashboard tetap tampil

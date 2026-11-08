@@ -211,7 +211,7 @@
                     {% if booking.opsi_delivery == 'showroom' %}
                         <div class="p-3 rounded-3 bg-light border">
                             <div class="fw-bold text-dark"><i class="fa-solid fa-location-dot text-danger me-1"></i> Showroom MBG Makassar</div>
-                            <div class="text-muted small mt-1">Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar (Buka 08.30 – 18.00 WITA)</div>
+                            <div class="text-muted small mt-1">{{ pengaturan.alamat }} (Buka {{ pengaturan.jam_buka }})</div>
                         </div>
                     {% else %}
                         <div class="p-3 rounded-3 bg-info bg-opacity-10 border border-info border-opacity-25">
