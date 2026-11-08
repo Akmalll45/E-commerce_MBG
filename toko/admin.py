@@ -28,4 +28,15 @@ admin.site.register(Artikel)
 admin.site.register(HalamanWebsite)
 admin.site.register(HeroSlide)
 admin.site.register(Mitra)
-admin.site.register(PengaturanWebsite)
+
+
+
+
+
+@admin.register(PengaturanWebsite)
+class PengaturanWebsiteAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return not PengaturanWebsite.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
