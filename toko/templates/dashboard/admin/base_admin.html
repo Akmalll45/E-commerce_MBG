@@ -141,6 +141,9 @@
                     <a class="admin-side-item {% if 'admin_hero' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_hero' %}">
                         <span><i class="fa-solid fa-images text-warning"></i> Hero Slide</span>
                     </a>
+                    <a class="admin-side-item {% if 'admin_mitra' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_mitra' %}">
+                        <span><i class="fa-solid fa-handshake text-primary"></i> Kerja Sama / Mitra</span>
+                    </a>
 
                     <div class="side-section-title">Akun &amp; Pengaturan</div>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'profil_admin' %}active{% endif %}" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>

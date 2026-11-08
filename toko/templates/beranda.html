@@ -979,6 +979,32 @@
         gap: .5em;
     }
 }
+        /* ── Mitra & Kerja Sama ── */
+        .mitra-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            gap: .55rem; height: 100%; padding: 1.25rem .9rem; text-align: center;
+            background: #fff; border: 1px solid #E2E8F0; border-radius: 20px;
+            color: inherit; text-decoration: none;
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+        a.mitra-card:hover, a.mitra-card:focus-visible {
+            transform: translateY(-4px); border-color: var(--mbg-blue);
+            box-shadow: 0 14px 30px -14px var(--mbg-blue-glow); color: inherit;
+        }
+        .mitra-logo-wrap { width: 100%; height: 64px; display: flex; align-items: center; justify-content: center; }
+        .mitra-logo-wrap img { max-width: 100%; max-height: 64px; object-fit: contain; }
+        .mitra-inisial {
+            width: 64px; height: 64px; border-radius: 16px; display: grid; place-items: center;
+            font-weight: 800; font-size: 1.25rem; color: #fff;
+            background: linear-gradient(135deg, var(--mbg-blue), var(--mbg-sky));
+        }
+        .mitra-nama { font-weight: 700; font-size: .92rem; color: var(--mbg-navy); line-height: 1.3; }
+        .mitra-jenis {
+            font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+            color: var(--mbg-blue); background: rgba(37, 99, 235, .08);
+            padding: .18rem .6rem; border-radius: 999px;
+        }
+        .mitra-ket { font-size: .78rem; color: #64748B; line-height: 1.4; margin: 0; }
     </style>
 </head>
 <body>
@@ -1779,6 +1805,39 @@
             </div>
         </div>
     </section>
+
+    <!-- ╔══════════════════════════════════════════╗
+         ║  9b. MITRA & KERJA SAMA (dari panel admin) ║
+         ╚══════════════════════════════════════════╝ -->
+    {% if mitra_list %}
+    <section class="py-5" style="background:var(--mbg-surface);" id="mitra">
+        <div class="container">
+            <div class="text-center mb-5" data-aos="fade-up">
+                <span class="section-label"><i class="fa-solid fa-handshake"></i> Mitra &amp; Kerja Sama</span>
+                <h2 class="section-heading mt-2">Dipercaya Para Mitra Terbaik</h2>
+                <p class="text-muted mx-auto mt-2" style="max-width:560px;">Kami bekerja sama dengan lembaga pembiayaan, asuransi, dan bengkel terpercaya agar proses membeli mobil Anda lebih aman dan mudah.</p>
+            </div>
+            <div class="row g-3 g-md-4 justify-content-center">
+                {% for m in mitra_list %}
+                <div class="col-6 col-md-4 col-lg-3 col-xl-2" data-aos="fade-up">
+                    {% if m.situs %}<a class="mitra-card" href="{{ m.situs }}" target="_blank" rel="noopener noreferrer" aria-label="{{ m.nama }} (buka situs di tab baru)">{% else %}<div class="mitra-card">{% endif %}
+                        <div class="mitra-logo-wrap">
+                            {% if m.logo %}
+                            <img src="{{ m.logo.url }}" alt="Logo {{ m.nama }}" loading="lazy">
+                            {% else %}
+                            <div class="mitra-inisial" aria-hidden="true">{{ m.nama|slice:":2"|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mitra-nama">{{ m.nama }}</div>
+                        <span class="mitra-jenis">{{ m.get_jenis_display }}</span>
+                        {% if m.keterangan %}<p class="mitra-ket">{{ m.keterangan }}</p>{% endif %}
+                    {% if m.situs %}</a>{% else %}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     <!-- ╔══════════════════════════════════════════════════════════════════╗
          ║  10. FOOTER PROFESIONAL (Sederhana & Elegan Khas Startup)        ║

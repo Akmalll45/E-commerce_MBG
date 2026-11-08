@@ -64,4 +64,11 @@ urlpatterns = [
     path('panel/hero/<int:id>/edit/', views.admin_hero_edit, name='admin_hero_edit'),
     path('panel/hero/<int:id>/status/', views.admin_hero_status, name='admin_hero_status'),
     path('panel/hero/<int:id>/hapus/', views.admin_hero_hapus, name='admin_hero_hapus'),
+
+    # Kerja Sama / Mitra — Admin
+    path('panel/mitra/', views.admin_mitra, name='admin_mitra'),
+    path('panel/mitra/tambah/', views.admin_mitra_tambah, name='admin_mitra_tambah'),
+    path('panel/mitra/<int:id>/edit/', views.admin_mitra_edit, name='admin_mitra_edit'),
+    path('panel/mitra/<int:id>/status/', views.admin_mitra_status, name='admin_mitra_status'),
+    path('panel/mitra/<int:id>/hapus/', views.admin_mitra_hapus, name='admin_mitra_hapus'),
 ]

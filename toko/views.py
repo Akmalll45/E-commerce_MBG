@@ -14,12 +14,12 @@ from urllib.parse import urlencode
 
 from .models import (
     Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
-    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide,
+    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
     ProdukForm, validasi_foto_mobil,
-    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm,
+    KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm,
 )
 
 User = get_user_model()
@@ -31,6 +31,7 @@ User = get_user_model()
 
 JUMLAH_MOBIL_PILIHAN = 6      # jumlah mobil pilihan di beranda
 JUMLAH_MAKS_SLIDE = 6           # jumlah maksimal slide hero yang tampil di beranda
+JUMLAH_MAKS_MITRA = 12          # jumlah maksimal mitra yang tampil di beranda
 KATALOG_PER_HALAMAN = 9       # jumlah kartu per halaman di katalog
 
 # Aturan bisnis "tayang untuk publik": hanya unit berstatus Ready Stock
@@ -58,6 +59,21 @@ def hero_slide_tayang():
         return []
 
 
+def mitra_tayang():
+    """
+    Mitra berstatus Tayang untuk beranda, terurut menurut kolom Urutan.
+
+    Tahan galat seperti `hero_slide_tayang`: jika tabel belum dimigrasi, bagian mitra
+    cukup disembunyikan dan beranda tidak ikut error 500.
+    """
+    try:
+        return list(
+            Mitra.objects.filter(status='published').order_by('urutan', 'nama')[:JUMLAH_MAKS_MITRA]
+        )
+    except DatabaseError:
+        return []
+
+
 def beranda(request):
     """
     Beranda: hanya menampilkan beberapa mobil pilihan (unit Ready Stock terbaru).
@@ -70,6 +86,7 @@ def beranda(request):
         'katalog_mobil': katalog_mobil,
         'total_unit_tayang': semua_tayang.count(),
         'hero_slides': hero_slide_tayang(),
+        'mitra_list': mitra_tayang(),
     })
 
 
@@ -1386,4 +1403,122 @@ def admin_hero_hapus(request, id):
     return render(request, 'dashboard/admin/hero_hapus.html', {
         'slide':      slide,
         'page_title': f'Hapus Slide: {slide.judul}',
+    })
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 12. KERJA SAMA / MITRA — partner bisnis di beranda
+# ═══════════════════════════════════════════════════════════════════
+
+MITRA_PER_HALAMAN = 12
+
+
+@staf_required
+def admin_mitra(request):
+    """Daftar Mitra dengan search, filter status, dan pagination."""
+    q        = request.GET.get('q', '').strip()
+    status_f = request.GET.get('status', '').strip()
+
+    qs = Mitra.objects.order_by('urutan', 'nama')
+    if q:
+        qs = qs.filter(Q(nama__icontains=q) | Q(keterangan__icontains=q))
+    if status_f in ('draft', 'published'):
+        qs = qs.filter(status=status_f)
+
+    page = Paginator(qs, MITRA_PER_HALAMAN).get_page(request.GET.get('page'))
+    jumlah = Mitra.objects.aggregate(
+        total=Count('id'),
+        pub=Count('id', filter=Q(status='published')),
+        draft=Count('id', filter=Q(status='draft')),
+    )
+
+    return render(request, 'dashboard/admin/mitra_list.html', {
+        'page_obj':     page,
+        'q':            q,
+        'status_f':     status_f,
+        'page_title':   'Kerja Sama / Mitra',
+        'jumlah_total': jumlah['total'],
+        'jumlah_pub':   jumlah['pub'],
+        'jumlah_draft': jumlah['draft'],
+        'maks_mitra':   JUMLAH_MAKS_MITRA,
+    })
+
+
+@staf_required
+def admin_mitra_tambah(request):
+    """Tambah Mitra baru."""
+    if request.method == 'POST':
+        form = MitraForm(request.POST, request.FILES)
+        if form.is_valid():
+            mitra = form.save()
+            messages.success(request, f"Mitra '{mitra.nama}' berhasil ditambahkan.")
+            return redirect('admin_mitra')
+    else:
+        form = MitraForm()
+    return render(request, 'dashboard/admin/mitra_form.html', {
+        'form':       form,
+        'mode':       'tambah',
+        'page_title': 'Tambah Mitra',
+        'maks_mitra': JUMLAH_MAKS_MITRA,
+    })
+
+
+@staf_required
+def admin_mitra_edit(request, id):
+    """Edit Mitra yang ada."""
+    mitra = get_object_or_404(Mitra, id=id)
+    if request.method == 'POST':
+        form = MitraForm(request.POST, request.FILES, instance=mitra)
+        if form.is_valid():
+            mitra = form.save()
+            messages.success(request, f"Mitra '{mitra.nama}' berhasil diperbarui.")
+            return redirect('admin_mitra')
+    else:
+        form = MitraForm(instance=mitra)
+    return render(request, 'dashboard/admin/mitra_form.html', {
+        'form':       form,
+        'mitra':      mitra,
+        'mode':       'edit',
+        'page_title': f'Edit Mitra: {mitra.nama}',
+        'maks_mitra': JUMLAH_MAKS_MITRA,
+    })
+
+
+@staf_required
+@require_POST
+def admin_mitra_status(request, id):
+    """Ubah cepat status mitra (Draft / Tayang) langsung dari daftar."""
+    mitra  = get_object_or_404(Mitra, id=id)
+    status = request.POST.get('status', '')
+    if status not in dict(Mitra.STATUS_CHOICES):
+        messages.error(request, "Status mitra tidak valid.")
+    else:
+        mitra.status = status
+        mitra.save(update_fields=['status', 'updated_at'])
+        messages.success(request, f"Mitra \u201c{mitra.nama}\u201d diubah menjadi {mitra.get_status_display()}.")
+    tujuan = request.POST.get('next', '')
+    if tujuan and url_has_allowed_host_and_scheme(tujuan, allowed_hosts={request.get_host()}):
+        return redirect(tujuan)
+    return redirect('admin_mitra')
+
+
+@staf_required
+def admin_mitra_hapus(request, id):
+    """Konfirmasi & eksekusi hapus Mitra (GET=konfirmasi, POST=eksekusi)."""
+    mitra = get_object_or_404(Mitra, id=id)
+    if request.method == 'POST':
+        nama = mitra.nama
+        # Hapus logo dari storage jika ada
+        if mitra.logo:
+            try:
+                mitra.logo.storage.delete(mitra.logo.name)
+            except Exception:
+                pass
+        mitra.delete()
+        messages.success(request, f"Mitra '{nama}' berhasil dihapus.")
+        return redirect('admin_mitra')
+    return render(request, 'dashboard/admin/mitra_hapus.html', {
+        'mitra':      mitra,
+        'page_title': f'Hapus Mitra: {mitra.nama}',
     })

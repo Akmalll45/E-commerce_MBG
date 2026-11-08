@@ -937,3 +937,295 @@ class HeroSlideAdminTests(TestCase):
 
     def test_edit_slide_yang_tidak_ada_404(self):
         self.assertEqual(self.client.get(reverse('admin_hero_edit', args=[9999])).status_code, 404)
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODUL 4 — KERJA SAMA / MITRA
+# ═══════════════════════════════════════════════════════════════════
+
+from .models import Mitra
+
+# Catatan: memakai kembali helper gambar_uji() dan impor yang sudah ada di atas.
+
+
+def buat_mitra(nama='Mitra Uji', **kw):
+    data = dict(nama=nama, status='published')
+    data.update(kw)
+    return Mitra.objects.create(**data)
+
+
+class MitraPublikTests(TestCase):
+    """Beranda: bagian Mitra hanya muncul jika ada mitra berstatus Tayang."""
+
+    def setUp(self):
+        self.url = reverse('beranda')
+
+    def test_tanpa_mitra_bagian_disembunyikan(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'id="mitra"')
+
+    def test_mitra_draft_tidak_tampil(self):
+        buat_mitra('Rahasia Draft Mitra', status='draft')
+        r = self.client.get(self.url)
+        self.assertNotContains(r, 'Rahasia Draft Mitra')
+        self.assertNotContains(r, 'id="mitra"')
+
+    def test_mitra_tayang_muncul(self):
+        buat_mitra('Bank Contoh Uji', jenis='inspeksi', keterangan='Mitra bengkel rekanan')
+        r = self.client.get(self.url)
+        self.assertContains(r, 'id="mitra"')
+        self.assertContains(r, 'Bank Contoh Uji')
+        self.assertContains(r, 'Bengkel &amp; Inspeksi')
+        self.assertContains(r, 'Mitra bengkel rekanan')
+
+    def test_urutan_mengikuti_kolom_urutan(self):
+        buat_mitra('ZetaKedua', urutan=2)
+        buat_mitra('AlfaPertama', urutan=1)
+        html = self.client.get(self.url).content.decode()
+        self.assertLess(html.index('AlfaPertama'), html.index('ZetaKedua'))
+
+    def test_maksimal_dua_belas_mitra_tampil(self):
+        for i in range(14):
+            buat_mitra(f'Kode{i:02d}X', urutan=i)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('Kode11X', html)
+        self.assertNotIn('Kode12X', html)
+
+    def test_situs_dibuka_di_tab_baru(self):
+        buat_mitra('Punya Situs', situs='https://contoh.id/mitra')
+        r = self.client.get(self.url)
+        self.assertContains(r, 'href="https://contoh.id/mitra" target="_blank" rel="noopener noreferrer"')
+
+    def test_tanpa_situs_bukan_tautan(self):
+        buat_mitra('Tanpa Situs')
+        r = self.client.get(self.url)
+        self.assertContains(r, '<div class="mitra-card">')
+        self.assertNotContains(r, '<a class="mitra-card"')
+
+    def test_tanpa_logo_memakai_inisial(self):
+        buat_mitra('Qx Mitra')
+        r = self.client.get(self.url)
+        self.assertContains(r, '<div class="mitra-inisial" aria-hidden="true">QX</div>')
+
+    def test_teks_mitra_di_escape(self):
+        buat_mitra('<script>alert(1)</script>', keterangan='<b>tebal</b>')
+        r = self.client.get(self.url)
+        self.assertNotContains(r, '<script>alert(1)</script>')
+        self.assertNotContains(r, '<b>tebal</b>')
+        self.assertContains(r, '&lt;script&gt;alert(1)&lt;/script&gt;')
+
+    def test_beranda_tetap_terbuka_jika_tabel_belum_dimigrasi(self):
+        with mock.patch('toko.views.Mitra.objects') as objek:
+            objek.filter.side_effect = DatabaseError('no such table')
+            r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'id="mitra"')
+
+
+class MitraValidatorTests(TestCase):
+    def test_situs_yang_diizinkan(self):
+        from .models import validasi_situs_mitra
+        for ok in ('', 'https://a.id', 'http://a.id/x?y=1', 'https://www.contoh.co.id/path'):
+            validasi_situs_mitra(ok)   # tidak boleh melempar
+
+    def test_situs_berbahaya_atau_salah_ditolak(self):
+        from django.core.exceptions import ValidationError
+        from .models import validasi_situs_mitra
+        for buruk in ('javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', '//evil.com',
+                      '/katalog/', '#atas', 'www.contoh.id', 'ftp://x.id', 'https://', 'https://bad host/'):
+            with self.assertRaises(ValidationError, msg=buruk):
+                validasi_situs_mitra(buruk)
+
+
+class MitraAdminTests(TestCase):
+    def setUp(self):
+        self._media = tempfile.mkdtemp()
+        self._ov = override_settings(MEDIA_ROOT=self._media)
+        self._ov.enable()
+        self.addCleanup(self._ov.disable)
+        self.addCleanup(shutil.rmtree, self._media, ignore_errors=True)
+
+        User = get_user_model()
+        self.staf = User.objects.create_user('staf', 'staf@x.id', 'pw-uji-12345', is_staff=True)
+        self.biasa = User.objects.create_user('biasa', 'biasa@x.id', 'pw-uji-12345')
+        self.client.force_login(self.staf)
+
+    def _data(self, **kw):
+        d = {'nama': 'Mitra Baru', 'jenis': 'bank', 'keterangan': '', 'situs': '',
+             'status': 'published', 'urutan': 0}
+        d.update(kw)
+        return d
+
+    # ── akses ──
+    def test_anonim_diarahkan_ke_login(self):
+        self.client.logout()
+        for nama in ('admin_mitra', 'admin_mitra_tambah'):
+            r = self.client.get(reverse(nama))
+            self.assertEqual(r.status_code, 302)
+            self.assertIn('/login/', r['Location'])
+
+    def test_pengguna_biasa_ditolak(self):
+        m = buat_mitra()
+        self.client.force_login(self.biasa)
+        for url in (reverse('admin_mitra'), reverse('admin_mitra_tambah'),
+                    reverse('admin_mitra_edit', args=[m.id]), reverse('admin_mitra_hapus', args=[m.id])):
+            self.assertRedirects(self.client.get(url), reverse('dashboard_user'), fetch_redirect_response=False)
+        # POST dari pengguna biasa tidak boleh mengubah apa pun
+        self.client.post(reverse('admin_mitra_hapus', args=[m.id]))
+        self.client.post(reverse('admin_mitra_status', args=[m.id]), {'status': 'draft'})
+        m.refresh_from_db()
+        self.assertEqual(m.status, 'published')
+
+    # ── daftar ──
+    def test_daftar_dan_filter(self):
+        buat_mitra('Aktif Satu')
+        buat_mitra('Konsep Dua', status='draft', keterangan='kata-kunci-rahasia')
+        r = self.client.get(reverse('admin_mitra'))
+        self.assertContains(r, 'Aktif Satu')
+        self.assertContains(r, 'Konsep Dua')
+        r = self.client.get(reverse('admin_mitra'), {'status': 'draft'})
+        self.assertNotContains(r, 'Aktif Satu')
+        self.assertContains(r, 'Konsep Dua')
+        r = self.client.get(reverse('admin_mitra'), {'q': 'aktif'})
+        self.assertContains(r, 'Aktif Satu')
+        self.assertNotContains(r, 'Konsep Dua')
+        r = self.client.get(reverse('admin_mitra'), {'q': 'kata-kunci'})   # cari lewat keterangan
+        self.assertContains(r, 'Konsep Dua')
+        self.assertNotContains(r, 'Aktif Satu')
+
+    def test_peringatan_jika_tayang_melebihi_batas_beranda(self):
+        for i in range(13):
+            buat_mitra(f'M{i}', urutan=i)
+        self.assertContains(self.client.get(reverse('admin_mitra')), 'beranda hanya menampilkan 12 mitra')
+
+    def test_info_jika_belum_ada_yang_tayang(self):
+        buat_mitra('Hanya Draft', status='draft')
+        self.assertContains(self.client.get(reverse('admin_mitra')), 'Belum ada mitra berstatus Tayang')
+
+    def test_sidebar_memuat_menu_mitra(self):
+        self.assertContains(self.client.get(reverse('admin_hero')), reverse('admin_mitra'))
+        self.assertContains(self.client.get(reverse('dashboard_admin')), reverse('admin_mitra'))
+
+    # ── tambah ──
+    def test_tambah_mitra_tanpa_logo(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(nama='  Bank   Uji  '))
+        self.assertRedirects(r, reverse('admin_mitra'))
+        self.assertEqual(Mitra.objects.get().nama, 'Bank Uji')   # spasi dirapikan
+
+    def test_tambah_mitra_dengan_logo_diacak_namanya(self):
+        d = self._data()
+        d['logo'] = gambar_uji('logo asli.png', 'PNG')
+        self.client.post(reverse('admin_mitra_tambah'), d)
+        m = Mitra.objects.get()
+        self.assertTrue(m.logo.name.startswith('mitra/'))
+        self.assertNotIn('asli', m.logo.name)
+        self.assertTrue(m.logo.name.endswith('.png'))
+        # logo muncul di beranda setelah tayang
+        self.assertContains(self.client.get(reverse('beranda')), m.logo.url)
+
+    def test_file_bukan_gambar_ditolak(self):
+        d = self._data()
+        d['logo'] = SimpleUploadedFile('x.png', b'bukan gambar', content_type='image/png')
+        r = self.client.post(reverse('admin_mitra_tambah'), d)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 0)
+        self.assertContains(r, 'Unggah gambar yang valid')
+
+    def test_nama_wajib(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(nama='   '))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 0)
+
+    def test_jenis_tidak_valid_ditolak(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(jenis='ngawur'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 0)
+
+    def test_situs_javascript_ditolak(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(situs='javascript:alert(1)'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 0)
+
+    def test_situs_tanpa_skema_ditolak(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(situs='www.contoh.id'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 0)
+
+    def test_situs_https_diterima(self):
+        r = self.client.post(reverse('admin_mitra_tambah'), self._data(situs=' https://contoh.id '))
+        self.assertRedirects(r, reverse('admin_mitra'))
+        self.assertEqual(Mitra.objects.get().situs, 'https://contoh.id')
+
+    # ── edit ──
+    def test_edit_mengganti_logo_menghapus_file_lama(self):
+        d = self._data(); d['logo'] = gambar_uji()
+        self.client.post(reverse('admin_mitra_tambah'), d)
+        m = Mitra.objects.get()
+        lama = m.logo.name
+        self.assertTrue(m.logo.storage.exists(lama))
+
+        d2 = self._data(nama='Diedit'); d2['logo'] = gambar_uji('baru.jpg', 'JPEG')
+        self.assertRedirects(self.client.post(reverse('admin_mitra_edit', args=[m.id]), d2), reverse('admin_mitra'))
+        m.refresh_from_db()
+        self.assertEqual(m.nama, 'Diedit')
+        self.assertNotEqual(m.logo.name, lama)
+        self.assertFalse(m.logo.storage.exists(lama))
+        self.assertTrue(m.logo.storage.exists(m.logo.name))
+
+    def test_edit_tanpa_unggahan_mempertahankan_logo(self):
+        d = self._data(); d['logo'] = gambar_uji()
+        self.client.post(reverse('admin_mitra_tambah'), d)
+        m = Mitra.objects.get(); nama = m.logo.name
+        self.client.post(reverse('admin_mitra_edit', args=[m.id]), self._data(nama='Hanya teks'))
+        m.refresh_from_db()
+        self.assertEqual(m.logo.name, nama)
+        self.assertTrue(m.logo.storage.exists(nama))
+
+    def test_hapus_logo_lewat_centang(self):
+        d = self._data(); d['logo'] = gambar_uji()
+        self.client.post(reverse('admin_mitra_tambah'), d)
+        m = Mitra.objects.get(); nama = m.logo.name
+        self.client.post(reverse('admin_mitra_edit', args=[m.id]), self._data(hapus_logo='on'))
+        m.refresh_from_db()
+        self.assertFalse(m.logo)
+        self.assertFalse(m.logo.storage.exists(nama))
+
+    # ── status ──
+    def test_ubah_status_cepat(self):
+        m = buat_mitra()
+        r = self.client.post(reverse('admin_mitra_status', args=[m.id]),
+                             {'status': 'draft', 'next': reverse('admin_mitra')})
+        self.assertRedirects(r, reverse('admin_mitra'))
+        m.refresh_from_db(); self.assertEqual(m.status, 'draft')
+
+    def test_status_tidak_valid_ditolak(self):
+        m = buat_mitra()
+        self.client.post(reverse('admin_mitra_status', args=[m.id]), {'status': 'ngawur'})
+        m.refresh_from_db(); self.assertEqual(m.status, 'published')
+
+    def test_status_hanya_post(self):
+        m = buat_mitra()
+        self.assertEqual(self.client.get(reverse('admin_mitra_status', args=[m.id])).status_code, 405)
+
+    def test_next_ke_situs_lain_diabaikan(self):
+        m = buat_mitra()
+        r = self.client.post(reverse('admin_mitra_status', args=[m.id]),
+                             {'status': 'draft', 'next': 'https://evil.example/'})
+        self.assertRedirects(r, reverse('admin_mitra'), fetch_redirect_response=False)
+
+    # ── hapus ──
+    def test_hapus_butuh_konfirmasi_lalu_menghapus_logo(self):
+        d = self._data(); d['logo'] = gambar_uji()
+        self.client.post(reverse('admin_mitra_tambah'), d)
+        m = Mitra.objects.get(); nama = m.logo.name
+        url = reverse('admin_mitra_hapus', args=[m.id])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(Mitra.objects.count(), 1)           # GET tidak menghapus
+        self.assertRedirects(self.client.post(url), reverse('admin_mitra'))
+        self.assertEqual(Mitra.objects.count(), 0)
+        self.assertFalse(m.logo.storage.exists(nama))
+
+    def test_edit_mitra_yang_tidak_ada_404(self):
+        self.assertEqual(self.client.get(reverse('admin_mitra_edit', args=[9999])).status_code, 404)

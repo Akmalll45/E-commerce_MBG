@@ -31,6 +31,19 @@ def validasi_link_tombol(nilai):
     )
 
 
+def validasi_situs_mitra(nilai):
+    """
+    Situs web mitra hanya boleh URL http(s) lengkap. Nilai ini dirender ke atribut href
+    di beranda, jadi skema lain (javascript:, data:, dll.) dan alamat internal ditolak.
+    """
+    nilai = (nilai or '').strip()
+    if not nilai:
+        return
+    if not nilai.lower().startswith(('http://', 'https://')):
+        raise ValidationError("Alamat situs harus diawali 'https://' atau 'http://'.")
+    URLValidator(schemes=['http', 'https'])(nilai)
+
+
 def foto_profil_upload_path(instance, filename):
     """
     Simpan foto di folder per-user dengan nama acak (UUID) agar tidak
@@ -399,3 +412,50 @@ class HeroSlide(models.Model):
 
     def __str__(self):
         return self.judul
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 11. KERJA SAMA / MITRA
+# ═══════════════════════════════════════════════════════════════════
+
+class Mitra(models.Model):
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('published', 'Tayang'),
+    ]
+    JENIS_CHOICES = [
+        ('pembiayaan', 'Pembiayaan / Leasing'),
+        ('bank',       'Bank'),
+        ('asuransi',   'Asuransi'),
+        ('inspeksi',   'Bengkel & Inspeksi'),
+        ('lainnya',    'Lainnya'),
+    ]
+
+    nama       = models.CharField(max_length=150, verbose_name="Nama Mitra")
+    jenis      = models.CharField(
+                     max_length=12, choices=JENIS_CHOICES,
+                     default='lainnya', verbose_name="Jenis Kerja Sama"
+                 )
+    keterangan = models.CharField(max_length=160, blank=True, verbose_name="Keterangan Singkat")
+    logo       = models.ImageField(
+                     upload_to='mitra/', blank=True, null=True, verbose_name="Logo"
+                 )
+    situs      = models.CharField(
+                     max_length=300, blank=True, verbose_name="Situs Web",
+                     validators=[validasi_situs_mitra]
+                 )
+    status     = models.CharField(
+                     max_length=12, choices=STATUS_CHOICES,
+                     default='draft', verbose_name="Status"
+                 )
+    urutan     = models.PositiveSmallIntegerField(default=0, verbose_name="Urutan")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = "Mitra"
+        verbose_name_plural = "Mitra"
+        ordering            = ['urutan', 'nama']
+
+    def __str__(self):
+        return self.nama

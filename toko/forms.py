@@ -8,7 +8,7 @@ import uuid
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide
+from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra
 
 User = get_user_model()
 
@@ -703,6 +703,16 @@ class ArtikelForm(forms.ModelForm):
 # ═══════════════════════════════════════════════════════════════════
 
 class HalamanWebsiteForm(forms.ModelForm):
+    # Sengaja CharField, bukan SlugField bawaan model: SlugField menolak input seperti
+    # "Kebijakan Privasi!!" sebelum clean_slug() sempat merapikannya.
+    slug = forms.CharField(
+        required=False, max_length=220, label='Slug',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control font-monospace',
+            'placeholder': 'otomatis-dari-judul (kosongkan untuk auto)',
+        }),
+    )
+
     class Meta:
         model  = HalamanWebsite
         fields = [
@@ -900,3 +910,92 @@ class HeroSlideForm(forms.ModelForm):
             if self._gambar_lama and self._gambar_lama != nama_sekarang:
                 slide.gambar.storage.delete(self._gambar_lama)
         return slide
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM KERJA SAMA / MITRA
+# ═══════════════════════════════════════════════════════════════════
+
+class MitraForm(forms.ModelForm):
+    """
+    Form tambah/ubah mitra. Logo divalidasi dengan aturan yang sama seperti foto mobil
+    (maks 5 MB, format asli JPG/PNG/WEBP, nama file diacak).
+    """
+    hapus_logo = forms.BooleanField(
+        required=False,
+        label='Hapus logo saat ini',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
+    class Meta:
+        model  = Mitra
+        fields = ['nama', 'jenis', 'keterangan', 'logo', 'situs', 'status', 'urutan']
+        labels = {
+            'urutan': 'Urutan tampil',
+        }
+        widgets = {
+            'nama': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Bank Mandiri Syariah',
+                'maxlength': 150,
+            }),
+            'jenis': forms.Select(attrs={'class': 'form-select'}),
+            'keterangan': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Contoh: Mitra pembiayaan kredit mobil',
+                'maxlength': 160,
+            }),
+            'logo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp',
+            }),
+            'situs': forms.TextInput(attrs={
+                'class': 'form-control font-monospace',
+                'placeholder': 'https://www.contoh.co.id',
+                'maxlength': 300,
+                'autocomplete': 'off',
+            }),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'urutan': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'inputmode': 'numeric',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Catat logo lama agar bisa dihapus dari storage saat diganti/dihapus.
+        self._logo_lama = (
+            self.instance.logo.name
+            if self.instance.pk and self.instance.logo else None
+        )
+
+    def clean_nama(self):
+        nama = ' '.join((self.cleaned_data.get('nama') or '').split())
+        if not nama:
+            raise ValidationError("Nama mitra tidak boleh kosong.")
+        return nama
+
+    def clean_keterangan(self):
+        return ' '.join((self.cleaned_data.get('keterangan') or '').split())
+
+    def clean_situs(self):
+        return (self.cleaned_data.get('situs') or '').strip()
+
+    def clean_logo(self):
+        return validasi_foto_mobil(self.cleaned_data.get('logo'))
+
+    def save(self, commit=True):
+        mitra = super().save(commit=False)
+        ada_logo_baru = isinstance(self.cleaned_data.get('logo'), UploadedFile)
+        if self.cleaned_data.get('hapus_logo') and not ada_logo_baru:
+            mitra.logo = None
+        if commit:
+            mitra.save()
+            # Hapus file lama dari storage jika sudah diganti atau dihapus.
+            nama_sekarang = mitra.logo.name if mitra.logo else None
+            if self._logo_lama and self._logo_lama != nama_sekarang:
+                mitra.logo.storage.delete(self._logo_lama)
+        return mitra

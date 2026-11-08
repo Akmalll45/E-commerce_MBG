@@ -1,0 +1,176 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}{{ page_title }} — MBG Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section-title { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; margin-bottom:1rem; }
+    .mitra-pv { max-width:220px; margin:0 auto; padding:1.1rem .9rem; text-align:center; background:#fff; border:1px solid #E2E8F0; border-radius:18px; display:flex; flex-direction:column; align-items:center; gap:.5rem; }
+    .mitra-pv img { width:100%; height:56px; object-fit:contain; }
+    .mitra-pv .ini { width:56px; height:56px; border-radius:14px; display:grid; place-items:center; font-weight:800; font-size:1.1rem; color:#fff; background:linear-gradient(135deg,#2563EB,#0EA5E9); }
+    .mitra-pv .nm { font-weight:700; font-size:.88rem; color:#0F172A; line-height:1.3; }
+    .mitra-pv .jn { font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#2563EB; background:rgba(37,99,235,.08); padding:.15rem .55rem; border-radius:999px; }
+    .mitra-pv .kt { font-size:.74rem; color:#64748B; line-height:1.35; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-handshake text-primary me-2"></i>
+            {% if mode == 'tambah' %}Tambah Mitra{% else %}Edit Mitra{% endif %}
+        </h3>
+        <p class="text-muted small mb-0">
+            {% if mode == 'tambah' %}Tambahkan partner bisnis baru untuk ditampilkan di beranda.
+            {% else %}Perbarui data mitra. Simpan sebagai draft atau tayangkan langsung.{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'admin_mitra' %}" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 px-3 small" style="border-radius:12px;">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+
+    <div class="row g-4">
+        {# Kolom kiri — data mitra #}
+        <div class="col-lg-8">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Data Mitra</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.nama.id_for_label }}">
+                        Nama Mitra <span class="text-danger">*</span>
+                    </label>
+                    {{ form.nama }}
+                    {% if form.nama.errors %}<div class="text-danger small mt-1">{{ form.nama.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.jenis.id_for_label }}">Jenis Kerja Sama</label>
+                    {{ form.jenis }}
+                    {% if form.jenis.errors %}<div class="text-danger small mt-1">{{ form.jenis.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.keterangan.id_for_label }}">Keterangan Singkat</label>
+                    {{ form.keterangan }}
+                    {% if form.keterangan.errors %}<div class="text-danger small mt-1">{{ form.keterangan.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Satu kalimat pendek yang tampil di bawah nama mitra.</div>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-semibold" for="{{ form.situs.id_for_label }}">Situs Web</label>
+                    {{ form.situs }}
+                    {% if form.situs.errors %}<div class="text-danger small mt-1">{{ form.situs.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Opsional. Harus diawali <span class="font-monospace">https://</span> atau <span class="font-monospace">http://</span>. Jika diisi, kartu mitra menjadi tautan yang terbuka di tab baru.</div>
+                </div>
+            </div>
+
+            {# Pratinjau langsung #}
+            <div class="content-card">
+                <div class="form-section-title">Pratinjau Kartu</div>
+                <div class="mitra-pv">
+                    <img id="pv-logo" alt=""{% if mitra and mitra.logo %} src="{{ mitra.logo.url }}"{% else %} hidden{% endif %}>
+                    <div class="ini" id="pv-inisial"{% if mitra and mitra.logo %} hidden{% endif %}>?</div>
+                    <div class="nm" id="pv-nama">Nama mitra</div>
+                    <span class="jn" id="pv-jenis"></span>
+                    <div class="kt" id="pv-ket" hidden></div>
+                </div>
+                <div class="form-text text-center mt-2">Gambaran kasar; tampilan sebenarnya di beranda mengikuti lebar layar pengunjung.</div>
+            </div>
+        </div>
+
+        {# Kolom kanan — logo & pengaturan #}
+        <div class="col-lg-4">
+            <div class="content-card mb-4">
+                <div class="form-section-title">Logo</div>
+                {% if mitra and mitra.logo %}
+                <div class="mb-3 text-center">
+                    <img src="{{ mitra.logo.url }}" alt="Logo saat ini" class="img-fluid rounded-3 border p-2 bg-white" style="max-height:110px;object-fit:contain;">
+                    <div class="text-muted small mt-1">Logo saat ini</div>
+                </div>
+                {% endif %}
+                {{ form.logo }}
+                {% if form.logo.errors %}<div class="text-danger small mt-1">{{ form.logo.errors|join:", " }}</div>{% endif %}
+                <div class="form-text mt-1">JPG, PNG, atau WebP. Maks 5 MB. Disarankan latar transparan atau putih, rasio mendekati persegi panjang, dengan margin tipis. Tanpa logo, kartu memakai inisial nama.</div>
+                {% if mitra and mitra.logo %}
+                <div class="form-check mt-3">
+                    {{ form.hapus_logo }}
+                    <label class="form-check-label small" for="{{ form.hapus_logo.id_for_label }}">{{ form.hapus_logo.label }}</label>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="content-card">
+                <div class="form-section-title">Pengaturan Publikasi</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ form.status.id_for_label }}">Status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Hanya mitra "Tayang" yang muncul di beranda.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" for="{{ form.urutan.id_for_label }}">Urutan tampil</label>
+                    {{ form.urutan }}
+                    {% if form.urutan.errors %}<div class="text-danger small mt-1">{{ form.urutan.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Angka kecil tampil lebih dulu. Beranda menampilkan maksimal {{ maks_mitra }} mitra.</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold">
+                        <i class="fa-solid fa-floppy-disk me-1"></i>
+                        {% if mode == 'tambah' %}Simpan Mitra{% else %}Simpan Perubahan{% endif %}
+                    </button>
+                    <a href="{% url 'admin_mitra' %}" class="btn btn-outline-secondary rounded-pill">Batal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Pratinjau langsung: teks diisi lewat textContent (bukan innerHTML) agar aman dari injeksi. */
+(function () {
+    const ambil = (id) => document.getElementById(id);
+    const nama = ambil('{{ form.nama.id_for_label }}');
+    const jenis = ambil('{{ form.jenis.id_for_label }}');
+    const ket = ambil('{{ form.keterangan.id_for_label }}');
+    const berkas = ambil('{{ form.logo.id_for_label }}');
+    const pvLogo = ambil('pv-logo'), pvIni = ambil('pv-inisial');
+
+    function segarkan() {
+        const n = nama ? nama.value.trim() : '';
+        ambil('pv-nama').textContent = n || 'Nama mitra';
+        pvIni.textContent = n ? n.slice(0, 2).toUpperCase() : '?';
+        if (jenis && jenis.selectedIndex >= 0) ambil('pv-jenis').textContent = jenis.options[jenis.selectedIndex].text;
+        const k = ket ? ket.value.trim() : '';
+        ambil('pv-ket').textContent = k;
+        ambil('pv-ket').hidden = !k;
+    }
+    [nama, jenis, ket].forEach(function (el) {
+        if (el) { el.addEventListener('input', segarkan); el.addEventListener('change', segarkan); }
+    });
+
+    if (berkas) {
+        berkas.addEventListener('change', function () {
+            const f = berkas.files && berkas.files[0];
+            if (!f || !f.type.startsWith('image/')) return;
+            pvLogo.src = URL.createObjectURL(f);
+            pvLogo.hidden = false;
+            pvIni.hidden = true;
+        });
+    }
+    segarkan();
+})();
+</script>
+{% endblock %}
