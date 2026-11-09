@@ -1040,6 +1040,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper"></i> Artikel</a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fa-solid fa-sliders"></i> Layanan &amp; Transaksi
@@ -1198,6 +1201,11 @@
                     <li class="nav-item">
                         <a class="offcanvas-link" href="#status-transaksi" data-bs-dismiss="offcanvas">
                             <i class="fa-solid fa-receipt text-primary me-2.5"></i> Cek Status Transaksi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="offcanvas-link" href="{% url 'artikel_publik' %}">
+                            <i class="fa-solid fa-newspaper text-info me-2.5"></i> Artikel &amp; Berita
                         </a>
                     </li>
                 </ul>
@@ -1877,6 +1885,7 @@
                         <li><a href="#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
                         <li><a href="#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
+                        <li><a href="{% url 'artikel_publik' %}" class="footer-link-item">Artikel &amp; Berita</a></li>
                     </ul>
                 </div>
 

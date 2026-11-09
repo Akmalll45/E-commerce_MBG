@@ -1,4 +1,7 @@
 {% extends 'base_publik.html' %}
+
+{% block nav_artikel_aktif %}active{% endblock %}
+{% block offcanvas_artikel_aktif %}active{% endblock %}
 {% load humanize %}
 
 {% block title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
@@ -48,7 +51,7 @@
                 {# Kategori & meta #}
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     {% if artikel.kategori %}
-                    <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug %}}"
+                    <a href="{% url 'artikel_publik' %}?kategori={{ artikel.kategori.slug }}"
                        class="badge rounded-pill text-decoration-none" style="background:#EEF2FF;color:#4338CA;padding:.35rem .8rem;font-size:.78rem;">
                         {{ artikel.kategori.nama }}
                     </a>
@@ -57,7 +60,7 @@
                         <i class="fa-regular fa-calendar me-1"></i>{{ artikel.created_at|date:"d F Y" }}
                     </span>
                     <span class="text-muted small">
-                        <i class="fa-solid fa-user me-1"></i>{{ artikel.penulis.get_full_name|default:artikel.penulis.username|default:"Tim MBG" }}
+                        <i class="fa-solid fa-user me-1"></i>{% firstof artikel.penulis.get_full_name artikel.penulis.username "Tim MBG" %}
                     </span>
                     {% if artikel.updated_at != artikel.created_at %}
                     <span class="text-muted small">

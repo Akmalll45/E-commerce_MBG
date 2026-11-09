@@ -54,7 +54,7 @@
         <span class="badge bg-secondary opacity-75">Draft</span>
         {% endif %}
         <span class="text-muted small"><i class="fa-regular fa-calendar me-1"></i>{{ artikel.created_at|date:"d F Y" }}</span>
-        <span class="text-muted small"><i class="fa-solid fa-user me-1"></i>{{ artikel.penulis.get_full_name|default:artikel.penulis.username|default:"—" }}</span>
+        <span class="text-muted small"><i class="fa-solid fa-user me-1"></i>{% firstof artikel.penulis.get_full_name artikel.penulis.username "—" %}</span>
     </div>
 
     <h1 class="fw-bold mb-3" style="font-size:1.6rem;line-height:1.3;">{{ artikel.judul }}</h1>

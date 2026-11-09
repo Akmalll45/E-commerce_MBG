@@ -158,6 +158,7 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a></li>
                     <li class="nav-item"><a class="nav-link {% block nav_katalog_aktif %}{% endblock %}" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a></li>
+                    <li class="nav-item"><a class="nav-link {% block nav_artikel_aktif %}{% endblock %}" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper"></i> Artikel</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fa-solid fa-sliders"></i> Layanan &amp; Transaksi
@@ -256,6 +257,7 @@
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Jual Mobil Saya (Titip-Jual)</a></li>
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
+                    <li class="nav-item"><a class="offcanvas-link {% block offcanvas_artikel_aktif %}{% endblock %}" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper text-info me-2"></i> Artikel &amp; Berita</a></li>
                 </ul>
             </div>
             <div class="pt-3 border-top border-secondary border-opacity-25">
@@ -309,6 +311,7 @@
                         <li><a href="{% url 'beranda' %}#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
                         <li><a href="{% url 'beranda' %}#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="{% url 'beranda' %}#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
+                        <li><a href="{% url 'artikel_publik' %}" class="footer-link-item">Artikel &amp; Berita</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-2 col-md-6 col-6">

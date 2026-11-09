@@ -1,6 +1,9 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
+{% block nav_artikel_aktif %}active{% endblock %}
+{% block offcanvas_artikel_aktif %}active{% endblock %}
+
 {% block title %}
 {% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}
 {% endblock %}
@@ -87,7 +90,7 @@
                         <p class="art-ringkasan">{{ art.ringkasan|truncatechars:120 }}</p>
                         <div class="art-meta mt-auto">
                             <span><i class="fa-regular fa-calendar me-1"></i>{{ art.created_at|date:"d M Y" }}</span>
-                            <span><i class="fa-solid fa-user me-1"></i>{{ art.penulis.get_full_name|default:art.penulis.username|default:"MBG" }}</span>
+                            <span><i class="fa-solid fa-user me-1"></i>{% firstof art.penulis.get_full_name art.penulis.username "MBG" %}</span>
                         </div>
                     </div>
                 </a>

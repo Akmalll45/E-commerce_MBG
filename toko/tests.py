@@ -1695,3 +1695,87 @@ class DashboardKontenTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertNotContains(r, 'id="ringkasan-konten"')
         self.assertContains(r, 'Ringkasan Bisnis')    # bagian lain dashboard tetap tampil
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAUTAN ARTIKEL & BERITA DI NAVBAR / FOOTER + HALAMAN DETAIL ARTIKEL
+# ═══════════════════════════════════════════════════════════════════
+
+class TautanArtikelTests(TestCase):
+    def setUp(self):
+        self.daftar = reverse('artikel_publik')
+        self.kat = KategoriArtikel.objects.create(nama='Tips & Panduan')
+        self.artikel = Artikel.objects.create(
+            judul='Tips Membeli Mobil Bekas', ringkasan='ringkas', isi='Isi artikel uji',
+            status='published', kategori=self.kat,
+        )
+        self.produk = buat_produk('Avanza Uji')
+        self.detail_artikel = reverse('artikel_detail', args=[self.artikel.slug])
+
+    def _halaman(self):
+        return [reverse('beranda'), reverse('katalog'),
+                reverse('detail_produk', args=[self.produk.id]),
+                self.daftar, self.detail_artikel]
+
+    def test_tautan_artikel_ada_di_navbar_dan_footer_semua_halaman_publik(self):
+        for url in self._halaman():
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200, url)
+            self.assertContains(r, f'href="{self.daftar}"', msg_prefix=url)
+            self.assertContains(r, 'class="footer-link-item">Artikel &amp; Berita</a>', msg_prefix=url)
+
+    def test_navbar_publik_memuat_menu_artikel_di_tiap_templat(self):
+        # navbar desktop + menu mobile + footer = minimal 3 tautan di setiap halaman utama
+        for url in (reverse('beranda'), reverse('katalog'), reverse('detail_produk', args=[self.produk.id])):
+            html = self.client.get(url).content.decode()
+            self.assertGreaterEqual(html.count(f'href="{self.daftar}"'), 3, url)
+
+    def test_menu_artikel_aktif_hanya_di_halaman_artikel(self):
+        aktif = f'class="nav-link active" href="{self.daftar}"'
+        self.assertContains(self.client.get(self.daftar), aktif)
+        self.assertContains(self.client.get(self.detail_artikel), aktif)
+        self.assertNotContains(self.client.get(reverse('katalog')), aktif)
+
+    # ── regresi: bug `{{ artikel.kategori.slug %}}` membuat halaman detail error ──
+    def test_detail_artikel_dengan_kategori_terbuka(self):
+        r = self.client.get(self.detail_artikel)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Tips Membeli Mobil Bekas')
+        # tautan kategori ada di breadcrumb dan lencana
+        self.assertContains(r, f'?kategori={self.kat.slug}', count=2)
+
+    def test_detail_artikel_tanpa_kategori_terbuka(self):
+        a = Artikel.objects.create(judul='Tanpa Kategori', ringkasan='r', isi='i', status='published')
+        self.assertEqual(self.client.get(reverse('artikel_detail', args=[a.slug])).status_code, 200)
+
+    def test_daftar_artikel_menampilkan_artikel_terbit_saja(self):
+        Artikel.objects.create(judul='Naskah Rahasia Draft', ringkasan='r', isi='i', status='draft')
+        r = self.client.get(self.daftar)
+        self.assertContains(r, 'Tips Membeli Mobil Bekas')
+        self.assertNotContains(r, 'Naskah Rahasia Draft')
+
+    def test_artikel_draft_tidak_bisa_dibuka_publik(self):
+        a = Artikel.objects.create(judul='Draft Uji', ringkasan='r', isi='i', status='draft')
+        self.assertEqual(self.client.get(reverse('artikel_detail', args=[a.slug])).status_code, 404)
+
+    def test_filter_kategori_di_daftar_artikel(self):
+        r = self.client.get(self.daftar, {'kategori': self.kat.slug})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Tips Membeli Mobil Bekas')
+
+    # ── regresi: penulis kosong (akun dihapus -> SET_NULL) tidak boleh membuat halaman error ──
+    def test_nama_penulis_tampil_bila_ada(self):
+        user = get_user_model().objects.create_user('penulisuji', 'p@x.id', 'pw-uji-12345')
+        a = Artikel.objects.create(judul='Dengan Penulis', ringkasan='r', isi='i',
+                                   status='published', penulis=user)
+        self.assertContains(self.client.get(reverse('artikel_detail', args=[a.slug])), 'penulisuji')
+        self.assertContains(self.client.get(self.daftar), 'penulisuji')
+
+    def test_halaman_admin_artikel_tanpa_penulis_tidak_error(self):
+        from django.test import Client
+        staf = get_user_model().objects.create_user('stafuji', 's@x.id', 'pw-uji-12345', is_staff=True)
+        c = Client()
+        c.force_login(staf)
+        self.assertEqual(c.get(reverse('admin_artikel')).status_code, 200)
+        self.assertEqual(c.get(reverse('admin_artikel_preview', args=[self.artikel.id])).status_code, 200)

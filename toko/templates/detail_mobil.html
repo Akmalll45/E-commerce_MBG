@@ -375,6 +375,7 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar me-1"></i> Jual Mobil Saya</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator me-1"></i> Simulasi Kredit</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt me-1"></i> Cek Status</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper me-1"></i> Artikel</a></li>
                 </ul>
                 <div class="d-flex align-items-center gap-2">
                     {% if user.is_authenticated %}
@@ -428,6 +429,7 @@
                 <li><a class="offcanvas-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Jual Mobil Saya</a></li>
                 <li><a class="offcanvas-link" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
                 <li><a class="offcanvas-link" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
+                <li><a class="offcanvas-link" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper text-info me-2"></i> Artikel &amp; Berita</a></li>
             </ul>
             <div class="pt-3 border-top border-secondary border-opacity-25 mt-4">
                 <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="btn btn-success w-100 fw-bold py-2.5 rounded-pill">
@@ -828,6 +830,7 @@
                         <li><a href="{% url 'beranda' %}#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
                         <li><a href="{% url 'beranda' %}#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="{% url 'beranda' %}#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
+                        <li><a href="{% url 'artikel_publik' %}" class="footer-link-item">Artikel &amp; Berita</a></li>
                     </ul>
                 </div>
 
