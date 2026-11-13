@@ -1,24 +1,32 @@
+import os
+from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import FileResponse, Http404
 from django.core.paginator import Paginator
 from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django.utils.text import get_valid_filename
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from functools import wraps
 from urllib.parse import urlencode
 
 from .models import (
-    Produk, FotoMobil, TitipJual, BookingCekUnit, Transaksi,
+    Produk, FotoMobil, TitipJual, FotoTitipJual, DokumenTitipJual,
+    RiwayatStatusTitipJual, PermintaanTitipJual, SerahTerimaUnit,
+    BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
-    ProdukForm, validasi_foto_mobil,
+    ProdukForm, PengajuanTitipJualForm, validasi_foto_mobil,
+    validasi_dokumen_titip_jual,
     KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm, PengaturanWebsiteForm,
 )
 
@@ -371,7 +379,7 @@ def dashboard_user(request):
     """
     user = request.user
 
-    # Kueri aktivitas terkait user berdasarkan email atau no_whatsapp
+    # Booking lama tetap dicari lewat kontak; pengajuan C2C hanya lewat FK pemilik.
     filter_q = Q()
     if user.email:
         filter_q |= Q(email__iexact=user.email)
@@ -380,13 +388,12 @@ def dashboard_user(request):
 
     if filter_q:
         user_bookings = BookingCekUnit.objects.filter(filter_q).select_related('produk').order_by('-created_at')
-        user_titip_jual = TitipJual.objects.filter(filter_q).order_by('-created_at')
         user_transaksi = Transaksi.objects.filter(booking__in=user_bookings).select_related('booking', 'booking__produk').order_by('-created_at')
     else:
         user_bookings = BookingCekUnit.objects.none()
-        user_titip_jual = TitipJual.objects.none()
         user_transaksi = Transaksi.objects.none()
 
+    user_titip_jual = TitipJual.objects.filter(pengguna=user).order_by('-created_at')
     context = {
         'user': user,
         'user_bookings': user_bookings,
@@ -394,9 +401,301 @@ def dashboard_user(request):
         'user_transaksi': user_transaksi,
         'total_booking': user_bookings.count(),
         'total_titip_jual': user_titip_jual.count(),
+        'titip_jual_dalam_proses': user_titip_jual.filter(
+            status__in=['pending', 'revisi', 'dijadwalkan', 'inspeksi', 'negosiasi']
+        ).count(),
+        'titip_jual_dititipkan': user_titip_jual.filter(status__in=['disetujui', 'tayang']).count(),
+        'titip_jual_terjual': user_titip_jual.filter(status='terjual').count(),
         'total_transaksi': user_transaksi.count(),
     }
     return render(request, 'dashboard/user/dashboard.html', context)
+
+
+def _hapus_file_saat_commit(field_file):
+    nama_file = field_file.name
+    storage = field_file.storage
+    transaction.on_commit(lambda: storage.delete(nama_file))
+
+
+def _simpan_berkas_titip_jual(request, pengajuan, form, nama_asli):
+    for field_name, jenis in form.FOTO_WAJIB_FIELDS.items():
+        foto = form.cleaned_data.get(field_name)
+        if not foto:
+            continue
+        foto_lama = list(pengajuan.galeri_foto.filter(jenis_foto=jenis))
+        FotoTitipJual.objects.create(
+            titip_jual=pengajuan,
+            gambar=foto,
+            jenis_foto=jenis,
+            keterangan=dict(FotoTitipJual.JENIS_FOTO)[jenis],
+            urutan=list(form.FOTO_WAJIB_FIELDS).index(field_name),
+        )
+        for item in foto_lama:
+            _hapus_file_saat_commit(item.gambar)
+            item.delete()
+
+    for urutan, foto in enumerate(form.cleaned_data.get('foto_tambahan', []), start=5):
+        FotoTitipJual.objects.create(
+            titip_jual=pengajuan,
+            gambar=foto,
+            jenis_foto='tambahan',
+            keterangan='Foto tambahan',
+            urutan=urutan,
+        )
+
+    for field_name, jenis in (
+        ('dokumen_stnk', 'stnk'),
+        ('dokumen_bpkb', 'bpkb'),
+        ('dokumen_ktp', 'ktp_pemilik'),
+    ):
+        berkas = form.cleaned_data.get(field_name)
+        if not berkas:
+            continue
+        dokumen_lama = list(pengajuan.dokumen.filter(jenis=jenis))
+        nama = nama_asli.get(field_name, berkas.name).replace('\\', '/').rsplit('/', 1)[-1][:200]
+        DokumenTitipJual.objects.create(
+            titip_jual=pengajuan,
+            jenis=jenis,
+            nama_file=nama,
+            file=berkas,
+            diunggah_oleh=request.user,
+        )
+        for item in dokumen_lama:
+            _hapus_file_saat_commit(item.file)
+            item.delete()
+
+
+def _nama_file_asli(request):
+    return {
+        key: berkas.name
+        for key, berkas in request.FILES.items()
+        if key.startswith('dokumen_')
+    }
+
+
+def _foto_wajib_form_list(form, pengajuan):
+    foto_by_type = {}
+    if pengajuan:
+        foto_by_type = {
+            foto.jenis_foto: foto
+            for foto in pengajuan.galeri_foto.exclude(jenis_foto='tambahan')
+        }
+    return [
+        {
+            'field': form[field_name],
+            'jenis': jenis,
+            'existing': foto_by_type.get(jenis),
+        }
+        for field_name, jenis in form.FOTO_WAJIB_FIELDS.items()
+    ]
+
+
+@login_required(login_url='login')
+def titip_jual_daftar(request):
+    pengajuan = TitipJual.objects.filter(pengguna=request.user).order_by('-created_at')
+    halaman = Paginator(pengajuan, 10).get_page(request.GET.get('page'))
+    return render(request, 'dashboard/user/titip_jual_list.html', {
+        'pengajuan_list': halaman,
+        'total_pengajuan': pengajuan.count(),
+        'dalam_proses': pengajuan.filter(
+            status__in=['pending', 'revisi', 'dijadwalkan', 'inspeksi', 'negosiasi']
+        ).count(),
+        'dititipkan': pengajuan.filter(status__in=['disetujui', 'tayang']).count(),
+        'terjual': pengajuan.filter(status='terjual').count(),
+    })
+
+
+@login_required(login_url='login')
+def titip_jual_tambah(request):
+    nama_asli = _nama_file_asli(request)
+    if request.method == 'POST':
+        form = PengajuanTitipJualForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                pengajuan = form.save(commit=False)
+                pengajuan.pengguna = request.user
+                pengajuan.status = 'draft'
+                pengajuan.save()
+                _simpan_berkas_titip_jual(request, pengajuan, form, nama_asli)
+                pengajuan.lakukan_transisi(
+                    'pending',
+                    oleh_user=request.user,
+                    catatan='Pengajuan dikirim oleh pemilik.',
+                )
+            messages.success(request, 'Pengajuan Titip-Jual berhasil dikirim untuk diverifikasi.')
+            return redirect('titip_jual_detail', pengajuan_id=pengajuan.pk)
+        messages.error(request, 'Periksa kembali data kendaraan, lima foto wajib, dan dokumen.')
+    else:
+        form = PengajuanTitipJualForm(user=request.user)
+    return render(request, 'dashboard/user/titip_jual_form.html', {
+        'form': form,
+        'pengajuan': None,
+        'foto_wajib_list': _foto_wajib_form_list(form, None),
+    })
+
+
+@login_required(login_url='login')
+def titip_jual_ubah(request, pengajuan_id):
+    pengajuan = get_object_or_404(
+        TitipJual.objects.filter(pengguna=request.user),
+        pk=pengajuan_id,
+    )
+    if pengajuan.status not in ('draft', 'revisi', 'ditolak', 'kadaluarsa'):
+        messages.error(request, 'Pengajuan ini tidak dapat diubah pada tahap saat ini.')
+        return redirect('titip_jual_detail', pengajuan_id=pengajuan.pk)
+
+    nama_asli = _nama_file_asli(request)
+    if request.method == 'POST':
+        form = PengajuanTitipJualForm(
+            request.POST, request.FILES, instance=pengajuan, user=request.user
+        )
+        if form.is_valid():
+            with transaction.atomic():
+                pengajuan = form.save(commit=False)
+                pengajuan.save()
+                _simpan_berkas_titip_jual(request, pengajuan, form, nama_asli)
+                pengajuan.lakukan_transisi(
+                    'pending',
+                    oleh_user=request.user,
+                    catatan='Pemilik memperbarui pengajuan.',
+                )
+            messages.success(request, 'Perbaikan pengajuan berhasil dikirim.')
+            return redirect('titip_jual_detail', pengajuan_id=pengajuan.pk)
+        messages.error(request, 'Periksa kembali data kendaraan, lima foto wajib, dan dokumen.')
+    else:
+        form = PengajuanTitipJualForm(instance=pengajuan, user=request.user)
+    return render(request, 'dashboard/user/titip_jual_form.html', {
+        'form': form,
+        'pengajuan': pengajuan,
+        'foto_wajib_list': _foto_wajib_form_list(form, pengajuan),
+    })
+
+
+@login_required(login_url='login')
+def titip_jual_detail(request, pengajuan_id):
+    pengajuan = get_object_or_404(
+        TitipJual.objects.select_related('produk_terkait').prefetch_related(
+            'galeri_foto', 'dokumen', 'riwayat_status__diubah_oleh',
+            'permintaan_pemilik',
+        ).filter(pengguna=request.user),
+        pk=pengajuan_id,
+    )
+    return render(request, 'dashboard/user/titip_jual_detail.html', {
+        'pengajuan': pengajuan,
+        'foto_wajib': pengajuan.galeri_foto.exclude(jenis_foto='tambahan'),
+        'foto_tambahan': pengajuan.galeri_foto.filter(jenis_foto='tambahan'),
+        'dokumen_list': pengajuan.dokumen.all(),
+        'riwayat_status': pengajuan.riwayat_status.all(),
+        'permintaan_list': pengajuan.permintaan_pemilik.all(),
+        'dapat_diubah': pengajuan.status in ('draft', 'revisi', 'ditolak', 'kadaluarsa'),
+    })
+
+
+@login_required(login_url='login')
+@require_POST
+def titip_jual_tindakan_pemilik(request, pengajuan_id):
+    pengajuan = get_object_or_404(
+        TitipJual.objects.filter(pengguna=request.user),
+        pk=pengajuan_id,
+    )
+    tindakan = request.POST.get('aksi') or request.POST.get('tindakan')
+    catatan = request.POST.get('catatan', '').strip()
+    tahap_harga = (
+        pengajuan.status == 'negosiasi'
+        and pengajuan.status_persetujuan_harga == 'menunggu'
+    )
+
+    if tindakan in ('setujui_harga', 'tolak_harga') and tahap_harga:
+        with transaction.atomic():
+            if tindakan == 'setujui_harga':
+                pengajuan.harga_kesepakatan = pengajuan.harga_rekomendasi
+                pengajuan.status_persetujuan_harga = 'disetujui'
+                pengajuan.tanggal_persetujuan_harga = timezone.now()
+                pengajuan.save(update_fields=[
+                    'harga_kesepakatan', 'status_persetujuan_harga',
+                    'tanggal_persetujuan_harga', 'updated_at',
+                ])
+                pengajuan.lakukan_transisi(
+                    'disetujui', oleh_user=request.user,
+                    catatan='Pemilik menyetujui rekomendasi harga.',
+                )
+            else:
+                pengajuan.status_persetujuan_harga = 'ditolak'
+                pengajuan.save(update_fields=['status_persetujuan_harga', 'updated_at'])
+                PermintaanTitipJual.objects.create(
+                    titip_jual=pengajuan,
+                    jenis='ubah_harga',
+                    catatan=catatan or 'Pemilik menolak rekomendasi harga dan meminta pembahasan ulang.',
+                    dibuat_oleh=request.user,
+                )
+        messages.success(
+            request,
+            'Persetujuan harga berhasil disimpan.' if tindakan == 'setujui_harga'
+            else 'Penolakan harga dan permintaan pembahasan ulang berhasil dikirim.',
+        )
+    elif tindakan == 'ubah_harga' and pengajuan.status == 'negosiasi':
+        try:
+            harga_diminta = Decimal(request.POST.get('harga_diminta', '').replace(',', '').strip())
+            if harga_diminta <= 0 or harga_diminta >= Decimal('1000000000000'):
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            messages.error(request, 'Harga baru harus lebih besar dari nol dan maksimal 999.999.999.999.')
+            return redirect('titip_jual_detail', pengajuan_id=pengajuan.pk)
+        if pengajuan.permintaan_pemilik.filter(jenis='ubah_harga', status='menunggu').exists():
+            messages.error(request, 'Permintaan perubahan harga sebelumnya masih menunggu tindakan admin.')
+        else:
+            PermintaanTitipJual.objects.create(
+                titip_jual=pengajuan,
+                jenis='ubah_harga',
+                harga_diminta=harga_diminta,
+                catatan=catatan,
+                dibuat_oleh=request.user,
+            )
+            messages.success(request, 'Permintaan perubahan harga berhasil dikirim ke admin.')
+    elif tindakan == 'pembatalan' and pengajuan.status in (
+        'pending', 'revisi', 'dijadwalkan', 'inspeksi', 'negosiasi', 'disetujui', 'tayang'
+    ):
+        if pengajuan.permintaan_pemilik.filter(jenis='pembatalan', status='menunggu').exists():
+            messages.error(request, 'Permintaan pembatalan sebelumnya masih menunggu tindakan admin.')
+        else:
+            PermintaanTitipJual.objects.create(
+                titip_jual=pengajuan,
+                jenis='pembatalan',
+                catatan=catatan,
+                dibuat_oleh=request.user,
+            )
+            messages.success(request, 'Permintaan pembatalan berhasil dikirim ke admin.')
+    else:
+        messages.error(request, 'Tindakan tidak tersedia pada tahap pengajuan saat ini.')
+    return redirect('titip_jual_detail', pengajuan_id=pengajuan.pk)
+
+
+@login_required(login_url='login')
+@require_GET
+def dokumen_titip_jual_unduh(request, dokumen_id):
+    dokumen = get_object_or_404(
+        DokumenTitipJual.objects.select_related('titip_jual'),
+        pk=dokumen_id,
+    )
+    if not (request.user.is_staff or request.user.is_superuser):
+        if dokumen.titip_jual.pengguna_id != request.user.pk:
+            raise Http404
+    try:
+        berkas = dokumen.file.open('rb')
+    except (FileNotFoundError, OSError, ValueError):
+        raise Http404
+    nama_file = get_valid_filename(
+        dokumen.nama_file.replace('\\', '/').rsplit('/', 1)[-1]
+    ) or 'dokumen'
+    response = FileResponse(
+        berkas,
+        as_attachment=True,
+        filename=nama_file,
+        content_type='application/octet-stream',
+    )
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @login_required(login_url='login')
@@ -523,8 +822,8 @@ def dashboard_admin(request):
 
     # 4. Statistik Pengajuan Titip-Jual
     total_titip_jual = TitipJual.objects.count()
-    titip_jual_pending = TitipJual.objects.filter(status='pending').count()
-    titip_jual_disetujui = TitipJual.objects.filter(status='disetujui').count()
+    titip_jual_pending = TitipJual.objects.filter(status__in=['pending', 'revisi']).count()
+    titip_jual_disetujui = TitipJual.objects.filter(status__in=['disetujui', 'tayang']).count()
 
     # 5. Statistik Transaksi
     total_transaksi = Transaksi.objects.count()
@@ -637,6 +936,354 @@ def staf_required(view):
             return redirect('dashboard_user')
         return view(request, *args, **kwargs)
     return pembungkus
+
+
+TAHAP_TITIP_JUAL_ADMIN = {
+    'verifikasi': ('Verifikasi & Revisi', ['pending', 'revisi']),
+    'inspeksi': ('Jadwal Inspeksi', ['dijadwalkan', 'inspeksi']),
+    'harga': ('Persetujuan Harga', ['negosiasi']),
+    'showroom': ('Kendaraan di Showroom', ['disetujui', 'tayang']),
+    'penjualan': ('Penjualan & Penyelesaian', ['terjual', 'dikembalikan', 'ditolak', 'kadaluarsa']),
+}
+
+
+def _query_titip_jual_admin(request, tahap=None):
+    daftar = TitipJual.objects.select_related('pengguna', 'produk_terkait').order_by('-created_at', '-id')
+    if tahap:
+        if tahap not in TAHAP_TITIP_JUAL_ADMIN:
+            raise Http404
+        daftar = daftar.filter(status__in=TAHAP_TITIP_JUAL_ADMIN[tahap][1])
+
+    q = ' '.join(request.GET.get('q', '').split())[:100]
+    if q:
+        for kata in q.split(' ')[:5]:
+            daftar = daftar.filter(
+                Q(nama_pemilik__icontains=kata)
+                | Q(no_whatsapp__icontains=kata)
+                | Q(email__icontains=kata)
+                | Q(merek__icontains=kata)
+                | Q(model__icontains=kata)
+                | Q(plat_nomor__icontains=kata)
+            )
+    status = request.GET.get('status', '')
+    if status in dict(TitipJual.STATUS_PENGAJUAN):
+        daftar = daftar.filter(status=status)
+    return daftar, q, status
+
+
+@staf_required
+def admin_titip_jual(request):
+    return _halaman_admin_titip_jual(request, None)
+
+
+@staf_required
+def admin_titip_jual_tahap(request, tahap):
+    if tahap not in TAHAP_TITIP_JUAL_ADMIN:
+        raise Http404
+    return _halaman_admin_titip_jual(request, tahap)
+
+
+def _halaman_admin_titip_jual(request, tahap):
+    daftar, q, status = _query_titip_jual_admin(request, tahap)
+    halaman = Paginator(daftar, 15).get_page(request.GET.get('page'))
+    return render(request, 'dashboard/admin/titip_jual_list.html', {
+        'pengajuan_list': halaman,
+        'tahap': tahap,
+        'judul_tahap': TAHAP_TITIP_JUAL_ADMIN.get(tahap, ('Semua Pengajuan', []))[0],
+        'status_choices': TitipJual.STATUS_PENGAJUAN,
+        'status_filter': status,
+        'q': q,
+        'titip_jual_pending': TitipJual.objects.filter(status__in=['pending', 'revisi']).count(),
+        'tahap_titip_jual': TAHAP_TITIP_JUAL_ADMIN,
+    })
+
+
+def _buat_atau_perbarui_produk_c2c(pengajuan):
+    jenis_wajib = {'depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin'}
+    tersedia = set(
+        pengajuan.galeri_foto.exclude(jenis_foto='tambahan')
+        .values_list('jenis_foto', flat=True)
+    )
+    if not jenis_wajib.issubset(tersedia):
+        raise ValueError('Lima foto wajib harus tersedia sebelum kendaraan ditayangkan.')
+    foto_utama = pengajuan.galeri_foto.exclude(jenis_foto='tambahan').order_by('urutan', 'id').first()
+    if not foto_utama:
+        raise ValueError('Lima foto wajib harus tersedia sebelum kendaraan ditayangkan.')
+    harga = pengajuan.harga_kesepakatan or pengajuan.harga_rekomendasi
+    if not harga or harga <= 0:
+        raise ValueError('Harga yang disetujui pemilik wajib tersedia sebelum kendaraan ditayangkan.')
+
+    product = pengajuan.produk_terkait
+    if product is None:
+        product = Produk(
+            sku=f'C2C-TJ-{pengajuan.pk:08d}',
+            nama=f'{pengajuan.merek} {pengajuan.model} {pengajuan.tahun}'.strip()[:200],
+            merek=pengajuan.merek,
+            kategori='Titip-Jual C2C',
+            tahun=pengajuan.tahun,
+            transmisi=pengajuan.transmisi if pengajuan.transmisi in dict(Produk.TRANSMISI_CHOICES) else 'AT',
+            jarak_tempuh=pengajuan.jarak_tempuh,
+            warna=pengajuan.warna or 'Belum diinformasikan',
+            plat_nomor=pengajuan.plat_nomor or 'Belum diinformasikan',
+            harga=harga,
+            tipe_penjual='C2C',
+            status_stok='ready',
+            lulus_inspeksi=True,
+            ringkasan_inspeksi=pengajuan.hasil_inspeksi or 'Lulus proses inspeksi MBG.',
+            gambar_utama=foto_utama.gambar.name,
+            deskripsi_singkat=f'Kendaraan titip-jual pengguna MBG. Harga rekomendasi Rp {harga:,.0f}.',
+            deskripsi_detail=(
+                f'{pengajuan.kondisi_eksterior}\n\nHasil inspeksi MBG:\n'
+                f'{pengajuan.hasil_inspeksi or "Belum ada catatan tambahan."}'
+            ),
+            titip_jual_sumber=pengajuan,
+        )
+    else:
+        product.nama = f'{pengajuan.merek} {pengajuan.model} {pengajuan.tahun}'.strip()[:200]
+        product.merek = pengajuan.merek
+        product.tahun = pengajuan.tahun
+        product.transmisi = pengajuan.transmisi if pengajuan.transmisi in dict(Produk.TRANSMISI_CHOICES) else 'AT'
+        product.jarak_tempuh = pengajuan.jarak_tempuh
+        product.warna = pengajuan.warna or 'Belum diinformasikan'
+        product.plat_nomor = pengajuan.plat_nomor or 'Belum diinformasikan'
+        product.harga = harga
+        product.tipe_penjual = 'C2C'
+        product.status_stok = 'ready'
+        product.gambar_utama = foto_utama.gambar.name
+        product.deskripsi_detail = (
+            f'{pengajuan.kondisi_eksterior}\n\nHasil inspeksi MBG:\n'
+            f'{pengajuan.hasil_inspeksi or "Belum ada catatan tambahan."}'
+        )
+        product.titip_jual_sumber = pengajuan
+    product.save()
+    if pengajuan.produk_terkait_id != product.pk:
+        pengajuan.produk_terkait = product
+        pengajuan.save(update_fields=['produk_terkait', 'updated_at'])
+    return product
+
+
+def _proses_permintaan_pemilik(request, pengajuan):
+    permintaan = get_object_or_404(
+        PermintaanTitipJual.objects.filter(titip_jual=pengajuan, status='menunggu'),
+        pk=request.POST.get('permintaan_id'),
+    )
+    keputusan = request.POST.get('keputusan')
+    catatan_admin = request.POST.get('catatan_admin', '').strip()
+    if keputusan not in ('setujui', 'tolak'):
+        raise ValueError('Keputusan permintaan tidak valid.')
+
+    with transaction.atomic():
+        if permintaan.jenis == 'pembatalan':
+            if keputusan == 'setujui':
+                if not pengajuan.dapat_transisi_ke('dikembalikan'):
+                    raise ValueError('Pembatalan tidak dapat disetujui pada tahap ini.')
+                pengajuan.lakukan_transisi(
+                    'dikembalikan', oleh_user=request.user,
+                    catatan=catatan_admin or 'Pembatalan disetujui oleh admin.',
+                )
+                if pengajuan.produk_terkait_id:
+                    pengajuan.produk_terkait.status_stok = 'in_review'
+                    pengajuan.produk_terkait.save(update_fields=['status_stok', 'updated_at'])
+            permintaan.status = 'disetujui' if keputusan == 'setujui' else 'ditolak'
+        else:
+            if pengajuan.status != 'negosiasi':
+                raise ValueError('Perubahan harga hanya dapat diproses pada tahap negosiasi.')
+            if keputusan == 'setujui':
+                harga = permintaan.harga_diminta
+                if harga is None:
+                    try:
+                        harga = Decimal(request.POST.get('harga_rekomendasi', '').replace(',', '').strip())
+                    except (InvalidOperation, ValueError):
+                        raise ValueError('Masukkan rekomendasi harga baru yang valid.')
+                if harga <= 0 or harga >= Decimal('1000000000000'):
+                    raise ValueError('Harga rekomendasi harus lebih besar dari nol dan maksimal 999.999.999.999.')
+                pengajuan.harga_rekomendasi = harga
+                pengajuan.harga_kesepakatan = None
+                pengajuan.status_persetujuan_harga = 'menunggu'
+                pengajuan.tanggal_persetujuan_harga = None
+                pengajuan.save(update_fields=[
+                    'harga_rekomendasi', 'harga_kesepakatan',
+                    'status_persetujuan_harga', 'tanggal_persetujuan_harga', 'updated_at',
+                ])
+            else:
+                pengajuan.status_persetujuan_harga = 'ditolak'
+                pengajuan.save(update_fields=['status_persetujuan_harga', 'updated_at'])
+            permintaan.status = 'disetujui' if keputusan == 'setujui' else 'ditolak'
+        permintaan.catatan_admin = catatan_admin
+        permintaan.diproses_oleh = request.user
+        permintaan.processed_at = timezone.now()
+        permintaan.save(update_fields=[
+            'status', 'catatan_admin', 'diproses_oleh', 'processed_at',
+        ])
+
+
+@staf_required
+def admin_titip_jual_detail(request, pengajuan_id):
+    pengajuan = get_object_or_404(
+        TitipJual.objects.select_related('pengguna', 'produk_terkait').prefetch_related(
+            'galeri_foto', 'dokumen__diunggah_oleh', 'riwayat_status__diubah_oleh',
+            'permintaan_pemilik__dibuat_oleh', 'serah_terima',
+        ),
+        pk=pengajuan_id,
+    )
+    return render(request, 'dashboard/admin/titip_jual_detail.html', {
+        'pengajuan': pengajuan,
+        'foto_list': pengajuan.galeri_foto.all(),
+        'dokumen_list': pengajuan.dokumen.all(),
+        'riwayat_status': pengajuan.riwayat_status.all(),
+        'permintaan_list': pengajuan.permintaan_pemilik.all(),
+        'status_choices': TitipJual.STATUS_PENGAJUAN,
+        'dokumen_choices': DokumenTitipJual.JENIS_DOKUMEN,
+        'titip_jual_pending': TitipJual.objects.filter(status__in=['pending', 'revisi']).count(),
+    })
+
+
+@staf_required
+@require_POST
+def admin_titip_jual_tindakan(request, pengajuan_id):
+    pengajuan = get_object_or_404(
+        TitipJual.objects.select_related('produk_terkait').prefetch_related('galeri_foto'),
+        pk=pengajuan_id,
+    )
+    tindakan = request.POST.get('aksi') or request.POST.get('tindakan')
+    catatan = request.POST.get('catatan', '').strip()
+    try:
+        with transaction.atomic():
+            if tindakan == 'status':
+                status_baru = request.POST.get('status', '')
+                if status_baru in ('revisi', 'ditolak', 'dikembalikan') and not catatan:
+                    raise ValueError('Catatan untuk pemilik wajib diisi untuk status ini.')
+                if status_baru == 'disetujui' and pengajuan.status_persetujuan_harga != 'disetujui':
+                    raise ValueError('Persetujuan harga pemilik diperlukan sebelum penitipan disetujui.')
+                if status_baru == 'tayang':
+                    product = _buat_atau_perbarui_produk_c2c(pengajuan)
+                    if product.status_stok != 'ready':
+                        raise ValueError('Produk C2C tidak dapat ditayangkan dalam status stok saat ini.')
+                if status_baru == 'revisi':
+                    pengajuan.catatan_revisi = catatan
+                    pengajuan.save(update_fields=['catatan_revisi', 'updated_at'])
+                elif status_baru in ('ditolak', 'dikembalikan'):
+                    pengajuan.alasan_penolakan = catatan
+                    pengajuan.save(update_fields=['alasan_penolakan', 'updated_at'])
+                pengajuan.lakukan_transisi(
+                    status_baru, oleh_user=request.user, catatan=catatan,
+                )
+                if status_baru == 'terjual' and pengajuan.produk_terkait_id:
+                    pengajuan.produk_terkait.status_stok = 'sold'
+                    pengajuan.produk_terkait.save(update_fields=['status_stok', 'updated_at'])
+                elif status_baru == 'dikembalikan' and pengajuan.produk_terkait_id:
+                    pengajuan.produk_terkait.status_stok = 'in_review'
+                    pengajuan.produk_terkait.save(update_fields=['status_stok', 'updated_at'])
+
+            elif tindakan == 'jadwalkan_inspeksi':
+                jadwal = parse_datetime(request.POST.get('jadwal_inspeksi', '').strip())
+                if not jadwal:
+                    raise ValueError('Tanggal dan waktu inspeksi harus valid.')
+                if timezone.is_naive(jadwal):
+                    jadwal = timezone.make_aware(jadwal, timezone.get_current_timezone())
+                pengajuan.tanggal_inspeksi_dijadwalkan = jadwal
+                pengajuan.save(update_fields=['tanggal_inspeksi_dijadwalkan', 'updated_at'])
+                pengajuan.lakukan_transisi(
+                    'dijadwalkan', oleh_user=request.user,
+                    catatan=catatan or f'Inspeksi dijadwalkan pada {jadwal:%d-%m-%Y %H:%M}.',
+                )
+
+            elif tindakan == 'mulai_inspeksi':
+                pengajuan.lakukan_transisi(
+                    'inspeksi', oleh_user=request.user,
+                    catatan=catatan or 'Inspeksi kendaraan dimulai.',
+                )
+
+            elif tindakan == 'hasil_inspeksi':
+                if pengajuan.status != 'inspeksi':
+                    raise ValueError('Hasil inspeksi hanya dapat disimpan saat inspeksi berlangsung.')
+                hasil = request.POST.get('hasil_inspeksi', '').strip()
+                try:
+                    harga = Decimal(request.POST.get('harga_rekomendasi', '').replace(',', '').strip())
+                except (InvalidOperation, ValueError):
+                    raise ValueError('Rekomendasi harga harus berupa angka yang valid.')
+                if not hasil or harga <= 0 or harga >= Decimal('1000000000000'):
+                    raise ValueError('Hasil inspeksi dan rekomendasi harga wajib diisi.')
+                pengajuan.hasil_inspeksi = hasil
+                pengajuan.harga_rekomendasi = harga
+                pengajuan.status_persetujuan_harga = 'menunggu'
+                pengajuan.tanggal_persetujuan_harga = None
+                pengajuan.save(update_fields=[
+                    'hasil_inspeksi', 'harga_rekomendasi',
+                    'status_persetujuan_harga', 'tanggal_persetujuan_harga', 'updated_at',
+                ])
+                pengajuan.lakukan_transisi(
+                    'negosiasi', oleh_user=request.user,
+                    catatan='Hasil inspeksi dan rekomendasi harga dikirim ke pemilik.',
+                )
+
+            elif tindakan == 'verifikasi_dokumen':
+                dokumen = get_object_or_404(
+                    DokumenTitipJual.objects.filter(titip_jual=pengajuan),
+                    pk=request.POST.get('dokumen_id'),
+                )
+                dokumen.sudah_diverifikasi = request.POST.get('sudah_diverifikasi') == '1'
+                dokumen.catatan_verifikasi = request.POST.get('catatan_verifikasi', '').strip()
+                dokumen.diverifikasi_oleh = request.user
+                dokumen.tanggal_verifikasi = timezone.now()
+                dokumen.save(update_fields=[
+                    'sudah_diverifikasi', 'catatan_verifikasi',
+                    'diverifikasi_oleh', 'tanggal_verifikasi',
+                ])
+
+            elif tindakan == 'proses_permintaan':
+                _proses_permintaan_pemilik(request, pengajuan)
+
+            elif tindakan == 'serah_terima':
+                waktu = parse_datetime(request.POST.get('tanggal_waktu', '').strip())
+                if not waktu:
+                    raise ValueError('Tanggal dan waktu serah terima harus valid.')
+                if timezone.is_naive(waktu):
+                    waktu = timezone.make_aware(waktu, timezone.get_current_timezone())
+                jenis = request.POST.get('jenis')
+                if jenis not in dict(SerahTerimaUnit.JENIS_SERAH_TERIMA):
+                    raise ValueError('Jenis serah terima tidak valid.')
+                nama_penyerah = request.POST.get('nama_penyerah', '').strip()
+                nama_penerima = request.POST.get('nama_penerima', '').strip()
+                if not nama_penyerah or not nama_penerima:
+                    raise ValueError('Nama pihak penyerah dan penerima wajib diisi.')
+                odometer = request.POST.get('odometer', '').strip()
+                SerahTerimaUnit.objects.create(
+                    titip_jual=pengajuan,
+                    jenis=jenis,
+                    tanggal_waktu=waktu,
+                    lokasi=request.POST.get('lokasi', '').strip(),
+                    nama_penyerah=nama_penyerah,
+                    nama_penerima=nama_penerima,
+                    odometer_saat_ini=int(odometer) if odometer else None,
+                    kondisi_unit=request.POST.get('kondisi_unit') or 'baik',
+                    catatan_kondisi=catatan,
+                    dicatat_oleh=request.user,
+                    ttd_penyerah='Ditandatangani' if request.POST.get('ttd_penyerah') == '1' else '',
+                    ttd_penerima='Ditandatangani' if request.POST.get('ttd_penerima') == '1' else '',
+                )
+
+            elif tindakan == 'unggah_dokumen':
+                berkas = request.FILES.get('file')
+                jenis = request.POST.get('jenis_dokumen')
+                if jenis not in ('perjanjian', 'hasil_inspeksi') or not berkas:
+                    raise ValueError('Pilih jenis dokumen dan file yang valid.')
+                nama = berkas.name.replace('\\', '/').rsplit('/', 1)[-1][:200]
+                validasi_dokumen_titip_jual(berkas)
+                DokumenTitipJual.objects.create(
+                    titip_jual=pengajuan,
+                    jenis=jenis,
+                    nama_file=nama,
+                    file=berkas,
+                    diunggah_oleh=request.user,
+                )
+
+            else:
+                raise ValueError('Tindakan C2C tidak dikenali.')
+        messages.success(request, 'Perubahan pengajuan Titip-Jual berhasil disimpan.')
+    except (ValueError, ValidationError, OverflowError) as error:
+        messages.error(request, str(error))
+    return redirect('admin_titip_jual_detail', pengajuan_id=pengajuan.pk)
 
 
 @staf_required

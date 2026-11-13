@@ -392,8 +392,8 @@
                         <a class="side-nav-item" href="{% url 'katalog' %}">
                             <i class="fa-solid fa-car"></i> Cari Mobil Bekas
                         </a>
-                        <a class="side-nav-item" href="{% url 'beranda' %}#titip-jual">
-                            <i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil Saya
+                        <a class="side-nav-item" href="{% url 'titip_jual_daftar' %}">
+                            <i class="fa-solid fa-hand-holding-dollar"></i> Titip-Jual Saya
                         </a>
                         <a class="side-nav-item text-danger mt-2 pt-2 border-top" href="{% url 'logout' %}">
                             <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
@@ -466,6 +466,7 @@
                             <div>
                                 <div class="stat-value">{{ total_titip_jual }}</div>
                                 <div class="stat-label">Pengajuan Titip-Jual</div>
+                                <small class="text-muted d-block mt-1">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan · {{ titip_jual_terjual }} terjual</small>
                             </div>
                         </div>
                     </div>
@@ -575,7 +576,11 @@
                 <div class="content-card mb-4">
                     <div class="card-header-clean">
                         <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Pengajuan Titip-Jual Mobil Saya</h5>
-                        <span class="badge bg-secondary rounded-pill px-3">{{ total_titip_jual }} Item</span>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span class="badge bg-secondary rounded-pill px-3">{{ total_titip_jual }} Item</span>
+                            <a class="btn btn-sm btn-outline-primary rounded-pill" href="{% url 'titip_jual_daftar' %}">Semua pengajuan</a>
+                            <a class="btn btn-sm btn-warning rounded-pill" href="{% url 'titip_jual_tambah' %}">Ajukan</a>
+                        </div>
                     </div>
 
                     {% if user_titip_jual %}
@@ -593,7 +598,7 @@
                                     {% for tj in user_titip_jual %}
                                     <tr>
                                         <td>
-                                            <div class="fw-bold text-dark">{{ tj.merek_model }}</div>
+                                            <div class="fw-bold text-dark">{{ tj.merek }} {{ tj.model }} {{ tj.tahun }}</div>
                                             <small class="text-muted">{{ tj.created_at|date:"d M Y" }}</small>
                                         </td>
                                         <td>
@@ -604,15 +609,7 @@
                                             <span class="fw-bold text-primary">Rp {{ tj.harga_harapan|intcomma }}</span>
                                         </td>
                                         <td>
-                                            {% if tj.status == 'disetujui' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">Disetujui & Tayang</span>
-                                            {% elif tj.status == 'inspeksi' %}
-                                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2.5 py-1 rounded-pill">Proses Inspeksi</span>
-                                            {% elif tj.status == 'pending' %}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu Verifikasi</span>
-                                            {% else %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">{{ tj.get_status_display }}</span>
-                                            {% endif %}
+                                            <a class="badge bg-primary bg-opacity-10 text-primary text-decoration-none border border-primary border-opacity-25 px-2.5 py-1 rounded-pill" href="{% url 'titip_jual_detail' tj.pk %}">{{ tj.get_status_display }}</a>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -624,7 +621,7 @@
                             <div class="empty-icon"><i class="fa-solid fa-car-tunnel"></i></div>
                             <h6 class="fw-bold text-dark mb-1">Belum Ada Pengajuan Titip-Jual</h6>
                             <p class="text-muted small mb-3">Ingin menjual mobil Anda secara aman dengan inspeksi resmi MBG?</p>
-                            <a href="{% url 'beranda' %}#titip-jual" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-4">
+                            <a href="{% url 'titip_jual_tambah' %}" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill px-4">
                                 <i class="fa-solid fa-hand-holding-dollar me-1"></i> Ajukan Jual Mobil
                             </a>
                         </div>

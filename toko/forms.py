@@ -5,10 +5,16 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 import re
 import uuid
+from pathlib import Path
+
+from PIL import Image, UnidentifiedImageError
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
-from .models import Produk, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp
+from .models import (
+    Produk, TitipJual, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
+    PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp,
+)
 
 User = get_user_model()
 
@@ -400,6 +406,226 @@ def validasi_foto_mobil(foto):
         raise ValidationError("Format foto harus JPG, PNG, atau WEBP.")
     foto.name = f"{uuid.uuid4().hex}.{FOTO_MOBIL_EKSTENSI[format_gambar]}"
     return foto
+
+
+FOTO_TITIP_JUAL_MAKS_BYTE = 5 * 1024 * 1024
+DOKUMEN_TITIP_JUAL_MAKS_BYTE = 10 * 1024 * 1024
+FOTO_TITIP_JUAL_EKSTENSI = {'JPEG': 'jpg', 'MPO': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}
+
+
+def validasi_foto_titip_jual(foto):
+    if not isinstance(foto, UploadedFile):
+        return foto
+    if foto.size > FOTO_TITIP_JUAL_MAKS_BYTE:
+        raise ValidationError("Ukuran foto maksimal 5 MB per file.")
+    try:
+        foto.seek(0)
+        gambar = Image.open(foto)
+        format_gambar = gambar.format
+        gambar.verify()
+        foto.seek(0)
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ValidationError("File bukan gambar yang valid.")
+    if format_gambar not in FOTO_TITIP_JUAL_EKSTENSI:
+        raise ValidationError("Format foto harus JPG, PNG, atau WEBP.")
+    foto.name = f"{uuid.uuid4().hex}.{FOTO_TITIP_JUAL_EKSTENSI[format_gambar]}"
+    return foto
+
+
+def validasi_dokumen_titip_jual(berkas):
+    if not isinstance(berkas, UploadedFile):
+        return berkas
+    if berkas.size > DOKUMEN_TITIP_JUAL_MAKS_BYTE:
+        raise ValidationError("Ukuran dokumen maksimal 10 MB.")
+
+    ekstensi = Path(berkas.name).suffix.lower()
+    berkas.seek(0)
+    signature = berkas.read(8)
+    berkas.seek(0)
+    if ekstensi == '.pdf' and signature.startswith(b'%PDF-'):
+        format_file = 'pdf'
+    else:
+        try:
+            gambar = Image.open(berkas)
+            format_gambar = gambar.format
+            gambar.verify()
+            berkas.seek(0)
+        except (UnidentifiedImageError, OSError, ValueError):
+            raise ValidationError("Dokumen harus PDF, JPG, PNG, atau WEBP yang valid.")
+        if format_gambar not in FOTO_TITIP_JUAL_EKSTENSI:
+            raise ValidationError("Dokumen harus PDF, JPG, PNG, atau WEBP.")
+        format_file = FOTO_TITIP_JUAL_EKSTENSI[format_gambar]
+
+    berkas.name = f"{uuid.uuid4().hex}.{format_file}"
+    return berkas
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFilesField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        if not data:
+            return []
+        if not isinstance(data, (list, tuple)):
+            data = [data]
+        return [super().clean(berkas, initial=None) for berkas in data]
+
+
+class PengajuanTitipJualForm(forms.ModelForm):
+    FOTO_WAJIB_FIELDS = {
+        'foto_depan': 'depan',
+        'foto_belakang': 'belakang',
+        'foto_samping_kiri': 'samping_kiri',
+        'foto_samping_kanan': 'samping_kanan',
+        'foto_ruang_mesin': 'ruang_mesin',
+    }
+
+    foto_depan = forms.ImageField(required=False, label='Tampak depan')
+    foto_belakang = forms.ImageField(required=False, label='Tampak belakang')
+    foto_samping_kiri = forms.ImageField(required=False, label='Samping kiri')
+    foto_samping_kanan = forms.ImageField(required=False, label='Samping kanan')
+    foto_ruang_mesin = forms.ImageField(required=False, label='Ruang mesin')
+    foto_tambahan = MultipleFilesField(
+        required=False,
+        label='Foto tambahan',
+        help_text='Maksimal 10 foto tambahan, masing-masing maksimal 5 MB.',
+    )
+    dokumen_stnk = forms.FileField(required=False, label='STNK')
+    dokumen_bpkb = forms.FileField(required=False, label='BPKB')
+    dokumen_ktp = forms.FileField(required=False, label='Identitas pemilik')
+    plat_nomor = forms.CharField(required=True, label='Nomor polisi')
+
+    class Meta:
+        model = TitipJual
+        fields = [
+            'nama_pemilik', 'no_whatsapp', 'email', 'merek', 'model', 'tahun',
+            'transmisi', 'warna', 'plat_nomor', 'jarak_tempuh', 'harga_harapan',
+            'kondisi_eksterior',
+        ]
+        labels = {
+            'nama_pemilik': 'Nama pemilik',
+            'no_whatsapp': 'Nomor WhatsApp',
+            'email': 'Alamat email',
+            'merek': 'Merek',
+            'model': 'Model',
+            'tahun': 'Tahun',
+            'transmisi': 'Transmisi',
+            'warna': 'Warna',
+            'plat_nomor': 'Nomor polisi',
+            'jarak_tempuh': 'Kilometer',
+            'harga_harapan': 'Harga yang diharapkan (Rp)',
+            'kondisi_eksterior': 'Deskripsi kondisi kendaraan',
+        }
+        widgets = {
+            'nama_pemilik': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'name'}),
+            'no_whatsapp': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'tel'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'autocomplete': 'email'}),
+            'merek': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'off'}),
+            'model': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'off'}),
+            'tahun': forms.NumberInput(attrs={'class': 'form-control', 'min': 1980}),
+            'transmisi': forms.Select(attrs={'class': 'form-select'}),
+            'warna': forms.TextInput(attrs={'class': 'form-control'}),
+            'plat_nomor': forms.TextInput(attrs={'class': 'form-control'}),
+            'jarak_tempuh': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'harga_harapan': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'step': 100000}),
+            'kondisi_eksterior': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        for field_name in self.FOTO_WAJIB_FIELDS:
+            self.fields[field_name].widget.attrs.update({
+                'class': 'form-control foto-wajib-input',
+                'accept': 'image/jpeg,image/png,image/webp',
+                'data-preview-target': f'preview-{field_name}',
+            })
+            if self.instance.pk:
+                self.fields[field_name].required = not self.instance.galeri_foto.filter(
+                    jenis_foto=self.FOTO_WAJIB_FIELDS[field_name]
+                ).exists()
+            else:
+                self.fields[field_name].required = True
+
+        self.fields['foto_tambahan'].widget.attrs.update({
+            'class': 'form-control',
+            'accept': 'image/jpeg,image/png,image/webp',
+        })
+        for field_name in ('dokumen_stnk', 'dokumen_bpkb', 'dokumen_ktp'):
+            self.fields[field_name].widget.attrs.update({
+                'class': 'form-control',
+                'accept': '.pdf,image/jpeg,image/png,image/webp',
+            })
+
+        if self.user and not self.instance.pk:
+            self.initial.setdefault('nama_pemilik', self.user.get_full_name() or self.user.username)
+            self.initial.setdefault('no_whatsapp', self.user.no_whatsapp or '')
+            self.initial.setdefault('email', self.user.email or '')
+
+    def clean_tahun(self):
+        tahun = self.cleaned_data['tahun']
+        batas = timezone.localdate().year + 1
+        if not 1980 <= tahun <= batas:
+            raise ValidationError(f"Tahun harus antara 1980 dan {batas}.")
+        return tahun
+
+    def clean_jarak_tempuh(self):
+        kilometer = self.cleaned_data['jarak_tempuh']
+        if not 0 <= kilometer <= 2_000_000:
+            raise ValidationError("Kilometer harus antara 0 dan 2.000.000.")
+        return kilometer
+
+    def clean_harga_harapan(self):
+        harga = self.cleaned_data['harga_harapan']
+        if harga <= 0:
+            raise ValidationError("Harga yang diharapkan harus lebih besar dari 0.")
+        return harga
+
+    def clean_no_whatsapp(self):
+        nomor = normalisasi_whatsapp(self.cleaned_data.get('no_whatsapp'))
+        validasi_whatsapp(nomor)
+        return nomor
+
+    def clean_plat_nomor(self):
+        return ' '.join((self.cleaned_data.get('plat_nomor') or '').upper().split())
+
+    def clean_kondisi_eksterior(self):
+        kondisi = ' '.join((self.cleaned_data.get('kondisi_eksterior') or '').split())
+        if not kondisi:
+            raise ValidationError("Deskripsi kondisi kendaraan wajib diisi.")
+        return kondisi
+
+    def clean_foto_tambahan(self):
+        foto_list = self.cleaned_data.get('foto_tambahan', [])
+        foto_lama = (
+            self.instance.galeri_foto.filter(jenis_foto='tambahan').count()
+            if self.instance.pk else 0
+        )
+        if foto_lama + len(foto_list) > 10:
+            raise ValidationError("Maksimal 10 foto tambahan.")
+        return [validasi_foto_titip_jual(foto) for foto in foto_list]
+
+    def clean(self):
+        data = super().clean()
+        for field_name in self.FOTO_WAJIB_FIELDS:
+            foto = data.get(field_name)
+            if foto:
+                try:
+                    data[field_name] = validasi_foto_titip_jual(foto)
+                except ValidationError as error:
+                    self.add_error(field_name, error)
+        for field_name in ('dokumen_stnk', 'dokumen_bpkb', 'dokumen_ktp'):
+            berkas = data.get(field_name)
+            if berkas:
+                try:
+                    data[field_name] = validasi_dokumen_titip_jual(berkas)
+                except ValidationError as error:
+                    self.add_error(field_name, error)
+        return data
 
 
 class ProdukForm(forms.ModelForm):

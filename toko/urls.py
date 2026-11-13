@@ -16,9 +16,39 @@ urlpatterns = [
     path('dashboard/', views.dashboard_user, name='dashboard_user'),
     path('dashboard/profil/', views.profil_user, name='profil_user'),
     path('dashboard/ubah-password/', views.ubah_password_user, name='ubah_password_user'),
+    path('dashboard/titip-jual/', views.titip_jual_daftar, name='titip_jual_daftar'),
+    path('dashboard/titip-jual/tambah/', views.titip_jual_tambah, name='titip_jual_tambah'),
+    path('dashboard/titip-jual/<int:pengajuan_id>/', views.titip_jual_detail, name='titip_jual_detail'),
+    path('dashboard/titip-jual/<int:pengajuan_id>/ubah/', views.titip_jual_ubah, name='titip_jual_ubah'),
+    path(
+        'dashboard/titip-jual/<int:pengajuan_id>/tindakan/',
+        views.titip_jual_tindakan_pemilik,
+        name='titip_jual_tindakan',
+    ),
+    path(
+        'dokumen-titip-jual/<int:dokumen_id>/',
+        views.dokumen_titip_jual_unduh,
+        name='dokumen_titip_jual_download',
+    ),
 
     # Dashboard Admin
     path('panel/', views.dashboard_admin, name='dashboard_admin'),
+    path('panel/titip-jual/', views.admin_titip_jual, name='admin_titip_jual'),
+    path(
+        'panel/titip-jual/tahap/<slug:tahap>/',
+        views.admin_titip_jual_tahap,
+        name='admin_titip_jual_tahap',
+    ),
+    path(
+        'panel/titip-jual/<int:pengajuan_id>/',
+        views.admin_titip_jual_detail,
+        name='admin_titip_jual_detail',
+    ),
+    path(
+        'panel/titip-jual/<int:pengajuan_id>/tindakan/',
+        views.admin_titip_jual_tindakan,
+        name='admin_titip_jual_tindakan',
+    ),
     path('panel/katalog/', views.admin_katalog, name='admin_katalog'),
     path('panel/katalog/tambah/', views.admin_katalog_tambah, name='admin_katalog_tambah'),
     path('panel/katalog/<int:id>/edit/', views.admin_katalog_edit, name='admin_katalog_edit'),

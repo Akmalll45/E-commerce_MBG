@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.urls import reverse
+from django.utils.html import format_html
 from .models import (
     CustomUser, Mitra, PengaturanWebsite, Produk, FotoMobil,
     TitipJual, FotoTitipJual, DokumenTitipJual, RiwayatStatusTitipJual, SerahTerimaUnit,
@@ -55,9 +57,19 @@ class FotoTitipJualInline(admin.TabularInline):
 
 class DokumenTitipJualInline(admin.TabularInline):
     model   = DokumenTitipJual
-    extra   = 1
-    fields  = ('jenis', 'nama_file', 'file', 'keterangan')
-    readonly_fields = ('created_at',)
+    extra   = 0
+    fields  = ('jenis', 'nama_file', 'file_link', 'keterangan', 'sudah_diverifikasi')
+    readonly_fields = ('file_link',)
+    can_delete = False
+
+    @admin.display(description='File privat')
+    def file_link(self, obj):
+        if not obj or not obj.pk:
+            return '—'
+        return format_html(
+            '<a href="{}">Unduh dokumen privat</a>',
+            reverse('dokumen_titip_jual_download', args=[obj.pk]),
+        )
 
 class RiwayatStatusInline(admin.TabularInline):
     model   = RiwayatStatusTitipJual
@@ -123,6 +135,20 @@ class DokumenTitipJualAdmin(admin.ModelAdmin):
     list_display = ('titip_jual', 'jenis', 'nama_file', 'diunggah_oleh', 'created_at')
     list_filter  = ('jenis',)
     search_fields = ('nama_file', 'keterangan')
+    fields = ('titip_jual', 'jenis', 'nama_file', 'file_link', 'keterangan', 'diunggah_oleh', 'created_at')
+    readonly_fields = ('file_link', 'diunggah_oleh', 'created_at')
+
+    @admin.display(description='File privat')
+    def file_link(self, obj):
+        if not obj or not obj.pk:
+            return '—'
+        return format_html(
+            '<a href="{}">Unduh dokumen privat</a>',
+            reverse('dokumen_titip_jual_download', args=[obj.pk]),
+        )
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(RiwayatStatusTitipJual)

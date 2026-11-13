@@ -34,6 +34,7 @@
         .admin-side-item { display:flex; align-items:center; justify-content:space-between; padding:.72rem 1rem; color:#475569; font-weight:600; font-size:.88rem; border-radius:var(--radius-md); text-decoration:none; transition:all .2s; margin-bottom:.35rem; }
         .admin-side-item:hover { color:var(--mbg-blue); background:rgba(37,99,235,.06); }
         .admin-side-item.active { color:#fff; background:#080D1A; box-shadow:0 4px 12px rgba(8,13,26,.25); }
+        .admin-side-toggle { background:transparent; }
         .admin-side-item i { width:22px; font-size:.95rem; }
         .side-section-title { font-size:.70rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#94A3B8; margin-top:1.25rem; margin-bottom:.5rem; padding-left:.5rem; }
         .content-card { background:#fff; border:1px solid #E2E8F0; border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-card); margin-bottom:1.5rem; }
@@ -124,9 +125,18 @@
                             <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
                         {% endif %}
                     </a>
-                    <a class="admin-side-item" href="/admin/toko/titipjual/" target="_blank">
+                    <button class="admin-side-item admin-side-toggle w-100 border-0 {% if 'titip_jual' in request.resolver_match.url_name %}active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="{% if 'titip_jual' in request.resolver_match.url_name %}true{% else %}false{% endif %}" aria-controls="menuTitipJualC2C">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
-                    </a>
+                        <i class="fa-solid fa-chevron-down small"></i>
+                    </button>
+                    <div class="collapse w-100 {% if 'titip_jual' in request.resolver_match.url_name %}show{% endif %}" id="menuTitipJualC2C">
+                        <a class="admin-side-item ps-4 small {% if request.resolver_match.url_name == 'admin_titip_jual' %}active{% endif %}" href="{% url 'admin_titip_jual' %}">Semua Pengajuan</a>
+                        <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'verifikasi' %}">Verifikasi &amp; Revisi</a>
+                        <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'inspeksi' %}">Jadwal Inspeksi</a>
+                        <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'harga' %}">Persetujuan Harga</a>
+                        <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'showroom' %}">Kendaraan di Showroom</a>
+                        <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'penjualan' %}">Penjualan &amp; Penyelesaian</a>
+                    </div>
                     <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
                         <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
                     </a>

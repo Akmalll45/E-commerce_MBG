@@ -1,0 +1,92 @@
+{% extends 'dashboard/user/titip_jual_base.html' %}
+{% block title %}{% if pengajuan %}Perbaiki{% else %}Ajukan{% endif %} Titip-Jual{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <a class="text-decoration-none small" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'titip_jual_daftar' %}{% endif %}"><i class="fa-solid fa-arrow-left me-1"></i> Kembali</a>
+    <h1 class="h3 fw-bold text-dark mt-2">{% if pengajuan %}Perbaiki pengajuan{% else %}Jual Mobil Saya{% endif %}</h1>
+    <p class="text-muted mb-0">Isi informasi kendaraan dan unggah lima foto wajib. Dokumen kepemilikan disimpan privat.</p>
+</div>
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="content-card">
+        <h2 class="h5 fw-bold mb-3">Data pemilik dan kendaraan</h2>
+        <div class="row g-3">
+            {% for field in form %}
+                {% if field.name != 'foto_depan' and field.name != 'foto_belakang' and field.name != 'foto_samping_kiri' and field.name != 'foto_samping_kanan' and field.name != 'foto_ruang_mesin' and field.name != 'foto_tambahan' and field.name != 'dokumen_stnk' and field.name != 'dokumen_bpkb' and field.name != 'dokumen_ktp' %}
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="content-card">
+        <h2 class="h5 fw-bold mb-1">Lima foto wajib</h2>
+        <p class="text-muted small">Format JPG, PNG, atau WEBP; maksimal 5 MB per foto. Pilih file baru untuk mengganti foto yang sudah ada.</p>
+        <div class="row g-3">
+            {% for item in foto_wajib_list %}
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label" for="{{ item.field.id_for_label }}">{{ item.field.label }} <span class="text-danger">*</span></label>
+                {% if item.existing %}<img class="preview-thumb mb-2" id="preview-{{ item.field.name }}" src="{{ item.existing.gambar.url }}" alt="{{ item.field.label }}">{% else %}<img class="preview-thumb mb-2 d-none" id="preview-{{ item.field.name }}" alt="Pratinjau {{ item.field.label }}">{% endif %}
+                {{ item.field }}
+                {% if item.field.help_text %}<div class="form-text">{{ item.field.help_text }}</div>{% endif %}
+                {% for error in item.field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="content-card">
+        <h2 class="h5 fw-bold mb-1">Foto tambahan <span class="text-muted fw-normal">(opsional)</span></h2>
+        <p class="text-muted small">Interior, dashboard, odometer, jok, bagasi, velg, ban, kerusakan, dan lainnya.</p>
+        {{ form.foto_tambahan }}
+        {% for error in form.foto_tambahan.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        <div id="preview-foto-tambahan" class="row g-2 mt-1"></div>
+    </div>
+    <div class="content-card">
+        <h2 class="h5 fw-bold mb-1">Dokumen kepemilikan <span class="text-muted fw-normal">(opsional)</span></h2>
+        <p class="text-muted small">Unggah PDF/JPG/PNG/WEBP, maksimal 10 MB per dokumen. File hanya dapat diunduh oleh pemilik dan staf MBG.</p>
+        <div class="row g-3">
+            <div class="col-md-4"><label class="form-label" for="{{ form.dokumen_stnk.id_for_label }}">{{ form.dokumen_stnk.label }}</label>{{ form.dokumen_stnk }}{% for error in form.dokumen_stnk.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form.dokumen_bpkb.id_for_label }}">{{ form.dokumen_bpkb.label }}</label>{{ form.dokumen_bpkb }}{% for error in form.dokumen_bpkb.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form.dokumen_ktp.id_for_label }}">{{ form.dokumen_ktp.label }}</label>{{ form.dokumen_ktp }}{% for error in form.dokumen_ktp.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mb-4">
+        <a class="btn btn-outline-secondary rounded-pill px-4" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'titip_jual_daftar' %}{% endif %}">Batal</a>
+        <button class="btn btn-primary rounded-pill px-4" type="submit"><i class="fa-solid fa-paper-plane me-1"></i> Kirim pengajuan</button>
+    </div>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.querySelectorAll('.foto-wajib-input').forEach(function(input) {
+    input.addEventListener('change', function() {
+        var target = document.getElementById(input.dataset.previewTarget);
+        if (!target || !input.files || !input.files[0]) return;
+        target.src = URL.createObjectURL(input.files[0]);
+        target.classList.remove('d-none');
+    });
+});
+var extraInput = document.getElementById('{{ form.foto_tambahan.id_for_label }}');
+if (extraInput) {
+    extraInput.addEventListener('change', function() {
+        var container = document.getElementById('preview-foto-tambahan');
+        container.replaceChildren();
+        Array.from(extraInput.files).forEach(function(file) {
+            var column = document.createElement('div');
+            column.className = 'col-6 col-md-3';
+            var image = document.createElement('img');
+            image.className = 'preview-thumb';
+            image.alt = 'Pratinjau foto tambahan';
+            image.src = URL.createObjectURL(file);
+            column.appendChild(image);
+            container.appendChild(column);
+        });
+    });
+}
+</script>
+{% endblock %}

@@ -219,5 +219,8 @@ MESSAGE_TAGS = {
 # Pengaturan untuk menyimpan file gambar/media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+TITIP_JUAL_PRIVATE_MEDIA_ROOT = Path(
+    os.environ.get('TITIP_JUAL_PRIVATE_MEDIA_ROOT', BASE_DIR / 'private_media')
+).resolve()
 
 

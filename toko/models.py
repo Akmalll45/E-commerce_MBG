@@ -1,11 +1,12 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, URLValidator
 from django.contrib.auth.models import AbstractUser
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
+from katalog_mbg.storage import PrivateTitipJualStorage
 import os
 import re
 import uuid
@@ -183,6 +184,7 @@ class TitipJual(models.Model):
     STATUS_PENGAJUAN = [
         ('draft',       'Draft (Belum Dikirim)'),
         ('pending',     'Menunggu Verifikasi MBG'),
+        ('revisi',      'Perlu Revisi Pemilik'),
         ('dijadwalkan', 'Jadwal Inspeksi Dikonfirmasi'),
         ('inspeksi',    'Sedang Inspeksi di Showroom'),
         ('negosiasi',   'Negosiasi Harga'),
@@ -197,9 +199,10 @@ class TitipJual(models.Model):
     # Peta transisi yang diizinkan: status_saat_ini → [status_tujuan yang valid]
     TRANSISI_DIIZINKAN = {
         'draft':       ['pending'],
-        'pending':     ['dijadwalkan', 'ditolak', 'kadaluarsa'],
-        'dijadwalkan': ['inspeksi', 'ditolak'],
-        'inspeksi':    ['negosiasi', 'ditolak'],
+        'pending':     ['dijadwalkan', 'revisi', 'ditolak', 'kadaluarsa', 'dikembalikan'],
+        'revisi':      ['pending', 'ditolak', 'dikembalikan'],
+        'dijadwalkan': ['inspeksi', 'revisi', 'ditolak', 'dikembalikan'],
+        'inspeksi':    ['negosiasi', 'revisi', 'ditolak', 'dikembalikan'],
         'negosiasi':   ['disetujui', 'ditolak', 'dikembalikan'],
         'disetujui':   ['tayang', 'dikembalikan'],
         'tayang':      ['terjual', 'dikembalikan'],
@@ -223,12 +226,18 @@ class TitipJual(models.Model):
         ('hybrid',  'Hybrid'),
     ]
 
-    # ── Relasi ke akun pengguna (opsional: pengajuan bisa via web form publik) ──
+    STATUS_PERSETUJUAN_HARGA = [
+        ('belum_diajukan', 'Belum Ada Rekomendasi'),
+        ('menunggu', 'Menunggu Jawaban Pemilik'),
+        ('disetujui', 'Disetujui Pemilik'),
+        ('ditolak', 'Ditolak Pemilik'),
+    ]
+
+    # ── Relasi ke akun pengguna ─────────────────────────────────────
     pengguna = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='titip_jual',
-        verbose_name="Akun Pengguna",
-        help_text="Akun MBG pemilik kendaraan (kosong jika pengajuan via form publik)"
+        verbose_name="Akun Pengguna"
     )
 
     # ── Identitas pemilik ──────────────────────────────────────────
@@ -300,8 +309,21 @@ class TitipJual(models.Model):
         blank=True, verbose_name="Alasan Penolakan/Dikembalikan",
         help_text="Dikirimkan ke pemilik sebagai notifikasi"
     )
+    catatan_revisi = models.TextField(blank=True, verbose_name="Catatan Revisi untuk Pemilik")
     tanggal_inspeksi_dijadwalkan = models.DateTimeField(
         null=True, blank=True, verbose_name="Jadwal Inspeksi"
+    )
+    hasil_inspeksi = models.TextField(blank=True, verbose_name="Hasil Inspeksi MBG")
+    harga_rekomendasi = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Rekomendasi Harga MBG (Rp)"
+    )
+    status_persetujuan_harga = models.CharField(
+        max_length=20, choices=STATUS_PERSETUJUAN_HARGA,
+        default='belum_diajukan', verbose_name="Persetujuan Harga Pemilik"
+    )
+    tanggal_persetujuan_harga = models.DateTimeField(
+        null=True, blank=True, verbose_name="Tanggal Persetujuan Harga"
     )
     tanggal_disetujui = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Disetujui")
     tanggal_terjual   = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Terjual")
@@ -373,22 +395,21 @@ class TitipJual(models.Model):
                 f"'{dict(self.STATUS_PENGAJUAN).get(status_baru, status_baru)}' tidak diizinkan."
             )
         status_lama = self.status
-        self.status = status_baru
-        # Set timestamp otomatis
         now = timezone.now()
-        if status_baru == 'disetujui' and not self.tanggal_disetujui:
-            self.tanggal_disetujui = now
-        elif status_baru == 'terjual' and not self.tanggal_terjual:
-            self.tanggal_terjual = now
-        self.save(update_fields=['status', 'tanggal_disetujui', 'tanggal_terjual', 'updated_at'])
-        # Catat riwayat
-        RiwayatStatusTitipJual.objects.create(
-            titip_jual=self,
-            status_dari=status_lama,
-            status_ke=status_baru,
-            diubah_oleh=oleh_user,
-            catatan=catatan,
-        )
+        with transaction.atomic():
+            self.status = status_baru
+            if status_baru == 'disetujui' and not self.tanggal_disetujui:
+                self.tanggal_disetujui = now
+            elif status_baru == 'terjual' and not self.tanggal_terjual:
+                self.tanggal_terjual = now
+            self.save(update_fields=['status', 'tanggal_disetujui', 'tanggal_terjual', 'updated_at'])
+            RiwayatStatusTitipJual.objects.create(
+                titip_jual=self,
+                status_dari=status_lama,
+                status_ke=status_baru,
+                diubah_oleh=oleh_user,
+                catatan=catatan,
+            )
         return self
 
 
@@ -396,12 +417,25 @@ class TitipJual(models.Model):
 
 class FotoTitipJual(models.Model):
     """Foto-foto tambahan kendaraan yang dititipkan (reuse pola FotoMobil)."""
+    JENIS_FOTO = [
+        ('depan', 'Tampak Depan'),
+        ('belakang', 'Tampak Belakang'),
+        ('samping_kiri', 'Samping Kiri'),
+        ('samping_kanan', 'Samping Kanan'),
+        ('ruang_mesin', 'Ruang Mesin'),
+        ('tambahan', 'Foto Tambahan'),
+    ]
+
     titip_jual  = models.ForeignKey(
         TitipJual, on_delete=models.CASCADE, related_name='galeri_foto',
         verbose_name="Pengajuan Titip-Jual"
     )
     gambar      = models.ImageField(
         upload_to=foto_titipjual_path, verbose_name="Foto"
+    )
+    jenis_foto  = models.CharField(
+        max_length=20, choices=JENIS_FOTO, default='tambahan',
+        verbose_name="Jenis Foto"
     )
     keterangan  = models.CharField(
         max_length=100, blank=True,
@@ -434,6 +468,7 @@ class DokumenTitipJual(models.Model):
         ('ktp_pemilik','KTP Pemilik'),
         ('faktur',     'Faktur Pembelian'),
         ('hasil_inspeksi', 'Laporan Hasil Inspeksi MBG'),
+        ('perjanjian', 'Perjanjian Titip-Jual'),
         ('surat_kuasa','Surat Kuasa'),
         ('lainnya',    'Dokumen Lainnya'),
     ]
@@ -452,6 +487,7 @@ class DokumenTitipJual(models.Model):
     )
     file        = models.FileField(
         upload_to=dokumen_titipjual_path,
+        storage=PrivateTitipJualStorage(),
         verbose_name="File Dokumen",
         help_text="PDF, JPG, PNG — maks 10 MB"
     )
@@ -461,12 +497,70 @@ class DokumenTitipJual(models.Model):
         null=True, blank=True, related_name='dokumen_titipjual_diunggah',
         verbose_name="Diunggah Oleh"
     )
+    sudah_diverifikasi = models.BooleanField(default=False, verbose_name="Sudah Diverifikasi")
+    catatan_verifikasi = models.TextField(blank=True, verbose_name="Catatan Verifikasi")
+    diverifikasi_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dokumen_titipjual_diverifikasi',
+        verbose_name="Diverifikasi Oleh"
+    )
+    tanggal_verifikasi = models.DateTimeField(
+        null=True, blank=True, verbose_name="Tanggal Verifikasi"
+    )
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name        = "Dokumen Titip-Jual"
         verbose_name_plural = "Dokumen Titip-Jual"
         ordering            = ['jenis', 'id']
+
+    def __str__(self):
+        return f"{self.get_jenis_display()} — {self.titip_jual}"
+
+
+class PermintaanTitipJual(models.Model):
+    JENIS_CHOICES = [
+        ('ubah_harga', 'Perubahan Harga'),
+        ('pembatalan', 'Pembatalan Pengajuan'),
+    ]
+    STATUS_CHOICES = [
+        ('menunggu', 'Menunggu Tindakan Admin'),
+        ('disetujui', 'Disetujui'),
+        ('ditolak', 'Ditolak'),
+    ]
+
+    titip_jual = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='permintaan_pemilik',
+        verbose_name="Pengajuan Titip-Jual"
+    )
+    jenis = models.CharField(max_length=20, choices=JENIS_CHOICES, verbose_name="Jenis Permintaan")
+    harga_diminta = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Harga yang Diminta (Rp)"
+    )
+    catatan = models.TextField(blank=True, verbose_name="Catatan Pemilik")
+    status = models.CharField(
+        max_length=12, choices=STATUS_CHOICES, default='menunggu',
+        verbose_name="Status Permintaan"
+    )
+    catatan_admin = models.TextField(blank=True, verbose_name="Tanggapan Admin")
+    dibuat_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='permintaan_titipjual',
+        verbose_name="Diajukan Oleh"
+    )
+    diproses_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='permintaan_titipjual_diproses',
+        verbose_name="Diproses Oleh"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Permintaan Pemilik Titip-Jual"
+        verbose_name_plural = "Permintaan Pemilik Titip-Jual"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.get_jenis_display()} — {self.titip_jual}"

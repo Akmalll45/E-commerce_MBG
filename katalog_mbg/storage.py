@@ -16,6 +16,7 @@ import os
 import urllib.error
 import urllib.request
 import uuid
+from pathlib import Path
 
 import cloudinary
 import cloudinary.api
@@ -23,13 +24,34 @@ import cloudinary.exceptions
 import cloudinary.uploader
 import cloudinary.utils
 from django.core.files.base import ContentFile
-from django.core.files.storage import Storage
+from django.core.files.storage import FileSystemStorage, Storage
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from django.utils.deconstruct import deconstructible
 
 logger = logging.getLogger(__name__)
 
 # Dijalankan Cloudinary saat unggah dan hasilnya yang disimpan: sisi terpanjang
 # maksimal 1600 px dan kualitas otomatis, sehingga foto HP yang besar tidak boros kuota.
 TRANSFORMASI_UNGGAH = [{'width': 1600, 'height': 1600, 'crop': 'limit', 'quality': 'auto'}]
+
+
+@deconstructible
+class PrivateTitipJualStorage(FileSystemStorage):
+    """Local storage outside MEDIA_ROOT; files are available only through authorized views."""
+
+    def __init__(self):
+        private_root = Path(settings.TITIP_JUAL_PRIVATE_MEDIA_ROOT).resolve()
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        try:
+            is_public = os.path.commonpath((str(private_root), str(media_root))) == str(media_root)
+        except ValueError:
+            is_public = False
+        if is_public:
+            raise ImproperlyConfigured(
+                'TITIP_JUAL_PRIVATE_MEDIA_ROOT must be outside MEDIA_ROOT.'
+            )
+        super().__init__(location=private_root, base_url=None)
 
 
 def pisah_nama(name):
