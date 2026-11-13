@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, URLValidator
 from django.contrib.auth.models import AbstractUser
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 import os
 import re
@@ -131,6 +132,15 @@ class Produk(models.Model):
     deskripsi_singkat = models.TextField(help_text="2-3 Kalimat untuk Card/Preview")
     deskripsi_detail = models.TextField(help_text="Spesifikasi & Storytelling Lengkap")
 
+    # Relasi ke TitipJual (diisi saat unit C2C masuk katalog)
+    # Menggunakan string 'TitipJual' untuk menghindari circular reference
+    titip_jual_sumber = models.ForeignKey(
+        'TitipJual', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='produk_katalog',
+        verbose_name="Sumber Titip-Jual",
+        help_text="Terisi jika unit ini berasal dari pengajuan Titip-Jual (C2C)"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -156,33 +166,425 @@ class FotoMobil(models.Model):
 
 # 3. MODEL TITIP-JUAL C2C ("JUAL MOBIL SAYA")
 
+def dokumen_titipjual_path(instance, filename):
+    """Simpan dokumen dengan nama UUID agar tidak mudah ditebak (privat)."""
+    ekstensi = os.path.splitext(filename)[1].lower()
+    return f'titip_jual/dokumen/{instance.titip_jual_id or "baru"}/{uuid.uuid4().hex}{ekstensi}'
+
+
+def foto_titipjual_path(instance, filename):
+    """Foto kendaraan yang dititipkan, disimpan per-pengajuan."""
+    ekstensi = os.path.splitext(filename)[1].lower()
+    return f'titip_jual/foto/{instance.titip_jual_id or "baru"}/{uuid.uuid4().hex}{ekstensi}'
+
+
 class TitipJual(models.Model):
+    # ── Status pengajuan & aturan transisi yang diizinkan ──────────
     STATUS_PENGAJUAN = [
-        ('pending', 'Menunggu Verifikasi'),
-        ('inspeksi', 'Proses Cek/Inspeksi'),
-        ('disetujui', 'Disetujui & Tayang'),
-        ('ditolak', 'Ditolak'),
+        ('draft',       'Draft (Belum Dikirim)'),
+        ('pending',     'Menunggu Verifikasi MBG'),
+        ('dijadwalkan', 'Jadwal Inspeksi Dikonfirmasi'),
+        ('inspeksi',    'Sedang Inspeksi di Showroom'),
+        ('negosiasi',   'Negosiasi Harga'),
+        ('disetujui',   'Disetujui & Dititipkan'),
+        ('tayang',      'Tayang di Katalog'),
+        ('terjual',     'Unit Terjual'),
+        ('dikembalikan','Dikembalikan ke Pemilik'),
+        ('ditolak',     'Ditolak'),
+        ('kadaluarsa',  'Kadaluarsa / Tidak Ada Respons'),
     ]
 
-    nama_pemilik = models.CharField(max_length=100)
-    no_whatsapp = models.CharField(max_length=20)
-    email = models.EmailField(blank=True, null=True)
-    
-    merek_model = models.CharField(max_length=150, help_text="Contoh: Honda Jazz RS 2018")
-    tahun = models.IntegerField()
-    transmisi = models.CharField(max_length=20)
-    harga_harapan = models.DecimalField(max_digits=12, decimal_places=0)
-    foto_kendaraan = models.ImageField(upload_to='titip_jual/')
-    catatan_kondisi = models.TextField(blank=True, null=True)
-    
-    status = models.CharField(max_length=20, choices=STATUS_PENGAJUAN, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
+    # Peta transisi yang diizinkan: status_saat_ini → [status_tujuan yang valid]
+    TRANSISI_DIIZINKAN = {
+        'draft':       ['pending'],
+        'pending':     ['dijadwalkan', 'ditolak', 'kadaluarsa'],
+        'dijadwalkan': ['inspeksi', 'ditolak'],
+        'inspeksi':    ['negosiasi', 'ditolak'],
+        'negosiasi':   ['disetujui', 'ditolak', 'dikembalikan'],
+        'disetujui':   ['tayang', 'dikembalikan'],
+        'tayang':      ['terjual', 'dikembalikan'],
+        'terjual':     [],            # terminal
+        'dikembalikan':[],            # terminal
+        'ditolak':     ['pending'],   # boleh ajukan ulang
+        'kadaluarsa':  ['pending'],
+    }
+
+    TRANSMISI_CHOICES = [
+        ('AT', 'Otomatis (AT)'),
+        ('MT', 'Manual (MT)'),
+        ('CVT', 'CVT'),
+        ('DCT', 'DCT'),
+    ]
+
+    BAHAN_BAKAR_CHOICES = [
+        ('bensin',  'Bensin'),
+        ('diesel',  'Diesel'),
+        ('listrik', 'Listrik / EV'),
+        ('hybrid',  'Hybrid'),
+    ]
+
+    # ── Relasi ke akun pengguna (opsional: pengajuan bisa via web form publik) ──
+    pengguna = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='titip_jual',
+        verbose_name="Akun Pengguna",
+        help_text="Akun MBG pemilik kendaraan (kosong jika pengajuan via form publik)"
+    )
+
+    # ── Identitas pemilik ──────────────────────────────────────────
+    nama_pemilik = models.CharField(max_length=100, verbose_name="Nama Pemilik")
+    no_whatsapp  = models.CharField(
+        max_length=20, verbose_name="Nomor WhatsApp",
+        help_text="Format: 08xx-xxxx-xxxx atau +62xxx"
+    )
+    email        = models.EmailField(blank=True, null=True, verbose_name="Email")
+    alamat_pemilik = models.TextField(blank=True, verbose_name="Alamat Pemilik")
+    no_ktp       = models.CharField(
+        max_length=20, blank=True, verbose_name="Nomor KTP",
+        help_text="Disimpan terenkripsi, hanya dilihat admin"
+    )
+
+    # ── Detail kendaraan ───────────────────────────────────────────
+    merek        = models.CharField(max_length=100, default='', verbose_name="Merek", help_text="Contoh: Honda, Toyota")
+    model        = models.CharField(max_length=100, default='', verbose_name="Model", help_text="Contoh: Jazz RS, Avanza G")
+    varian       = models.CharField(max_length=100, blank=True, verbose_name="Varian/Tipe")
+    tahun        = models.IntegerField(default=0, verbose_name="Tahun Produksi")
+    transmisi    = models.CharField(max_length=20, choices=TRANSMISI_CHOICES, default='AT', verbose_name="Transmisi")
+    bahan_bakar  = models.CharField(max_length=10, choices=BAHAN_BAKAR_CHOICES, default='bensin', verbose_name="Bahan Bakar")
+    warna        = models.CharField(max_length=50, default='', verbose_name="Warna")
+    plat_nomor   = models.CharField(max_length=20, blank=True, verbose_name="Plat Nomor")
+    jarak_tempuh = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)],
+        verbose_name="Jarak Tempuh (KM)"
+    )
+    no_rangka    = models.CharField(max_length=50, blank=True, verbose_name="Nomor Rangka (VIN)")
+    no_mesin     = models.CharField(max_length=50, blank=True, verbose_name="Nomor Mesin")
+
+    # ── Kondisi & catatan ──────────────────────────────────────────
+    kondisi_eksterior = models.TextField(blank=True, verbose_name="Kondisi Eksterior")
+    kondisi_interior  = models.TextField(blank=True, verbose_name="Kondisi Interior")
+    kondisi_mesin     = models.TextField(blank=True, verbose_name="Kondisi Mesin")
+    riwayat_servis    = models.TextField(blank=True, verbose_name="Riwayat Servis")
+    catatan_tambahan  = models.TextField(blank=True, verbose_name="Catatan Tambahan")
+
+    # ── Harga & komisi ─────────────────────────────────────────────
+    harga_harapan      = models.DecimalField(
+        max_digits=12, decimal_places=0, verbose_name="Harga Harapan Pemilik (Rp)"
+    )
+    harga_kesepakatan  = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Harga Kesepakatan MBG (Rp)",
+        help_text="Harga yang disepakati antara pemilik dan MBG"
+    )
+    persen_komisi      = models.DecimalField(
+        max_digits=5, decimal_places=2, default=5.00,
+        verbose_name="Komisi MBG (%)",
+        help_text="Persentase komisi MBG dari harga terjual"
+    )
+    harga_jual_minimum = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Harga Jual Minimum (Rp)",
+        help_text="Batas bawah harga yang disetujui pemilik"
+    )
+
+    # ── Status & waktu ─────────────────────────────────────────────
+    status       = models.CharField(
+        max_length=20, choices=STATUS_PENGAJUAN, default='draft',
+        db_index=True, verbose_name="Status Pengajuan"
+    )
+    catatan_admin = models.TextField(
+        blank=True, verbose_name="Catatan Internal Admin",
+        help_text="Hanya terlihat oleh admin MBG"
+    )
+    alasan_penolakan = models.TextField(
+        blank=True, verbose_name="Alasan Penolakan/Dikembalikan",
+        help_text="Dikirimkan ke pemilik sebagai notifikasi"
+    )
+    tanggal_inspeksi_dijadwalkan = models.DateTimeField(
+        null=True, blank=True, verbose_name="Jadwal Inspeksi"
+    )
+    tanggal_disetujui = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Disetujui")
+    tanggal_terjual   = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Terjual")
+    tanggal_kadaluarsa = models.DateField(
+        null=True, blank=True, verbose_name="Batas Waktu Penitipan",
+        help_text="Jika melewati tanggal ini tanpa terjual, unit dikembalikan"
+    )
+
+    # ── Relasi ke Produk (saat unit masuk katalog) ─────────────────
+    produk_terkait = models.OneToOneField(
+        'Produk', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='titip_jual_asal',
+        verbose_name="Produk Katalog",
+        help_text="Terisi otomatis saat pengajuan disetujui & unit masuk katalog"
+    )
+
+    # Foto utama (backward-compat dengan data lama)
+    foto_kendaraan = models.ImageField(
+        upload_to='titip_jual/', blank=True, null=True,
+        verbose_name="Foto Utama Kendaraan (Legacy)"
+    )
+
+    # Backward-compat: field lama merek_model (read-only setelah migrasi)
+    merek_model = models.CharField(
+        max_length=150, blank=True,
+        verbose_name="Merek & Model (Legacy)",
+        help_text="Field lama, dipertahankan untuk data historis"
+    )
+
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name        = "Pengajuan Titip-Jual (C2C)"
         verbose_name_plural = "Pengajuan Titip-Jual (C2C)"
+        ordering            = ['-created_at']
+        indexes             = [
+            models.Index(fields=['status']),
+            models.Index(fields=['pengguna', 'status']),
+        ]
 
     def __str__(self):
-        return f"{self.merek_model} - {self.nama_pemilik} ({self.get_status_display()})"
+        nama_kendaraan = f"{self.merek} {self.model}".strip() or self.merek_model or "Kendaraan"
+        return f"#{self.id} {nama_kendaraan} ({self.tahun}) — {self.nama_pemilik} [{self.get_status_display()}]"
+
+    @property
+    def nama_kendaraan(self):
+        """Nama kendaraan yang bersih untuk ditampilkan."""
+        bagian = [b for b in [self.merek, self.model, self.varian] if b]
+        return ' '.join(bagian) if bagian else self.merek_model or '—'
+
+    def transisi_diizinkan(self):
+        """Daftar status yang dapat dituju dari status saat ini."""
+        return self.TRANSISI_DIIZINKAN.get(self.status, [])
+
+    def dapat_transisi_ke(self, status_baru):
+        """Cek apakah transisi ke status_baru valid."""
+        return status_baru in self.transisi_diizinkan()
+
+    def lakukan_transisi(self, status_baru, oleh_user=None, catatan=''):
+        """
+        Eksekusi perubahan status dengan validasi transisi.
+        Buat entri RiwayatStatusTitipJual secara otomatis.
+        Raise ValueError jika transisi tidak diizinkan.
+        """
+        if not self.dapat_transisi_ke(status_baru):
+            raise ValueError(
+                f"Transisi dari '{self.get_status_display()}' ke "
+                f"'{dict(self.STATUS_PENGAJUAN).get(status_baru, status_baru)}' tidak diizinkan."
+            )
+        status_lama = self.status
+        self.status = status_baru
+        # Set timestamp otomatis
+        now = timezone.now()
+        if status_baru == 'disetujui' and not self.tanggal_disetujui:
+            self.tanggal_disetujui = now
+        elif status_baru == 'terjual' and not self.tanggal_terjual:
+            self.tanggal_terjual = now
+        self.save(update_fields=['status', 'tanggal_disetujui', 'tanggal_terjual', 'updated_at'])
+        # Catat riwayat
+        RiwayatStatusTitipJual.objects.create(
+            titip_jual=self,
+            status_dari=status_lama,
+            status_ke=status_baru,
+            diubah_oleh=oleh_user,
+            catatan=catatan,
+        )
+        return self
+
+
+# ── 3a. Foto Galeri Kendaraan TitipJual ───────────────────────────
+
+class FotoTitipJual(models.Model):
+    """Foto-foto tambahan kendaraan yang dititipkan (reuse pola FotoMobil)."""
+    titip_jual  = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='galeri_foto',
+        verbose_name="Pengajuan Titip-Jual"
+    )
+    gambar      = models.ImageField(
+        upload_to=foto_titipjual_path, verbose_name="Foto"
+    )
+    keterangan  = models.CharField(
+        max_length=100, blank=True,
+        verbose_name="Keterangan",
+        help_text="Misal: Eksterior Depan, Interior, Mesin, Odometer"
+    )
+    urutan      = models.PositiveSmallIntegerField(default=0, verbose_name="Urutan")
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = "Foto Kendaraan Titip-Jual"
+        verbose_name_plural = "Foto Kendaraan Titip-Jual"
+        ordering            = ['urutan', 'id']
+
+    def __str__(self):
+        return f"Foto {self.keterangan or self.id} — {self.titip_jual}"
+
+
+# ── 3b. Dokumen Privat TitipJual ──────────────────────────────────
+
+class DokumenTitipJual(models.Model):
+    """
+    Dokumen kendaraan yang bersifat privat (STNK, BPKB, KTP pemilik, dsb.).
+    Path disimpan dengan UUID sehingga URL tidak mudah ditebak.
+    Akses file hanya lewat view yang sudah terautentikasi dan ber-otorisasi.
+    """
+    JENIS_DOKUMEN = [
+        ('stnk',       'STNK (Surat Tanda Nomor Kendaraan)'),
+        ('bpkb',       'BPKB (Buku Pemilik Kendaraan Bermotor)'),
+        ('ktp_pemilik','KTP Pemilik'),
+        ('faktur',     'Faktur Pembelian'),
+        ('hasil_inspeksi', 'Laporan Hasil Inspeksi MBG'),
+        ('surat_kuasa','Surat Kuasa'),
+        ('lainnya',    'Dokumen Lainnya'),
+    ]
+
+    titip_jual  = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='dokumen',
+        verbose_name="Pengajuan Titip-Jual"
+    )
+    jenis       = models.CharField(
+        max_length=20, choices=JENIS_DOKUMEN, default='lainnya',
+        verbose_name="Jenis Dokumen"
+    )
+    nama_file   = models.CharField(
+        max_length=200, verbose_name="Nama File Asli",
+        help_text="Nama file asli sebelum disimpan ulang dengan UUID"
+    )
+    file        = models.FileField(
+        upload_to=dokumen_titipjual_path,
+        verbose_name="File Dokumen",
+        help_text="PDF, JPG, PNG — maks 10 MB"
+    )
+    keterangan  = models.CharField(max_length=200, blank=True, verbose_name="Keterangan")
+    diunggah_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dokumen_titipjual_diunggah',
+        verbose_name="Diunggah Oleh"
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = "Dokumen Titip-Jual"
+        verbose_name_plural = "Dokumen Titip-Jual"
+        ordering            = ['jenis', 'id']
+
+    def __str__(self):
+        return f"{self.get_jenis_display()} — {self.titip_jual}"
+
+
+# ── 3c. Riwayat Perubahan Status ──────────────────────────────────
+
+class RiwayatStatusTitipJual(models.Model):
+    """
+    Log audit setiap perubahan status pengajuan TitipJual.
+    Dibuat otomatis melalui TitipJual.lakukan_transisi() atau secara manual
+    oleh admin dari panel.
+    """
+    titip_jual   = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='riwayat_status',
+        verbose_name="Pengajuan"
+    )
+    status_dari  = models.CharField(
+        max_length=20, choices=TitipJual.STATUS_PENGAJUAN,
+        verbose_name="Status Sebelumnya"
+    )
+    status_ke    = models.CharField(
+        max_length=20, choices=TitipJual.STATUS_PENGAJUAN,
+        verbose_name="Status Baru"
+    )
+    diubah_oleh  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='riwayat_titipjual',
+        verbose_name="Diubah Oleh"
+    )
+    catatan      = models.TextField(blank=True, verbose_name="Catatan Perubahan")
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = "Riwayat Status Titip-Jual"
+        verbose_name_plural = "Riwayat Status Titip-Jual"
+        ordering            = ['-created_at']
+
+    def __str__(self):
+        return (
+            f"#{self.titip_jual_id}: {self.status_dari} → {self.status_ke} "
+            f"({self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else '—'})"
+        )
+
+
+# ── 3d. Serah Terima Kendaraan di Showroom ────────────────────────
+
+class SerahTerimaUnit(models.Model):
+    """
+    Pencatatan serah terima fisik kendaraan antara pemilik dan MBG.
+    Dua jenis: masuk (pemilik serahkan ke MBG) dan keluar (dikembalikan/terjual).
+    """
+    JENIS_SERAH_TERIMA = [
+        ('masuk',  'Penerimaan Unit dari Pemilik (Masuk Showroom)'),
+        ('keluar', 'Pengembalian / Penyerahan ke Pembeli (Keluar Showroom)'),
+    ]
+
+    KONDISI_CHOICES = [
+        ('baik',   'Baik'),
+        ('sedang', 'Sedang — ada catatan minor'),
+        ('perlu_perbaikan', 'Perlu Perbaikan'),
+    ]
+
+    titip_jual      = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='serah_terima',
+        verbose_name="Pengajuan Titip-Jual"
+    )
+    jenis           = models.CharField(
+        max_length=10, choices=JENIS_SERAH_TERIMA, default='masuk',
+        verbose_name="Jenis Serah Terima"
+    )
+    tanggal_waktu   = models.DateTimeField(verbose_name="Tanggal & Waktu Serah Terima")
+    nama_penyerah   = models.CharField(max_length=100, verbose_name="Nama Pihak Penyerah")
+    nama_penerima   = models.CharField(max_length=100, verbose_name="Nama Pihak Penerima")
+    lokasi          = models.CharField(
+        max_length=200, default='Showroom MBG — Jl. A.P. Pettarani No. 88, Makassar',
+        verbose_name="Lokasi"
+    )
+    kondisi_unit    = models.CharField(
+        max_length=20, choices=KONDISI_CHOICES, default='baik',
+        verbose_name="Kondisi Unit Saat Serah Terima"
+    )
+    odometer_saat_ini = models.IntegerField(
+        null=True, blank=True, validators=[MinValueValidator(0)],
+        verbose_name="Odometer Saat Serah Terima (KM)"
+    )
+    catatan_kondisi = models.TextField(blank=True, verbose_name="Catatan Kondisi")
+    kelengkapan     = models.TextField(
+        blank=True, verbose_name="Kelengkapan",
+        help_text="Daftar kelengkapan yang diserahkan: kunci, STNK, karpet, dll."
+    )
+    dicatat_oleh    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='serah_terima_dicatat',
+        verbose_name="Dicatat Oleh (Staf MBG)"
+    )
+    # Tanda tangan digital — simpan hash/nama file
+    ttd_penyerah    = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Tanda Tangan Penyerah (referensi)"
+    )
+    ttd_penerima    = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Tanda Tangan Penerima (referensi)"
+    )
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = "Serah Terima Unit"
+        verbose_name_plural = "Serah Terima Unit"
+        ordering            = ['-tanggal_waktu']
+
+    def __str__(self):
+        return (
+            f"{self.get_jenis_display()} — "
+            f"{self.titip_jual.nama_kendaraan} "
+            f"({self.tanggal_waktu.strftime('%d/%m/%Y') if self.tanggal_waktu else '—'})"
+        )
 
 
 
