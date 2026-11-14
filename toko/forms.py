@@ -673,10 +673,12 @@ class HasilInspeksiC2CForm(forms.Form):
         data = super().clean()
         if not self.poin_inspeksi:
             raise ValidationError('Checklist inspeksi C2C belum dikonfigurasi.')
+        poin_wajib = [poin for poin in self.poin_inspeksi if poin.wajib]
+        if not poin_wajib:
+            raise ValidationError('Minimal satu poin checklist inspeksi harus ditandai wajib.')
         lulus = all(
             data.get(f'poin_{poin.pk}') == 'lulus'
-            for poin in self.poin_inspeksi
-            if poin.wajib
+            for poin in poin_wajib
         )
         if lulus and not data.get('harga_rekomendasi'):
             self.add_error('harga_rekomendasi', 'Rekomendasi harga wajib diisi setelah inspeksi lulus.')
@@ -684,10 +686,10 @@ class HasilInspeksiC2CForm(forms.Form):
 
     @property
     def lulus(self):
-        return bool(self.cleaned_data) and all(
+        poin_wajib = [poin for poin in self.poin_inspeksi if poin.wajib]
+        return bool(self.cleaned_data) and bool(poin_wajib) and all(
             self.cleaned_data.get(f'poin_{poin.pk}') == 'lulus'
-            for poin in self.poin_inspeksi
-            if poin.wajib
+            for poin in poin_wajib
         )
 
 

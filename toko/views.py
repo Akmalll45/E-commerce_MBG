@@ -8,8 +8,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import FileResponse, Http404
 from django.core.paginator import Paginator
-from django.db import DatabaseError, transaction
-from django.db.utils import OperationalError, ProgrammingError
+from django.db import DatabaseError, connection, transaction
 from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -52,51 +51,61 @@ KATALOG_PER_HALAMAN = 9       # jumlah kartu per halaman di katalog
 # Aturan bisnis "tayang untuk publik": hanya unit berstatus Ready Stock
 # (sama dengan aturan yang sudah dipakai beranda dan "mobil terkait").
 STATUS_TAYANG_PUBLIK = 'ready'
+DOKUMEN_TITIP_JUAL_ADMIN_UPLOAD = ('perjanjian', 'hasil_inspeksi')
 
 
 def produk_tayang():
     """Only ready B2C units and fully verified, current C2C listings are public."""
-    try:
-        inspeksi_terakhir = InspeksiC2C.objects.filter(
-            titip_jual_id=OuterRef('pk')
-        ).order_by('-tanggal_waktu', '-pk')
-        serah_terima_masuk = SerahTerimaUnit.objects.filter(
-            titip_jual_id=OuterRef('pk'),
-            jenis='masuk',
-            nama_penyerah__gt='',
-            nama_penerima__gt='',
-            lokasi__gt='',
-            odometer_saat_ini__isnull=False,
-            jumlah_kunci__isnull=False,
-            kelengkapan__gt='',
-            foto_kondisi__gt='',
-            dicatat_oleh__isnull=False,
+    tabel_c2c = {
+        TitipJual._meta.db_table,
+        FotoTitipJual._meta.db_table,
+        SerahTerimaUnit._meta.db_table,
+        InspeksiC2C._meta.db_table,
+    }
+    if not tabel_c2c.issubset(set(connection.introspection.table_names())):
+        return Produk.objects.filter(
+            status_stok=STATUS_TAYANG_PUBLIK,
+            tipe_penjual='B2C',
         )
-        pengajuan_layak = TitipJual.objects.filter(
-            pk=OuterRef('titip_jual_sumber_id'),
-            status='tayang',
-            status_persetujuan_harga='disetujui',
-            harga_kesepakatan__gt=0,
-        ).filter(
-            Exists(serah_terima_masuk),
-            *[
-                Exists(FotoTitipJual.objects.filter(
-                    titip_jual_id=OuterRef('pk'),
-                    jenis_foto=jenis,
-                    gambar__gt='',
-                ))
-                for jenis in ('depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin')
-            ],
-        ).annotate(
-            status_inspeksi_terakhir=Subquery(inspeksi_terakhir.values('status')[:1])
-        ).filter(status_inspeksi_terakhir='lulus')
-        return (
-            Produk.objects.filter(status_stok=STATUS_TAYANG_PUBLIK)
-            .annotate(c2c_layak=Exists(pengajuan_layak))
-            .filter(Q(tipe_penjual='B2C') | Q(tipe_penjual='C2C', c2c_layak=True))
-        )
-    except (DatabaseError, OperationalError, ProgrammingError):
-        return Produk.objects.filter(status_stok=STATUS_TAYANG_PUBLIK, tipe_penjual='B2C')
+
+    inspeksi_terakhir = InspeksiC2C.objects.filter(
+        titip_jual_id=OuterRef('pk')
+    ).order_by('-tanggal_waktu', '-pk')
+    serah_terima_masuk = SerahTerimaUnit.objects.filter(
+        titip_jual_id=OuterRef('pk'),
+        jenis='masuk',
+        nama_penyerah__gt='',
+        nama_penerima__gt='',
+        lokasi__gt='',
+        odometer_saat_ini__isnull=False,
+        jumlah_kunci__isnull=False,
+        kelengkapan__gt='',
+        foto_kondisi__gt='',
+        dicatat_oleh__isnull=False,
+    )
+    pengajuan_layak = TitipJual.objects.filter(
+        pk=OuterRef('titip_jual_sumber_id'),
+        status='tayang',
+        status_persetujuan_harga='disetujui',
+        harga_kesepakatan__gt=0,
+    ).filter(
+        Exists(serah_terima_masuk),
+        *[
+            Exists(FotoTitipJual.objects.filter(
+                titip_jual_id=OuterRef('pk'),
+                jenis_foto=jenis,
+                gambar__gt='',
+            ))
+            for jenis in ('depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin')
+        ],
+    ).annotate(
+        status_inspeksi_terakhir=Subquery(inspeksi_terakhir.values('status')[:1])
+    ).filter(status_inspeksi_terakhir='lulus')
+    return (
+        Produk.objects.filter(status_stok=STATUS_TAYANG_PUBLIK)
+        .annotate(c2c_layak=Exists(pengajuan_layak))
+        .filter(Q(tipe_penjual='B2C') | Q(tipe_penjual='C2C', c2c_layak=True))
+    )
 
 
 def hero_slide_tayang():
@@ -1346,7 +1355,10 @@ def admin_titip_jual_detail(request, pengajuan_id):
             for poin in checklist_inspeksi
         ],
         'status_choices': TitipJual.STATUS_PENGAJUAN,
-        'dokumen_choices': DokumenTitipJual.JENIS_DOKUMEN,
+        'dokumen_upload_choices': [
+            choice for choice in DokumenTitipJual.JENIS_DOKUMEN
+            if choice[0] in DOKUMEN_TITIP_JUAL_ADMIN_UPLOAD
+        ],
         'titip_jual_pending': TitipJual.objects.filter(status__in=['pending', 'revisi']).count(),
     })
 
@@ -1681,7 +1693,7 @@ def admin_titip_jual_tindakan(request, pengajuan_id):
             elif tindakan == 'unggah_dokumen':
                 berkas = request.FILES.get('file')
                 jenis = request.POST.get('jenis_dokumen')
-                if jenis not in ('perjanjian', 'hasil_inspeksi') or not berkas:
+                if jenis not in DOKUMEN_TITIP_JUAL_ADMIN_UPLOAD or not berkas:
                     raise ValueError('Pilih jenis dokumen dan file yang valid.')
                 validasi_dokumen_titip_jual(berkas)
                 ekstensi = os.path.splitext(berkas.name)[1].lower()

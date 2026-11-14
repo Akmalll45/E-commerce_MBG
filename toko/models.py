@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from katalog_mbg.storage import PrivateTitipJualStorage
+from .fields import EncryptedCharField
 import os
 import re
 import uuid
@@ -255,9 +256,9 @@ class TitipJual(models.Model):
     )
     email        = models.EmailField(blank=True, null=True, verbose_name="Email")
     alamat_pemilik = models.TextField(blank=True, verbose_name="Alamat Pemilik")
-    no_ktp       = models.CharField(
-        max_length=20, blank=True, verbose_name="Nomor KTP",
-        help_text="Data lama belum terenkripsi; batasi akses hanya untuk staf berizin."
+    no_ktp       = EncryptedCharField(
+        max_length=255, max_plaintext_length=20, blank=True, verbose_name="Nomor KTP",
+        help_text="Disimpan terenkripsi; jangan mengubah kunci enkripsi tanpa rencana rotasi."
     )
 
     # ── Detail kendaraan ───────────────────────────────────────────

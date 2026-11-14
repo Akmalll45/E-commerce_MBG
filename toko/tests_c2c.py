@@ -1,21 +1,29 @@
 import io
+from importlib import import_module
 from decimal import Decimal
 from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TransactionTestCase
+from django.db import connection
+from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
+from .forms import HasilInspeksiC2CForm
 from .models import (
     ChecklistInspeksiC2C, DokumenTitipJual, FotoTitipJual,
     HasilChecklistInspeksiC2C, InspeksiC2C, PermintaanTitipJual,
     Produk, RiwayatTransaksiTitipJual, SerahTerimaUnit,
     TitipJual, TransaksiTitipJual,
 )
+from .views import produk_tayang
 
 
 def gambar_unggahan(nama='foto.jpg'):
@@ -236,6 +244,101 @@ class TitipJualPenggunaTests(TransactionTestCase):
             404,
         )
 
+    def test_nomor_ktp_terenkripsi_di_database_dan_membutuhkan_kunci(self):
+        nomor_ktp = '1234567890123456'
+        key = Fernet.generate_key().decode('ascii')
+        with override_settings(C2C_KTP_ENCRYPTION_KEY=key):
+            pengajuan = TitipJual.objects.create(
+                pengguna=self.pemilik,
+                nama_pemilik='Pemilik MBG',
+                no_whatsapp='081234567890',
+                no_ktp=nomor_ktp,
+                merek='Toyota',
+                model='Avanza',
+                tahun=2021,
+                harga_harapan=Decimal('200000000'),
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'SELECT no_ktp FROM toko_titipjual WHERE id = %s',
+                    [pengajuan.pk],
+                )
+                ciphertext = cursor.fetchone()[0]
+            self.assertNotEqual(ciphertext, nomor_ktp)
+            self.assertEqual(
+                Fernet(key.encode('ascii')).decrypt(ciphertext.encode('ascii')).decode('utf-8'),
+                nomor_ktp,
+            )
+            pengajuan.refresh_from_db()
+            self.assertEqual(pengajuan.no_ktp, nomor_ktp)
+
+        with override_settings(C2C_KTP_ENCRYPTION_KEY=''):
+            with self.assertRaises(ImproperlyConfigured):
+                TitipJual.objects.create(
+                    pengguna=self.pemilik,
+                    nama_pemilik='Pemilik MBG',
+                    no_whatsapp='081234567890',
+                    no_ktp='1234567890123456',
+                    merek='Toyota',
+                    model='Avanza',
+                    tahun=2021,
+                    harga_harapan=Decimal('200000000'),
+                )
+
+    def test_migrasi_ktp_dapat_mengenkripsi_dan_membalikkan_data(self):
+        migration = import_module('toko.migrations.0014_encrypt_titipjual_ktp')
+        table_name = 'c2c_ktp_migration_probe'
+        quoted_table = connection.ops.quote_name(table_name)
+        quoted_id = connection.ops.quote_name('id')
+        quoted_ktp = connection.ops.quote_name('no_ktp')
+
+        class FakeMeta:
+            db_table = table_name
+            pk = SimpleNamespace(column='id')
+
+            @staticmethod
+            def get_field(name):
+                return SimpleNamespace(column=name)
+
+        class FakeApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                return SimpleNamespace(_meta=FakeMeta)
+
+        schema_editor = SimpleNamespace(connection=connection)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f'CREATE TABLE {quoted_table} '
+                f'({quoted_id} INTEGER PRIMARY KEY, {quoted_ktp} VARCHAR(255) NULL)'
+            )
+            cursor.execute(
+                f'INSERT INTO {quoted_table} ({quoted_id}, {quoted_ktp}) VALUES (%s, %s)',
+                [1, '1234567890123456'],
+            )
+
+        key = Fernet.generate_key().decode('ascii')
+        try:
+            with override_settings(C2C_KTP_ENCRYPTION_KEY=key):
+                migration.encrypt_legacy_ktp(FakeApps, schema_editor)
+                with connection.cursor() as cursor:
+                    cursor.execute(f'SELECT {quoted_ktp} FROM {quoted_table} WHERE {quoted_id} = %s', [1])
+                    ciphertext = cursor.fetchone()[0]
+                self.assertEqual(
+                    Fernet(key.encode('ascii')).decrypt(ciphertext.encode('ascii')).decode('utf-8'),
+                    '1234567890123456',
+                )
+
+                with self.assertRaisesMessage(RuntimeError, 'would restore plaintext'):
+                    migration.decrypt_ktp_for_rollback(FakeApps, schema_editor)
+                with override_settings(C2C_KTP_ALLOW_PLAINTEXT_ROLLBACK=True):
+                    migration.decrypt_ktp_for_rollback(FakeApps, schema_editor)
+                with connection.cursor() as cursor:
+                    cursor.execute(f'SELECT {quoted_ktp} FROM {quoted_table} WHERE {quoted_id} = %s', [1])
+                    self.assertEqual(cursor.fetchone()[0], '1234567890123456')
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(f'DROP TABLE {quoted_table}')
+
     def test_pemilik_menyetujui_harga_dan_admin_menerbitkan_ke_produk(self):
         pengajuan = TitipJual.objects.create(
             pengguna=self.pemilik, nama_pemilik='Pemilik MBG', no_whatsapp='081234567890',
@@ -331,6 +434,10 @@ class TitipJualPenggunaTests(TransactionTestCase):
             self.client.get(reverse('admin_titip_jual_detail', args=[pengajuan.pk])).status_code,
             200,
         )
+        detail_response = self.client.get(reverse('admin_titip_jual_detail', args=[pengajuan.pk]))
+        self.assertContains(detail_response, '<option value="perjanjian">', html=False)
+        self.assertContains(detail_response, '<option value="hasil_inspeksi">', html=False)
+        self.assertNotContains(detail_response, '<option value="stnk">', html=False)
         for label in (
             'Semua Pengajuan', 'Verifikasi &amp; Revisi', 'Jadwal Inspeksi',
             'Persetujuan Harga', 'Kendaraan di Showroom', 'Penjualan &amp; Penyelesaian',
@@ -378,6 +485,40 @@ class TitipJualPenggunaTests(TransactionTestCase):
         self.assertTrue(
             pengajuan.riwayat_status.filter(status_ke='negosiasi').exists()
         )
+
+    def test_inspeksi_tidak_lulus_jika_semua_poin_ditandai_opsional(self):
+        self.checklist.wajib = False
+        self.checklist.save(update_fields=['wajib'])
+        form = HasilInspeksiC2CForm(
+            data={
+                f'poin_{self.checklist.pk}': 'gagal',
+                'harga_rekomendasi': '195000000',
+            },
+            poin_inspeksi=[self.checklist],
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn('Minimal satu poin checklist', str(form.non_field_errors()))
+        self.assertFalse(form.lulus)
+
+    def test_produk_tayang_fallback_ke_b2c_jika_tabel_c2c_belum_ada(self):
+        produk = Produk.objects.create(
+            sku='B2C-FALLBACK-TEST',
+            nama='Toyota Avanza Uji',
+            merek='Toyota',
+            kategori='MPV',
+            tahun=2021,
+            jarak_tempuh=42000,
+            warna='Putih',
+            plat_nomor='DD 1234 XX',
+            harga=Decimal('200000000'),
+            tipe_penjual='B2C',
+            status_stok='ready',
+            gambar_utama='mobil/fallback-test.jpg',
+            deskripsi_singkat='Unit uji.',
+            deskripsi_detail='Unit uji fallback katalog.',
+        )
+        with patch('toko.views.connection.introspection.table_names', return_value=[]):
+            self.assertEqual(list(produk_tayang()), [produk])
 
     def test_publikasi_memerlukan_inspeksi_terakhir_lulus_dan_serah_terima(self):
         pengajuan = TitipJual.objects.create(

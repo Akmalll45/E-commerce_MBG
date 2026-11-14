@@ -43,6 +43,25 @@ if not SECRET_KEY:
         raise ImproperlyConfigured('DJANGO_SECRET_KEY must be configured when DEBUG is disabled.')
     SECRET_KEY = 'dev-only-key-for-local-development'
 
+# Keep this stable in a secret manager; changing it without re-encryption makes KTP data unreadable.
+C2C_KTP_ENCRYPTION_KEY = os.environ.get('C2C_KTP_ENCRYPTION_KEY', '').strip()
+if not C2C_KTP_ENCRYPTION_KEY and not DEBUG:
+    raise ImproperlyConfigured(
+        'C2C_KTP_ENCRYPTION_KEY must be configured when DEBUG is disabled.'
+    )
+C2C_KTP_ALLOW_PLAINTEXT_ROLLBACK = os.environ.get(
+    'C2C_KTP_ALLOW_PLAINTEXT_ROLLBACK', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+if C2C_KTP_ENCRYPTION_KEY:
+    from cryptography.fernet import Fernet
+
+    try:
+        Fernet(C2C_KTP_ENCRYPTION_KEY.encode('ascii'))
+    except (UnicodeEncodeError, TypeError, ValueError) as error:
+        raise ImproperlyConfigured(
+            'C2C_KTP_ENCRYPTION_KEY must be a valid Fernet key.'
+        ) from error
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
@@ -241,8 +260,13 @@ MESSAGE_TAGS = {
 # Pengaturan untuk menyimpan file gambar/media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+_private_media_root = os.environ.get('TITIP_JUAL_PRIVATE_MEDIA_ROOT', '').strip()
+if not DEBUG and not _private_media_root:
+    raise ImproperlyConfigured(
+        'Set TITIP_JUAL_PRIVATE_MEDIA_ROOT to a persistent private storage directory in production.'
+    )
 TITIP_JUAL_PRIVATE_MEDIA_ROOT = Path(
-    os.environ.get('TITIP_JUAL_PRIVATE_MEDIA_ROOT', BASE_DIR / 'private_media')
+    _private_media_root or BASE_DIR / 'private_media'
 ).resolve()
 
 # Development defaults remain local; production requires HTTPS and secure cookies.

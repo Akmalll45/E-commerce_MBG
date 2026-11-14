@@ -45,7 +45,7 @@
             {% empty %}<p class="text-muted">Dokumen belum diunggah.</p>{% endfor %}
             <form method="post" enctype="multipart/form-data" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}" class="row g-2 mt-3">
                 {% csrf_token %}<input type="hidden" name="aksi" value="unggah_dokumen">
-                <div class="col-md-4"><select class="form-select" name="jenis_dokumen" required><option value="">Jenis dokumen…</option>{% for value,label in dokumen_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+                <div class="col-md-4"><select class="form-select" name="jenis_dokumen" required><option value="">Jenis dokumen…</option>{% for value,label in dokumen_upload_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
                 <div class="col-md-6"><input class="form-control" type="file" name="file" accept=".pdf,image/jpeg,image/png,image/webp" required></div>
                 <div class="col-md-2"><button class="btn btn-outline-primary w-100">Unggah</button></div>
             </form>
