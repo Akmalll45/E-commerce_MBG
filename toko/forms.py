@@ -12,7 +12,8 @@ from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
 from .models import (
-    Produk, TitipJual, KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
+    Produk, TitipJual, SerahTerimaUnit, ChecklistInspeksiC2C,
+    KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
     PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp,
 )
 
@@ -626,6 +627,229 @@ class PengajuanTitipJualForm(forms.ModelForm):
                 except ValidationError as error:
                     self.add_error(field_name, error)
         return data
+
+
+class HasilInspeksiC2CForm(forms.Form):
+    catatan = forms.CharField(
+        required=False,
+        label='Catatan pemeriksaan',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+    )
+    harga_rekomendasi = forms.DecimalField(
+        required=False,
+        max_digits=12,
+        decimal_places=0,
+        min_value=1,
+        label='Rekomendasi harga (Rp)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.poin_inspeksi = kwargs.pop('poin_inspeksi', None)
+        super().__init__(*args, **kwargs)
+        self.poin_inspeksi = list(
+            self.poin_inspeksi
+            if self.poin_inspeksi is not None
+            else ChecklistInspeksiC2C.objects.filter(aktif=True).order_by('urutan', 'pk')
+        )
+        for poin in self.poin_inspeksi:
+            choices = [('lulus', 'Lulus'), ('gagal', 'Tidak lulus')]
+            if not poin.wajib:
+                choices.append(('tidak_berlaku', 'Tidak berlaku'))
+            self.fields[f'poin_{poin.pk}'] = forms.ChoiceField(
+                label=poin.nama,
+                choices=choices,
+                required=True,
+                widget=forms.Select(attrs={'class': 'form-select'}),
+            )
+            self.fields[f'catatan_{poin.pk}'] = forms.CharField(
+                label='Catatan',
+                required=False,
+                max_length=500,
+                widget=forms.TextInput(attrs={'class': 'form-control'}),
+            )
+
+    def clean(self):
+        data = super().clean()
+        if not self.poin_inspeksi:
+            raise ValidationError('Checklist inspeksi C2C belum dikonfigurasi.')
+        lulus = all(
+            data.get(f'poin_{poin.pk}') == 'lulus'
+            for poin in self.poin_inspeksi
+            if poin.wajib
+        )
+        if lulus and not data.get('harga_rekomendasi'):
+            self.add_error('harga_rekomendasi', 'Rekomendasi harga wajib diisi setelah inspeksi lulus.')
+        return data
+
+    @property
+    def lulus(self):
+        return bool(self.cleaned_data) and all(
+            self.cleaned_data.get(f'poin_{poin.pk}') == 'lulus'
+            for poin in self.poin_inspeksi
+            if poin.wajib
+        )
+
+
+class LaporanPenjualanPemilikForm(forms.Form):
+    nama_pembeli = forms.CharField(
+        max_length=120, label='Nama pembeli',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'name'}),
+    )
+    kontak_pembeli = forms.CharField(
+        max_length=120, label='Kontak pembeli',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'tel'}),
+    )
+    harga_final = forms.DecimalField(
+        max_digits=12, decimal_places=0, min_value=1, label='Harga kesepakatan (Rp)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+    )
+    tanggal_kesepakatan = forms.DateField(
+        label='Tanggal kesepakatan',
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+    )
+    catatan_pelapor = forms.CharField(
+        required=False, label='Catatan transaksi',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+    )
+
+    def clean_nama_pembeli(self):
+        return ' '.join(self.cleaned_data['nama_pembeli'].split())
+
+    def clean_kontak_pembeli(self):
+        kontak = ' '.join(self.cleaned_data['kontak_pembeli'].split())
+        if not kontak:
+            raise ValidationError('Kontak pembeli wajib diisi.')
+        return kontak
+
+
+class LaporanPenjualanMBGForm(LaporanPenjualanPemilikForm):
+    pass
+
+
+class VerifikasiPenjualanC2CForm(forms.Form):
+    KEPUTUSAN_CHOICES = [
+        ('verifikasi', 'Verifikasi transaksi'),
+        ('tolak', 'Tolak laporan'),
+    ]
+    keputusan = forms.ChoiceField(
+        choices=KEPUTUSAN_CHOICES, label='Keputusan',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    catatan = forms.CharField(
+        required=False, label='Catatan verifikasi/penolakan',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+    )
+
+    def clean(self):
+        data = super().clean()
+        if data.get('keputusan') == 'tolak' and not (data.get('catatan') or '').strip():
+            self.add_error('catatan', 'Alasan penolakan wajib diisi.')
+        return data
+
+
+class SerahTerimaTitipJualForm(forms.Form):
+    jenis = forms.ChoiceField(
+        choices=SerahTerimaUnit.JENIS_SERAH_TERIMA, label='Jenis serah terima',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    tujuan_keluar = forms.ChoiceField(
+        required=False,
+        choices=[('', 'Pilih tujuan')] + SerahTerimaUnit.TUJUAN_KELUAR_CHOICES,
+        label='Tujuan kendaraan keluar',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    tanggal_waktu = forms.DateTimeField(
+        label='Tanggal & waktu',
+        input_formats=['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M'],
+        widget=forms.DateTimeInput(
+            attrs={'class': 'form-control', 'type': 'datetime-local'},
+            format='%Y-%m-%dT%H:%M',
+        ),
+    )
+    nama_penyerah = forms.CharField(
+        max_length=100, label='Nama pihak penyerah',
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    nama_penerima = forms.CharField(
+        max_length=100, label='Nama pihak penerima',
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    lokasi = forms.CharField(
+        max_length=200, label='Lokasi penyimpanan/serah terima',
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    odometer_saat_ini = forms.IntegerField(
+        min_value=0, label='Kilometer saat serah terima',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+    )
+    jumlah_kunci = forms.IntegerField(
+        min_value=0, label='Jumlah kunci',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+    )
+    kondisi_unit = forms.ChoiceField(
+        choices=SerahTerimaUnit.KONDISI_CHOICES, label='Kondisi kendaraan',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    kelengkapan_dokumen = forms.MultipleChoiceField(
+        choices=SerahTerimaUnit.DOKUMEN_CHOICES,
+        label='Kelengkapan dokumen/barang',
+        widget=forms.CheckboxSelectMultiple,
+    )
+    catatan_kondisi = forms.CharField(
+        required=False, label='Catatan kondisi',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+    )
+    foto_kondisi = forms.ImageField(
+        label='Foto kondisi kendaraan saat serah terima',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp'}),
+    )
+    transaksi_id = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
+
+    def clean(self):
+        data = super().clean()
+        jenis = data.get('jenis')
+        tujuan = data.get('tujuan_keluar')
+        if jenis == 'masuk' and tujuan:
+            self.add_error('tujuan_keluar', 'Tujuan hanya diisi untuk serah-terima keluar.')
+        if jenis == 'keluar' and not tujuan:
+            self.add_error('tujuan_keluar', 'Tujuan unit keluar wajib dipilih.')
+        kelengkapan = data.get('kelengkapan_dokumen') or []
+        if 'tidak_ada' in kelengkapan and len(kelengkapan) > 1:
+            self.add_error('kelengkapan_dokumen', 'Pilih “Tidak ada” saja jika tidak menerima kelengkapan.')
+        if data.get('foto_kondisi'):
+            try:
+                data['foto_kondisi'] = validasi_foto_titip_jual(data['foto_kondisi'])
+            except ValidationError as error:
+                self.add_error('foto_kondisi', error)
+        return data
+
+
+class SelesaikanPenjualanC2CForm(forms.Form):
+    komisi_final = forms.DecimalField(
+        max_digits=12, decimal_places=0, min_value=0,
+        label='Komisi sesuai perjanjian (Rp)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+    )
+    komisi_diperiksa_berdasarkan = forms.CharField(
+        label='Klausul perjanjian yang diperiksa',
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    catatan_administrasi = forms.CharField(
+        label='Catatan penyelesaian administrasi',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+    )
+    konfirmasi_perjanjian_diperiksa = forms.BooleanField(
+        label='Saya telah memeriksa perjanjian titip-jual yang terverifikasi',
+        required=True,
+    )
+    konfirmasi_administrasi_selesai = forms.BooleanField(
+        label='Penyelesaian administrasi telah dilakukan',
+        required=True,
+    )
+
+    def clean_komisi_diperiksa_berdasarkan(self):
+        return ' '.join(self.cleaned_data['komisi_diperiksa_berdasarkan'].split())
 
 
 class ProdukForm(forms.ModelForm):

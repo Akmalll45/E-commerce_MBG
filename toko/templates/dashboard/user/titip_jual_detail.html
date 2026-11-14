@@ -52,7 +52,7 @@
     <h2 class="h5 fw-bold mb-3">Dokumen privat</h2>
     {% if dokumen_list %}
     <ul class="list-group list-group-flush">
-        {% for dokumen in dokumen_list %}<li class="list-group-item px-0 d-flex justify-content-between align-items-center"><span>{{ dokumen.get_jenis_display }} <small class="d-block text-muted">{{ dokumen.nama_file }}</small></span><a class="btn btn-sm btn-outline-secondary" href="{% url 'dokumen_titip_jual_download' dokumen.pk %}"><i class="fa-solid fa-download me-1"></i>Unduh privat</a></li>{% endfor %}
+        {% for dokumen in dokumen_list %}<li class="list-group-item px-0 d-flex justify-content-between align-items-center"><span>{{ dokumen.get_jenis_display }}{% if dokumen.sudah_diverifikasi %}<small class="d-block text-success">Terverifikasi</small>{% elif dokumen.catatan_verifikasi %}<small class="d-block text-warning">{{ dokumen.catatan_verifikasi }}</small>{% endif %}</span><a class="btn btn-sm btn-outline-secondary" href="{% url 'dokumen_titip_jual_download' dokumen.pk %}"><i class="fa-solid fa-download me-1"></i>Unduh privat</a></li>{% endfor %}
     </ul>
     {% else %}<p class="text-muted mb-0">Belum ada dokumen yang diunggah.</p>{% endif %}
 </div>
@@ -72,6 +72,19 @@
     </form>
 </div>
 {% endif %}
+{% if inspeksi_list %}
+<div class="content-card">
+    <h2 class="h5 fw-bold mb-3">Riwayat pemeriksaan</h2>
+    {% for inspeksi in inspeksi_list %}
+    <div class="border-bottom py-3">
+        <div><strong>{{ inspeksi.get_status_display }}</strong> <small class="text-muted">· {{ inspeksi.tanggal_waktu|date:"d M Y, H:i" }}</small></div>
+        {% if inspeksi.harga_rekomendasi %}<div>Rekomendasi saat pemeriksaan: Rp {{ inspeksi.harga_rekomendasi|intcomma }}</div>{% endif %}
+        {% if inspeksi.catatan %}<p class="small text-muted mb-1">{{ inspeksi.catatan }}</p>{% endif %}
+        <ul class="small mb-0">{% for hasil in inspeksi.hasil_checklist.all %}<li>{{ hasil.poin.nama }}: {{ hasil.get_hasil_display }}{% if hasil.catatan %} — {{ hasil.catatan }}{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 {% if pengajuan.status == 'negosiasi' %}
 <div class="content-card">
     <h2 class="h5 fw-bold">Ajukan perubahan harga</h2>
@@ -85,7 +98,7 @@
     </form>
 </div>
 {% endif %}
-{% if pengajuan.status == 'pending' or pengajuan.status == 'revisi' or pengajuan.status == 'dijadwalkan' or pengajuan.status == 'inspeksi' or pengajuan.status == 'negosiasi' or pengajuan.status == 'disetujui' or pengajuan.status == 'tayang' %}
+{% if dapat_minta_pembatalan %}
 <div class="content-card">
     <h2 class="h5 fw-bold">Permintaan pembatalan</h2>
     <form method="post" action="{% url 'titip_jual_tindakan' pengajuan.pk %}">
@@ -94,6 +107,54 @@
         <textarea class="form-control mb-2" id="catatan-batal" name="catatan" rows="2"></textarea>
         <button class="btn btn-outline-danger rounded-pill" type="submit">Minta pembatalan pengajuan</button>
     </form>
+</div>
+{% endif %}
+{% if dapat_laporkan_penjualan %}
+<div class="content-card">
+    <h2 class="h5 fw-bold">Laporkan pembeli yang Anda temukan</h2>
+    <p class="text-muted">Laporan menunggu verifikasi MBG. Setelah dikirim, kendaraan sementara tidak ditampilkan sebagai stok tersedia.</p>
+    <form method="post" action="{% url 'titip_jual_tindakan' pengajuan.pk %}">
+        {% csrf_token %}<input type="hidden" name="aksi" value="lapor_penjualan_pemilik">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Nama pembeli</label><input class="form-control" name="nama_pembeli" maxlength="120" autocomplete="name" required></div>
+            <div class="col-md-6"><label class="form-label">Kontak pembeli</label><input class="form-control" name="kontak_pembeli" maxlength="120" autocomplete="tel" required></div>
+            <div class="col-md-6"><label class="form-label">Harga final (Rp)</label><input class="form-control" name="harga_final" type="number" min="{{ pengajuan.harga_jual_minimum|default:1 }}" step="1" required>{% if pengajuan.harga_jual_minimum %}<small class="text-muted">Batas minimum yang disetujui: Rp {{ pengajuan.harga_jual_minimum|intcomma }}</small>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label">Tanggal kesepakatan</label><input class="form-control" name="tanggal_kesepakatan" type="date" required></div>
+            <div class="col-12"><label class="form-label">Catatan transaksi</label><textarea class="form-control" name="catatan_pelapor" rows="2"></textarea></div>
+        </div>
+        <button class="btn btn-primary rounded-pill mt-3">Kirim laporan penjualan</button>
+    </form>
+</div>
+{% endif %}
+{% if transaksi_list %}
+<div class="content-card">
+    <h2 class="h5 fw-bold mb-3">Penjualan & penyelesaian</h2>
+    {% for transaksi in transaksi_list %}
+    <div class="border-bottom py-3">
+        <div><strong>{{ transaksi.get_sumber_display }}</strong> · <span class="badge text-bg-secondary">{{ transaksi.get_status_display }}</span></div>
+        <div class="small">Pembeli: {{ transaksi.nama_pembeli }} · {{ transaksi.kontak_pembeli }}</div>
+        <div class="small">Harga: Rp {{ transaksi.harga_final|intcomma }} · Tanggal kesepakatan: {{ transaksi.tanggal_kesepakatan|date:"d M Y" }}</div>
+        {% if transaksi.catatan_verifikasi %}<div class="small text-muted">Tanggapan MBG: {{ transaksi.catatan_verifikasi }}</div>{% endif %}
+        {% if transaksi.status == 'terverifikasi' %}<div class="small text-muted">Laporan terverifikasi; menunggu serah-terima dan penyelesaian administrasi.</div>{% endif %}
+        {% if transaksi.status == 'selesai' %}<div class="small text-success">Penjualan selesai pada {{ transaksi.tanggal_selesai|date:"d M Y, H:i" }}.</div>{% endif %}
+        {% for event in transaksi.riwayat.all %}<div class="small text-muted">{{ event.get_status_ke_display }} · {{ event.created_at|date:"d M Y, H:i" }}{% if event.catatan %} — {{ event.catatan }}{% endif %}</div>{% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% if serah_terima_list %}
+<div class="content-card">
+    <h2 class="h5 fw-bold mb-3">Riwayat serah-terima kendaraan</h2>
+    {% for serah in serah_terima_list %}
+    <div class="border-bottom py-2">
+        <strong>{{ serah.get_jenis_display }}{% if serah.tujuan_keluar %} · {{ serah.get_tujuan_keluar_display }}{% endif %}</strong>
+        <div class="small">{{ serah.tanggal_waktu|date:"d M Y, H:i" }} · {{ serah.lokasi }}</div>
+        <div class="small">{{ serah.nama_penyerah }} → {{ serah.nama_penerima }} · {{ serah.get_kondisi_unit_display }} · {{ serah.odometer_saat_ini|default:"—" }} km · {{ serah.jumlah_kunci|default:"—" }} kunci</div>
+        {% if serah.kelengkapan %}<div class="small text-muted">Kelengkapan: {{ serah.kelengkapan }}</div>{% endif %}
+        {% if serah.catatan_kondisi %}<div class="small text-muted">{{ serah.catatan_kondisi }}</div>{% endif %}
+        {% if serah.foto_kondisi %}<a class="small" href="{% url 'serah_terima_foto_download' serah.pk %}">Unduh foto kondisi privat</a>{% endif %}
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 {% if permintaan_list %}

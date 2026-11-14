@@ -97,6 +97,7 @@ class Produk(models.Model):
         ('ready', 'Ready Stock'),
         ('in_review', 'In Review (Sedang Di-booking)'),
         ('sold', 'Terjual (Sold Out)'),
+        ('returned', 'Dikembalikan ke Pemilik C2C'),
     ]
 
     TRANSMISI_CHOICES = [
@@ -179,6 +180,12 @@ def foto_titipjual_path(instance, filename):
     return f'titip_jual/foto/{instance.titip_jual_id or "baru"}/{uuid.uuid4().hex}{ekstensi}'
 
 
+def serah_terima_titipjual_path(instance, filename):
+    """Foto kondisi serah-terima disimpan privat dengan nama acak."""
+    ekstensi = os.path.splitext(filename)[1].lower()
+    return f'titip_jual/serah_terima/{instance.titip_jual_id or "baru"}/{uuid.uuid4().hex}{ekstensi}'
+
+
 class TitipJual(models.Model):
     # ── Status pengajuan & aturan transisi yang diizinkan ──────────
     STATUS_PENGAJUAN = [
@@ -250,7 +257,7 @@ class TitipJual(models.Model):
     alamat_pemilik = models.TextField(blank=True, verbose_name="Alamat Pemilik")
     no_ktp       = models.CharField(
         max_length=20, blank=True, verbose_name="Nomor KTP",
-        help_text="Disimpan terenkripsi, hanya dilihat admin"
+        help_text="Data lama belum terenkripsi; batasi akses hanya untuk staf berizin."
     )
 
     # ── Detail kendaraan ───────────────────────────────────────────
@@ -383,20 +390,83 @@ class TitipJual(models.Model):
         """Cek apakah transisi ke status_baru valid."""
         return status_baru in self.transisi_diizinkan()
 
+    def foto_wajib_tersedia(self):
+        wajib = {'depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin'}
+        tersedia = set(
+            self.galeri_foto.exclude(gambar='').values_list('jenis_foto', flat=True)
+        )
+        return wajib.issubset(tersedia)
+
+    def serah_terima_masuk_lengkap(self):
+        return self.serah_terima.filter(
+            jenis='masuk',
+            nama_penyerah__gt='',
+            nama_penerima__gt='',
+            lokasi__gt='',
+            odometer_saat_ini__isnull=False,
+            jumlah_kunci__isnull=False,
+            kelengkapan__gt='',
+            foto_kondisi__gt='',
+            dicatat_oleh__isnull=False,
+        ).exists()
+
     def lakukan_transisi(self, status_baru, oleh_user=None, catatan=''):
         """
         Eksekusi perubahan status dengan validasi transisi.
         Buat entri RiwayatStatusTitipJual secara otomatis.
         Raise ValueError jika transisi tidak diizinkan.
         """
-        if not self.dapat_transisi_ke(status_baru):
-            raise ValueError(
-                f"Transisi dari '{self.get_status_display()}' ke "
-                f"'{dict(self.STATUS_PENGAJUAN).get(status_baru, status_baru)}' tidak diizinkan."
-            )
-        status_lama = self.status
-        now = timezone.now()
         with transaction.atomic():
+            TitipJual.objects.select_for_update().get(pk=self.pk)
+            self.refresh_from_db()
+            if not self.dapat_transisi_ke(status_baru):
+                raise ValueError(
+                    f"Transisi dari '{self.get_status_display()}' ke "
+                    f"'{dict(self.STATUS_PENGAJUAN).get(status_baru, status_baru)}' tidak diizinkan."
+                )
+            if status_baru in ('dijadwalkan', 'inspeksi', 'negosiasi', 'disetujui', 'tayang'):
+                if not self.foto_wajib_tersedia():
+                    raise ValueError('Lima foto wajib harus tersedia sebelum pengajuan diproses.')
+            if status_baru in ('negosiasi', 'disetujui', 'tayang'):
+                inspeksi = self.inspeksi_c2c.order_by('-tanggal_waktu', '-pk').first()
+                if not inspeksi or inspeksi.status != 'lulus':
+                    raise ValueError('Inspeksi terakhir wajib berstatus lulus sebelum melanjutkan.')
+            if status_baru == 'disetujui' and (
+                self.status_persetujuan_harga != 'disetujui'
+                or not self.harga_kesepakatan
+                or self.harga_kesepakatan <= 0
+            ):
+                raise ValueError('Persetujuan dan harga final dari pemilik wajib tersedia.')
+            if status_baru == 'tayang':
+                if (
+                    self.status_persetujuan_harga != 'disetujui'
+                    or not self.harga_kesepakatan
+                    or self.harga_kesepakatan <= 0
+                ):
+                    raise ValueError('Persetujuan pemilik atas harga final wajib tersedia sebelum ditayangkan.')
+                if not self.serah_terima_masuk_lengkap():
+                    raise ValueError('Serah-terima masuk yang lengkap wajib dicatat sebelum kendaraan ditayangkan.')
+            if status_baru == 'terjual' and not self.transaksi_penjualan.filter(status='selesai').exists():
+                raise ValueError('Penjualan harus diverifikasi dan diselesaikan melalui catatan transaksi C2C.')
+            if (
+                status_baru == 'dikembalikan'
+                and self.serah_terima.filter(jenis='masuk').exists()
+                and not self.serah_terima.filter(
+                    jenis='keluar',
+                    tujuan_keluar='pemilik',
+                    nama_penyerah__gt='',
+                    nama_penerima__gt='',
+                    lokasi__gt='',
+                    odometer_saat_ini__isnull=False,
+                    jumlah_kunci__isnull=False,
+                    kelengkapan__gt='',
+                    foto_kondisi__gt='',
+                    dicatat_oleh__isnull=False,
+                ).exists()
+            ):
+                raise ValueError('Serah-terima keluar kepada pemilik wajib dicatat sebelum unit dikembalikan.')
+            status_lama = self.status
+            now = timezone.now()
             self.status = status_baru
             if status_baru == 'disetujui' and not self.tanggal_disetujui:
                 self.tanggal_disetujui = now
@@ -482,8 +552,8 @@ class DokumenTitipJual(models.Model):
         verbose_name="Jenis Dokumen"
     )
     nama_file   = models.CharField(
-        max_length=200, verbose_name="Nama File Asli",
-        help_text="Nama file asli sebelum disimpan ulang dengan UUID"
+        max_length=200, verbose_name="Referensi File Acak",
+        help_text="Nama referensi acak; bukan nama asli dari unggahan pengguna"
     )
     file        = models.FileField(
         upload_to=dokumen_titipjual_path,
@@ -618,6 +688,21 @@ class SerahTerimaUnit(models.Model):
         ('keluar', 'Pengembalian / Penyerahan ke Pembeli (Keluar Showroom)'),
     ]
 
+    TUJUAN_KELUAR_CHOICES = [
+        ('pemilik', 'Dikembalikan kepada Pemilik'),
+        ('pembeli', 'Diserahkan kepada Pembeli'),
+    ]
+
+    DOKUMEN_CHOICES = [
+        ('stnk', 'STNK'),
+        ('bpkb', 'BPKB'),
+        ('faktur', 'Faktur'),
+        ('buku_servis', 'Buku servis'),
+        ('kunci_cadangan', 'Kunci cadangan'),
+        ('lainnya', 'Dokumen/barang lainnya'),
+        ('tidak_ada', 'Tidak ada kelengkapan yang diterima'),
+    ]
+
     KONDISI_CHOICES = [
         ('baik',   'Baik'),
         ('sedang', 'Sedang — ada catatan minor'),
@@ -631,6 +716,10 @@ class SerahTerimaUnit(models.Model):
     jenis           = models.CharField(
         max_length=10, choices=JENIS_SERAH_TERIMA, default='masuk',
         verbose_name="Jenis Serah Terima"
+    )
+    tujuan_keluar   = models.CharField(
+        max_length=10, choices=TUJUAN_KELUAR_CHOICES, blank=True, default='',
+        verbose_name="Tujuan Unit Keluar"
     )
     tanggal_waktu   = models.DateTimeField(verbose_name="Tanggal & Waktu Serah Terima")
     nama_penyerah   = models.CharField(max_length=100, verbose_name="Nama Pihak Penyerah")
@@ -647,10 +736,27 @@ class SerahTerimaUnit(models.Model):
         null=True, blank=True, validators=[MinValueValidator(0)],
         verbose_name="Odometer Saat Serah Terima (KM)"
     )
+    jumlah_kunci    = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name="Jumlah Kunci"
+    )
     catatan_kondisi = models.TextField(blank=True, verbose_name="Catatan Kondisi")
     kelengkapan     = models.TextField(
         blank=True, verbose_name="Kelengkapan",
         help_text="Daftar kelengkapan yang diserahkan: kunci, STNK, karpet, dll."
+    )
+    kelengkapan_dokumen = models.JSONField(
+        default=list, blank=True, verbose_name="Checklist Dokumen/Kelengkapan"
+    )
+    foto_kondisi = models.ImageField(
+        upload_to=serah_terima_titipjual_path,
+        storage=PrivateTitipJualStorage(),
+        blank=True,
+        verbose_name="Foto Kondisi Serah Terima",
+    )
+    transaksi_penjualan = models.OneToOneField(
+        'TransaksiTitipJual', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='serah_terima_keluar',
+        verbose_name="Transaksi Penjualan C2C",
     )
     dicatat_oleh    = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -680,7 +786,273 @@ class SerahTerimaUnit(models.Model):
             f"({self.tanggal_waktu.strftime('%d/%m/%Y') if self.tanggal_waktu else '—'})"
         )
 
+    @property
+    def lengkap(self):
+        return bool(
+            self.nama_penyerah.strip()
+            and self.nama_penerima.strip()
+            and self.lokasi.strip()
+            and self.odometer_saat_ini is not None
+            and self.jumlah_kunci is not None
+            and self.kelengkapan
+            and self.kelengkapan_dokumen
+            and self.foto_kondisi
+            and self.dicatat_oleh_id
+        )
 
+
+class ChecklistInspeksiC2C(models.Model):
+    kode = models.SlugField(max_length=60, unique=True, verbose_name="Kode")
+    kategori = models.CharField(max_length=100, verbose_name="Kategori")
+    nama = models.CharField(max_length=160, verbose_name="Poin Pemeriksaan")
+    wajib = models.BooleanField(default=True, verbose_name="Wajib Lulus")
+    aktif = models.BooleanField(default=True, verbose_name="Aktif")
+    urutan = models.PositiveSmallIntegerField(default=0, verbose_name="Urutan")
+
+    class Meta:
+        ordering = ['urutan', 'pk']
+        verbose_name = "Poin Checklist Inspeksi C2C"
+        verbose_name_plural = "Checklist Inspeksi C2C"
+
+    def __str__(self):
+        return f'{self.kategori}: {self.nama}'
+
+
+class InspeksiC2C(models.Model):
+    STATUS_CHOICES = [
+        ('lulus', 'Lulus'),
+        ('gagal', 'Tidak Lulus'),
+    ]
+
+    titip_jual = models.ForeignKey(
+        TitipJual, on_delete=models.CASCADE, related_name='inspeksi_c2c',
+        verbose_name="Pengajuan Titip-Jual",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, verbose_name="Hasil")
+    pemeriksa = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='inspeksi_titipjual', verbose_name="Pemeriksa",
+    )
+    tanggal_waktu = models.DateTimeField(default=timezone.now, verbose_name="Tanggal Pemeriksaan")
+    catatan = models.TextField(blank=True, verbose_name="Catatan Pemeriksaan")
+    harga_rekomendasi = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Rekomendasi Harga (Rp)",
+    )
+
+    class Meta:
+        ordering = ['-tanggal_waktu', '-pk']
+        verbose_name = "Hasil Inspeksi C2C"
+        verbose_name_plural = "Hasil Inspeksi C2C"
+
+    def __str__(self):
+        return f'Inspeksi {self.titip_jual} — {self.get_status_display()}'
+
+
+class HasilChecklistInspeksiC2C(models.Model):
+    HASIL_CHOICES = [
+        ('lulus', 'Lulus'),
+        ('gagal', 'Tidak Lulus'),
+        ('tidak_berlaku', 'Tidak Berlaku'),
+    ]
+
+    inspeksi = models.ForeignKey(
+        InspeksiC2C, on_delete=models.CASCADE, related_name='hasil_checklist',
+        verbose_name="Inspeksi",
+    )
+    poin = models.ForeignKey(
+        ChecklistInspeksiC2C, on_delete=models.PROTECT,
+        related_name='hasil_inspeksi', verbose_name="Poin Pemeriksaan",
+    )
+    hasil = models.CharField(max_length=15, choices=HASIL_CHOICES, verbose_name="Hasil")
+    catatan = models.CharField(max_length=500, blank=True, verbose_name="Catatan")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['inspeksi', 'poin'], name='uniq_c2c_inspection_item'),
+        ]
+        verbose_name = "Hasil Poin Inspeksi C2C"
+        verbose_name_plural = "Hasil Poin Inspeksi C2C"
+
+    def __str__(self):
+        return f'{self.poin}: {self.get_hasil_display()}'
+
+
+class TransaksiTitipJual(models.Model):
+    SUMBER_CHOICES = [
+        ('pemilik', 'Pembeli ditemukan Pemilik'),
+        ('mbg', 'Pembeli ditemukan MBG'),
+    ]
+    STATUS_CHOICES = [
+        ('menunggu_verifikasi', 'Menunggu Verifikasi MBG'),
+        ('terverifikasi', 'Terverifikasi — Menunggu Penyelesaian'),
+        ('ditolak', 'Laporan Ditolak'),
+        ('selesai', 'Selesai'),
+    ]
+    TRANSISI_DIIZINKAN = {
+        'menunggu_verifikasi': ['terverifikasi', 'ditolak'],
+        'terverifikasi': ['selesai'],
+        'ditolak': [],
+        'selesai': [],
+    }
+
+    titip_jual = models.ForeignKey(
+        TitipJual, on_delete=models.PROTECT, related_name='transaksi_penjualan',
+        verbose_name="Pengajuan Titip-Jual",
+    )
+    sumber = models.CharField(max_length=10, choices=SUMBER_CHOICES, verbose_name="Sumber Pembeli")
+    nama_pembeli = models.CharField(max_length=120, verbose_name="Nama Pembeli")
+    kontak_pembeli = models.CharField(max_length=120, verbose_name="Kontak Pembeli")
+    harga_final = models.DecimalField(max_digits=12, decimal_places=0, verbose_name="Harga Transaksi (Rp)")
+    tanggal_kesepakatan = models.DateField(verbose_name="Tanggal Kesepakatan")
+    catatan_pelapor = models.TextField(blank=True, verbose_name="Catatan Transaksi")
+    status = models.CharField(
+        max_length=24, choices=STATUS_CHOICES, default='menunggu_verifikasi',
+        db_index=True, verbose_name="Status Transaksi",
+    )
+    dilaporkan_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name='transaksi_titipjual_dilaporkan',
+        verbose_name="Dilaporkan Oleh",
+    )
+    diverifikasi_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='transaksi_titipjual_diverifikasi',
+        verbose_name="Diverifikasi Oleh",
+    )
+    tanggal_verifikasi = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Verifikasi")
+    catatan_verifikasi = models.TextField(blank=True, verbose_name="Catatan Verifikasi")
+    komisi_final = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Komisi Sesuai Perjanjian (Rp)",
+    )
+    komisi_diperiksa_berdasarkan = models.TextField(
+        blank=True, verbose_name="Dasar Pemeriksaan Komisi",
+        help_text="Catat rujukan klausul perjanjian yang telah diperiksa.",
+    )
+    komisi_diperiksa_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='komisi_titipjual_diperiksa',
+        verbose_name="Komisi Diperiksa Oleh",
+    )
+    tanggal_komisi_diperiksa = models.DateTimeField(
+        null=True, blank=True, verbose_name="Tanggal Pemeriksaan Komisi",
+    )
+    catatan_administrasi = models.TextField(blank=True, verbose_name="Catatan Penyelesaian Administrasi")
+    administrasi_diselesaikan_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='administrasi_titipjual_diselesaikan',
+        verbose_name="Administrasi Diselesaikan Oleh",
+    )
+    tanggal_administrasi_selesai = models.DateTimeField(
+        null=True, blank=True, verbose_name="Tanggal Administrasi Selesai",
+    )
+    diselesaikan_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='transaksi_titipjual_diselesaikan',
+        verbose_name="Diselesaikan Oleh",
+    )
+    tanggal_selesai = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Selesai")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [models.Index(fields=['titip_jual', 'status'])]
+        verbose_name = "Transaksi Penjualan Titip-Jual"
+        verbose_name_plural = "Transaksi Penjualan Titip-Jual"
+
+    def __str__(self):
+        return f'{self.titip_jual.nama_kendaraan} — {self.get_sumber_display()}'
+
+    def lakukan_transisi(self, status_baru, oleh_user=None, catatan=''):
+        with transaction.atomic():
+            TitipJual.objects.select_for_update().get(pk=self.titip_jual_id)
+            TransaksiTitipJual.objects.select_for_update().get(pk=self.pk)
+            self.refresh_from_db()
+            if status_baru not in self.TRANSISI_DIIZINKAN.get(self.status, []):
+                raise ValueError('Transisi status transaksi C2C tidak diizinkan.')
+            if status_baru in ('terverifikasi', 'ditolak', 'selesai') and not (
+                oleh_user and (oleh_user.is_staff or oleh_user.is_superuser)
+            ):
+                raise ValueError('Transisi transaksi hanya dapat dilakukan oleh staf MBG.')
+            pengajuan = TitipJual.objects.get(pk=self.titip_jual_id)
+            if status_baru == 'terverifikasi':
+                if pengajuan.status != 'tayang':
+                    raise ValueError('Pengajuan tidak lagi berada pada tahap penjualan.')
+                if (
+                    pengajuan.harga_jual_minimum
+                    and self.harga_final < pengajuan.harga_jual_minimum
+                ):
+                    raise ValueError('Harga transaksi di bawah batas minimum yang disetujui pemilik.')
+            if status_baru == 'ditolak' and not catatan.strip():
+                raise ValueError('Alasan penolakan laporan wajib dicatat.')
+            if status_baru == 'selesai':
+                serah_terima = getattr(self, 'serah_terima_keluar', None)
+                if pengajuan.status != 'tayang':
+                    raise ValueError('Pengajuan tidak berada pada tahap penjualan.')
+                if not pengajuan.dokumen.filter(
+                    jenis='perjanjian', sudah_diverifikasi=True
+                ).exists():
+                    raise ValueError('Perjanjian titip-jual yang terverifikasi wajib tersedia.')
+                if (
+                    not serah_terima
+                    or serah_terima.jenis != 'keluar'
+                    or serah_terima.tujuan_keluar != 'pembeli'
+                    or not serah_terima.lengkap
+                ):
+                    raise ValueError('Serah-terima lengkap kepada pembeli wajib tercatat.')
+                if (
+                    self.komisi_final is None
+                    or not self.komisi_diperiksa_berdasarkan.strip()
+                    or not self.komisi_diperiksa_oleh_id
+                    or not self.tanggal_komisi_diperiksa
+                    or not self.administrasi_diselesaikan_oleh_id
+                    or not self.tanggal_administrasi_selesai
+                    or not self.catatan_administrasi.strip()
+                ):
+                    raise ValueError('Pemeriksaan komisi dan administrasi wajib diselesaikan.')
+            status_lama = self.status
+            self.status = status_baru
+            if status_baru == 'terverifikasi':
+                self.diverifikasi_oleh = oleh_user
+                self.tanggal_verifikasi = timezone.now()
+                self.catatan_verifikasi = catatan
+            elif status_baru == 'selesai':
+                self.diselesaikan_oleh = oleh_user
+                self.tanggal_selesai = timezone.now()
+            self.save()
+            RiwayatTransaksiTitipJual.objects.create(
+                transaksi=self,
+                status_dari=status_lama,
+                status_ke=status_baru,
+                diubah_oleh=oleh_user,
+                catatan=catatan,
+            )
+        return self
+
+
+class RiwayatTransaksiTitipJual(models.Model):
+    transaksi = models.ForeignKey(
+        TransaksiTitipJual, on_delete=models.CASCADE, related_name='riwayat',
+        verbose_name="Transaksi C2C",
+    )
+    status_dari = models.CharField(max_length=24, blank=True, verbose_name="Status Sebelumnya")
+    status_ke = models.CharField(
+        max_length=24, choices=TransaksiTitipJual.STATUS_CHOICES, verbose_name="Status Baru",
+    )
+    diubah_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='riwayat_transaksi_titipjual',
+        verbose_name="Diubah Oleh",
+    )
+    catatan = models.TextField(blank=True, verbose_name="Catatan")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        verbose_name = "Riwayat Transaksi Titip-Jual"
+        verbose_name_plural = "Riwayat Transaksi Titip-Jual"
 
 # 4. MODEL BOOKING CEK UNIT (ALUR O2O)
 

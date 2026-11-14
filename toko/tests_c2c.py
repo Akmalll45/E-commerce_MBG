@@ -1,13 +1,21 @@
 import io
 from decimal import Decimal
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
-from .models import DokumenTitipJual, FotoTitipJual, PermintaanTitipJual, Produk, TitipJual
+from .models import (
+    ChecklistInspeksiC2C, DokumenTitipJual, FotoTitipJual,
+    HasilChecklistInspeksiC2C, InspeksiC2C, PermintaanTitipJual,
+    Produk, RiwayatTransaksiTitipJual, SerahTerimaUnit,
+    TitipJual, TransaksiTitipJual,
+)
 
 
 def gambar_unggahan(nama='foto.jpg'):
@@ -45,7 +53,7 @@ def foto_wajib():
     }
 
 
-class TitipJualPenggunaTests(TestCase):
+class TitipJualPenggunaTests(TransactionTestCase):
     def setUp(self):
         user_model = get_user_model()
         self.pemilik = user_model.objects.create_user(
@@ -59,15 +67,102 @@ class TitipJualPenggunaTests(TestCase):
         self.admin = user_model.objects.create_user(
             'staf-mbg', 'staf@example.test', 'Password123!', is_staff=True,
         )
+        self.admin.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='toko',
+            codename__in=('view_titipjual', 'change_titipjual'),
+        ))
+        self.checklist = ChecklistInspeksiC2C.objects.create(
+            kode='test-item', kategori='Pengujian', nama='Poin pemeriksaan uji',
+            urutan=1,
+        )
         self.client.force_login(self.pemilik)
 
     def tearDown(self):
-        for model in (FotoTitipJual, DokumenTitipJual):
+        for model in (FotoTitipJual, DokumenTitipJual, SerahTerimaUnit):
             for item in model.objects.all():
-                field = item.gambar if isinstance(item, FotoTitipJual) else item.file
+                field = (
+                    item.gambar if isinstance(item, FotoTitipJual)
+                    else item.file if isinstance(item, DokumenTitipJual)
+                    else item.foto_kondisi
+                )
                 if field:
                     field.storage.delete(field.name)
         super().tearDown()
+
+    def _tambahkan_foto_wajib(self, pengajuan):
+        foto_utama = None
+        for jenis in ('depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin'):
+            foto = FotoTitipJual.objects.create(
+                titip_jual=pengajuan,
+                jenis_foto=jenis,
+                gambar=gambar_unggahan(f'{jenis}.jpg'),
+            )
+            if foto_utama is None:
+                foto_utama = foto
+        return foto_utama
+
+    def _tambahkan_serah_terima_masuk(self, pengajuan):
+        return SerahTerimaUnit.objects.create(
+            titip_jual=pengajuan,
+            jenis='masuk',
+            tanggal_waktu='2030-01-15T10:00:00Z',
+            lokasi='Showroom uji',
+            nama_penyerah='Pemilik Uji',
+            nama_penerima='Petugas Uji',
+            kondisi_unit='baik',
+            odometer_saat_ini=42000,
+            jumlah_kunci=2,
+            kelengkapan='STNK, BPKB',
+            kelengkapan_dokumen=['stnk', 'bpkb'],
+            foto_kondisi=gambar_unggahan('kondisi-masuk.jpg'),
+            dicatat_oleh=self.admin,
+        )
+
+    def _buat_pengajuan_tayang(self):
+        pengajuan = TitipJual.objects.create(
+            pengguna=self.pemilik,
+            nama_pemilik='Pemilik MBG',
+            no_whatsapp='081234567890',
+            merek='Toyota',
+            model='Avanza',
+            tahun=2021,
+            harga_harapan=Decimal('210000000'),
+            harga_kesepakatan=Decimal('200000000'),
+            harga_jual_minimum=Decimal('190000000'),
+            status='tayang',
+            status_persetujuan_harga='disetujui',
+        )
+        foto_utama = self._tambahkan_foto_wajib(pengajuan)
+        inspeksi = InspeksiC2C.objects.create(
+            titip_jual=pengajuan,
+            status='lulus',
+            pemeriksa=self.admin,
+            harga_rekomendasi=Decimal('200000000'),
+        )
+        HasilChecklistInspeksiC2C.objects.create(
+            inspeksi=inspeksi, poin=self.checklist, hasil='lulus',
+        )
+        self._tambahkan_serah_terima_masuk(pengajuan)
+        produk = Produk.objects.create(
+            sku=f'C2C-TEST-{pengajuan.pk}',
+            nama='Toyota Avanza 2021',
+            merek='Toyota',
+            kategori='MPV',
+            tahun=2021,
+            jarak_tempuh=42000,
+            warna='Putih',
+            plat_nomor='DD 1234 XX',
+            harga=Decimal('200000000'),
+            tipe_penjual='C2C',
+            status_stok='ready',
+            gambar_utama=foto_utama.gambar.name,
+            deskripsi_singkat='Unit uji.',
+            deskripsi_detail='Unit uji untuk transaksi C2C.',
+            titip_jual_sumber=pengajuan,
+        )
+        pengajuan.produk_terkait = produk
+        pengajuan.save(update_fields=['produk_terkait'])
+        return pengajuan
 
     def test_form_hanya_login_dan_mewajibkan_lima_foto(self):
         self.client.logout()
@@ -107,6 +202,8 @@ class TitipJualPenggunaTests(TestCase):
         self.assertEqual(pengajuan.galeri_foto.count(), 6)
         dokumen = pengajuan.dokumen.get(jenis='stnk')
         self.assertNotIn('media/', dokumen.file.name)
+        self.assertNotIn('STNK', dokumen.file.name)
+        self.assertNotIn('STNK.pdf', dokumen.nama_file)
 
         url = reverse('dokumen_titip_jual_download', args=[dokumen.id])
         response = self.client.get(url)
@@ -146,10 +243,11 @@ class TitipJualPenggunaTests(TestCase):
             harga_rekomendasi=Decimal('195000000'), status='negosiasi',
             status_persetujuan_harga='menunggu',
         )
-        for jenis in ('depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin'):
-            FotoTitipJual.objects.create(
-                titip_jual=pengajuan, jenis_foto=jenis, gambar=gambar_unggahan(),
-            )
+        self._tambahkan_foto_wajib(pengajuan)
+        InspeksiC2C.objects.create(
+            titip_jual=pengajuan, status='lulus', pemeriksa=self.admin,
+            harga_rekomendasi=Decimal('195000000'),
+        )
 
         response = self.client.post(
             reverse('titip_jual_tindakan', args=[pengajuan.id]),
@@ -159,6 +257,7 @@ class TitipJualPenggunaTests(TestCase):
         pengajuan.refresh_from_db()
         self.assertEqual(pengajuan.status, 'disetujui')
         self.assertEqual(pengajuan.harga_kesepakatan, Decimal('195000000'))
+        self._tambahkan_serah_terima_masuk(pengajuan)
 
         self.client.force_login(self.admin)
         self.client.post(
@@ -247,6 +346,7 @@ class TitipJualPenggunaTests(TestCase):
             merek='Toyota', model='Avanza', tahun=2021, harga_harapan=200000000,
             status='pending',
         )
+        self._tambahkan_foto_wajib(pengajuan)
         self.client.force_login(self.admin)
         url = reverse('admin_titip_jual_tindakan', args=[pengajuan.pk])
         self.client.post(url, {
@@ -261,14 +361,238 @@ class TitipJualPenggunaTests(TestCase):
         pengajuan.refresh_from_db()
         self.assertEqual(pengajuan.status, 'inspeksi')
 
-        self.client.post(url, {
+        hasil_inspeksi = {
             'aksi': 'hasil_inspeksi',
-            'hasil_inspeksi': 'Kondisi mesin baik dan lulus pemeriksaan.',
+            'catatan': 'Kondisi mesin baik dan lulus pemeriksaan.',
             'harga_rekomendasi': '195000000',
-        })
+        }
+        for poin in ChecklistInspeksiC2C.objects.filter(aktif=True):
+            hasil_inspeksi[f'poin_{poin.pk}'] = 'lulus'
+            hasil_inspeksi[f'catatan_{poin.pk}'] = 'Diperiksa.'
+        response = self.client.post(url, hasil_inspeksi)
+        self.assertEqual(response.status_code, 302)
         pengajuan.refresh_from_db()
         self.assertEqual(pengajuan.status, 'negosiasi')
         self.assertEqual(pengajuan.harga_rekomendasi, Decimal('195000000'))
+        self.assertEqual(pengajuan.inspeksi_c2c.get().status, 'lulus')
         self.assertTrue(
             pengajuan.riwayat_status.filter(status_ke='negosiasi').exists()
         )
+
+    def test_publikasi_memerlukan_inspeksi_terakhir_lulus_dan_serah_terima(self):
+        pengajuan = TitipJual.objects.create(
+            pengguna=self.pemilik,
+            nama_pemilik='Pemilik MBG',
+            no_whatsapp='081234567890',
+            merek='Toyota',
+            model='Avanza',
+            tahun=2021,
+            harga_harapan=Decimal('210000000'),
+            harga_kesepakatan=Decimal('200000000'),
+            status='disetujui',
+            status_persetujuan_harga='disetujui',
+        )
+        self._tambahkan_foto_wajib(pengajuan)
+        with self.assertRaisesMessage(ValueError, 'Inspeksi terakhir wajib'):
+            pengajuan.lakukan_transisi('tayang', oleh_user=self.admin)
+
+        inspeksi = InspeksiC2C.objects.create(
+            titip_jual=pengajuan,
+            status='lulus',
+            pemeriksa=self.admin,
+        )
+        with self.assertRaisesMessage(ValueError, 'Serah-terima masuk'):
+            pengajuan.lakukan_transisi('tayang', oleh_user=self.admin)
+
+        self._tambahkan_serah_terima_masuk(pengajuan)
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse('admin_titip_jual_tindakan', args=[pengajuan.pk]),
+            {'aksi': 'status', 'status': 'tayang'},
+        )
+        pengajuan.refresh_from_db()
+        self.assertEqual(pengajuan.status, 'tayang')
+        self.assertIsNotNone(pengajuan.produk_terkait_id)
+        self.assertTrue(pengajuan.riwayat_status.filter(status_ke='tayang').exists())
+
+        InspeksiC2C.objects.create(
+            titip_jual=pengajuan,
+            status='gagal',
+            pemeriksa=self.admin,
+            tanggal_waktu=inspeksi.tanggal_waktu + timedelta(seconds=1),
+        )
+        self.assertEqual(
+            self.client.get(reverse('detail_produk', args=[pengajuan.produk_terkait_id])).status_code,
+            404,
+        )
+
+    def test_laporan_pembeli_pemilik_menahan_stok_dan_mematuhi_harga_minimum(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        url = reverse('titip_jual_tindakan', args=[pengajuan.pk])
+        payload = {
+            'aksi': 'lapor_penjualan_pemilik',
+            'nama_pembeli': 'Pembeli Uji',
+            'kontak_pembeli': '081234567891',
+            'harga_final': '180000000',
+            'tanggal_kesepakatan': '2030-01-15',
+        }
+        self.client.post(url, payload)
+        self.assertFalse(TransaksiTitipJual.objects.filter(titip_jual=pengajuan).exists())
+        pengajuan.produk_terkait.refresh_from_db()
+        self.assertEqual(pengajuan.produk_terkait.status_stok, 'ready')
+
+        payload['harga_final'] = '200000000'
+        self.client.post(url, payload)
+        transaksi = TransaksiTitipJual.objects.get(titip_jual=pengajuan)
+        self.assertEqual(transaksi.status, 'menunggu_verifikasi')
+        self.assertTrue(
+            RiwayatTransaksiTitipJual.objects.filter(
+                transaksi=transaksi, status_ke='menunggu_verifikasi',
+            ).exists()
+        )
+        pengajuan.produk_terkait.refresh_from_db()
+        self.assertEqual(pengajuan.produk_terkait.status_stok, 'in_review')
+
+        self.client.force_login(self.pengguna_lain)
+        self.assertEqual(
+            self.client.get(reverse('titip_jual_detail', args=[pengajuan.pk])).status_code,
+            404,
+        )
+
+    def test_penjualan_pemilik_harus_diverifikasi_serah_terima_dan_diselesaikan(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        self.client.post(
+            reverse('titip_jual_tindakan', args=[pengajuan.pk]),
+            {
+                'aksi': 'lapor_penjualan_pemilik',
+                'nama_pembeli': 'Pembeli Uji',
+                'kontak_pembeli': '081234567891',
+                'harga_final': '200000000',
+                'tanggal_kesepakatan': '2030-01-15',
+            },
+        )
+        transaksi = TransaksiTitipJual.objects.get(titip_jual=pengajuan)
+        self.client.force_login(self.admin)
+        url = reverse('admin_titip_jual_tindakan', args=[pengajuan.pk])
+        self.client.post(url, {
+            'aksi': 'verifikasi_penjualan_pemilik',
+            'transaksi_id': transaksi.pk,
+            'keputusan': 'verifikasi',
+            'catatan': 'Bukti transaksi telah diperiksa.',
+        })
+        transaksi.refresh_from_db()
+        self.assertEqual(transaksi.status, 'terverifikasi')
+        self.assertTrue(transaksi.riwayat.filter(status_ke='terverifikasi').exists())
+
+        payload_selesai = {
+            'aksi': 'selesaikan_penjualan',
+            'transaksi_id': transaksi.pk,
+            'komisi_final': '10000000',
+            'komisi_diperiksa_berdasarkan': 'Pasal komisi pada perjanjian.',
+            'catatan_administrasi': 'Administrasi diperiksa.',
+            'konfirmasi_perjanjian_diperiksa': 'on',
+            'konfirmasi_administrasi_selesai': 'on',
+        }
+        self.client.post(url, payload_selesai)
+        transaksi.refresh_from_db()
+        self.assertEqual(transaksi.status, 'terverifikasi')
+
+        DokumenTitipJual.objects.create(
+            titip_jual=pengajuan,
+            jenis='perjanjian',
+            nama_file='contract-random.pdf',
+            file=SimpleUploadedFile(
+                'contract.pdf', b'%PDF-1.4 private contract', content_type='application/pdf',
+            ),
+            sudah_diverifikasi=True,
+            diverifikasi_oleh=self.admin,
+            tanggal_verifikasi=timezone.now(),
+        )
+        self.client.post(url, payload_selesai)
+        transaksi.refresh_from_db()
+        self.assertEqual(transaksi.status, 'terverifikasi')
+
+        self.client.post(url, {
+            'aksi': 'serah_terima',
+            'jenis': 'keluar',
+            'tujuan_keluar': 'pembeli',
+            'transaksi_id': str(transaksi.pk),
+            'tanggal_waktu': '2030-01-16T10:00',
+            'nama_penyerah': 'Petugas Uji',
+            'nama_penerima': 'Pembeli Uji',
+            'lokasi': 'Showroom uji',
+            'odometer_saat_ini': '42100',
+            'jumlah_kunci': '2',
+            'kondisi_unit': 'baik',
+            'kelengkapan_dokumen': ['stnk', 'bpkb'],
+            'catatan_kondisi': 'Unit diterima dalam kondisi baik.',
+            'foto_kondisi': gambar_unggahan('kondisi-keluar.jpg'),
+        })
+        serah_terima = SerahTerimaUnit.objects.get(transaksi_penjualan=transaksi)
+        self.assertTrue(serah_terima.lengkap)
+
+        self.client.post(url, payload_selesai)
+        transaksi.refresh_from_db()
+        pengajuan.refresh_from_db()
+        pengajuan.produk_terkait.refresh_from_db()
+        self.assertEqual(transaksi.status, 'selesai')
+        self.assertEqual(pengajuan.status, 'terjual')
+        self.assertEqual(pengajuan.produk_terkait.status_stok, 'sold')
+        self.assertTrue(pengajuan.riwayat_status.filter(status_ke='terjual').exists())
+
+    def test_dokumen_dan_foto_serah_terima_mewajibkan_izin_pemilik_atau_staf_c2c(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        serah = pengajuan.serah_terima.get(jenis='masuk')
+        url = reverse('serah_terima_foto_download', args=[serah.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        response.close()
+
+        self.client.force_login(self.pengguna_lain)
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        response.close()
+
+        staf_tanpa_izin = get_user_model().objects.create_user(
+            'staf-tanpa-izin', 'staf2@example.test', 'Password123!', is_staff=True,
+        )
+        self.client.force_login(staf_tanpa_izin)
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_panel_admin_c2c_menolak_staf_tanpa_permission_model(self):
+        staf = get_user_model().objects.create_user(
+            'staf-tanpa-permission', 'staf3@example.test', 'Password123!', is_staff=True,
+        )
+        pengajuan = TitipJual.objects.create(
+            pengguna=self.pemilik, nama_pemilik='Pemilik MBG',
+            no_whatsapp='081234567890', merek='Toyota', model='Avanza',
+            tahun=2021, harga_harapan=Decimal('200000000'),
+        )
+        self.client.force_login(staf)
+        self.assertEqual(self.client.get(reverse('admin_titip_jual')).status_code, 403)
+        self.assertEqual(
+            self.client.get(reverse('admin_titip_jual_detail', args=[pengajuan.pk])).status_code,
+            403,
+        )
+
+    def test_foto_tambahan_tidak_menggantikan_foto_wajib_dan_file_invalid_ditolak(self):
+        post_data = {
+            **data_pengajuan(),
+            **foto_wajib(),
+            'foto_tambahan': [gambar_unggahan('only-additional.jpg')],
+        }
+        post_data.pop('foto_samping_kanan')
+        response = self.client.post(reverse('titip_jual_tambah'), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TitipJual.objects.exists())
+
+        post_data = {**data_pengajuan(), **foto_wajib()}
+        post_data['foto_depan'] = SimpleUploadedFile(
+            'fake.jpg', b'not actually an image', content_type='image/jpeg',
+        )
+        response = self.client.post(reverse('titip_jual_tambah'), post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TitipJual.objects.exists())

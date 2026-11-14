@@ -33,7 +33,7 @@
             {% for dokumen in dokumen_list %}
             <div class="border-bottom py-3">
                 <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div><strong>{{ dokumen.get_jenis_display }}</strong> · {{ dokumen.nama_file }}<div><a href="{% url 'dokumen_titip_jual_download' dokumen.pk %}" class="small">Unduh privat</a> <span class="badge text-bg-{% if dokumen.sudah_diverifikasi %}success{% else %}warning{% endif %} ms-1">{% if dokumen.sudah_diverifikasi %}Terverifikasi{% else %}Belum diverifikasi{% endif %}</span></div>{% if dokumen.catatan_verifikasi %}<small class="text-muted">{{ dokumen.catatan_verifikasi }}</small>{% endif %}</div>
+                    <div><strong>{{ dokumen.get_jenis_display }}</strong><div><a href="{% url 'dokumen_titip_jual_download' dokumen.pk %}" class="small">Unduh privat</a> <span class="badge text-bg-{% if dokumen.sudah_diverifikasi %}success{% else %}warning{% endif %} ms-1">{% if dokumen.sudah_diverifikasi %}Terverifikasi{% else %}Belum diverifikasi{% endif %}</span></div>{% if dokumen.catatan_verifikasi %}<small class="text-muted">{{ dokumen.catatan_verifikasi }}</small>{% endif %}</div>
                 </div>
                 <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}" class="row g-2 mt-2">
                     {% csrf_token %}<input type="hidden" name="aksi" value="verifikasi_dokumen"><input type="hidden" name="dokumen_id" value="{{ dokumen.pk }}">
@@ -45,7 +45,7 @@
             {% empty %}<p class="text-muted">Dokumen belum diunggah.</p>{% endfor %}
             <form method="post" enctype="multipart/form-data" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}" class="row g-2 mt-3">
                 {% csrf_token %}<input type="hidden" name="aksi" value="unggah_dokumen">
-                <div class="col-md-4"><select class="form-select" name="jenis_dokumen" required><option value="">Jenis dokumen…</option><option value="perjanjian">Perjanjian</option><option value="hasil_inspeksi">Laporan inspeksi</option></select></div>
+                <div class="col-md-4"><select class="form-select" name="jenis_dokumen" required><option value="">Jenis dokumen…</option>{% for value,label in dokumen_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
                 <div class="col-md-6"><input class="form-control" type="file" name="file" accept=".pdf,image/jpeg,image/png,image/webp" required></div>
                 <div class="col-md-2"><button class="btn btn-outline-primary w-100">Unggah</button></div>
             </form>
@@ -81,15 +81,36 @@
         {% if pengajuan.status == 'dijadwalkan' %}
         <div class="content-card"><h2 class="h5 fw-bold">Inspeksi kendaraan</h2><form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}">{% csrf_token %}<input type="hidden" name="aksi" value="mulai_inspeksi"><button class="btn btn-outline-primary rounded-pill">Mulai inspeksi</button></form></div>
         {% endif %}
-        {% if pengajuan.status == 'inspeksi' %}
+        {% if pengajuan.status == 'inspeksi' or pengajuan.status == 'tayang' %}
         <div class="content-card">
-            <h2 class="h5 fw-bold mb-3">Hasil inspeksi & harga</h2>
+            <h2 class="h5 fw-bold mb-3">{% if pengajuan.status == 'tayang' %}Audit ulang inspeksi{% else %}Checklist inspeksi & harga{% endif %}</h2>
             <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}">
                 {% csrf_token %}<input type="hidden" name="aksi" value="hasil_inspeksi">
-                <label class="form-label" for="hasil-inspeksi">Hasil inspeksi</label><textarea class="form-control mb-2" id="hasil-inspeksi" name="hasil_inspeksi" rows="4" required>{{ pengajuan.hasil_inspeksi }}</textarea>
-                <label class="form-label" for="harga-rekomendasi">Rekomendasi harga (Rp)</label><input class="form-control mb-2" id="harga-rekomendasi" name="harga_rekomendasi" type="number" min="1" step="100000" value="{{ pengajuan.harga_rekomendasi|default:'' }}" required>
-                <button class="btn btn-primary rounded-pill">Kirim ke pemilik</button>
+                <div class="mb-3"><label class="form-label" for="catatan-inspeksi">Catatan pemeriksaan</label><textarea class="form-control" id="catatan-inspeksi" name="catatan" rows="3">{{ pengajuan.hasil_inspeksi }}</textarea></div>
+                {% for poin, hasil_field, catatan_field in checklist_rows %}
+                <div class="border rounded-3 p-3 mb-2">
+                    <label class="form-label fw-semibold">{{ poin.kategori }} · {{ hasil_field.label }}{% if poin.wajib %} <span class="text-danger">*</span>{% endif %}</label>
+                    {{ hasil_field }}
+                    <div class="mt-2">{{ catatan_field.label_tag }}{{ catatan_field }}</div>
+                </div>
+                {% empty %}<div class="alert alert-warning">Checklist inspeksi belum dikonfigurasi. Tambahkan poin checklist sebelum melanjutkan.</div>{% endfor %}
+                <label class="form-label" for="harga-rekomendasi">Rekomendasi harga (Rp; wajib bila semua poin wajib lulus)</label><input class="form-control mb-3" id="harga-rekomendasi" name="harga_rekomendasi" type="number" min="1" step="100000" value="{{ pengajuan.harga_rekomendasi|default:'' }}">
+                {% if checklist_rows %}<button class="btn btn-primary rounded-pill">Simpan hasil inspeksi</button>{% endif %}
             </form>
+        </div>
+        {% endif %}
+        {% if inspeksi_list %}
+        <div class="content-card">
+            <h2 class="h5 fw-bold mb-3">Riwayat inspeksi</h2>
+            {% for inspeksi in inspeksi_list %}
+            <div class="border-bottom py-2">
+                <strong>{{ inspeksi.get_status_display }}</strong>
+                <small class="text-muted">· {{ inspeksi.tanggal_waktu|date:"d M Y, H:i" }} · {{ inspeksi.pemeriksa.get_full_name|default:inspeksi.pemeriksa.username }}</small>
+                {% if inspeksi.harga_rekomendasi %}<div>Rekomendasi: Rp {{ inspeksi.harga_rekomendasi|intcomma }}</div>{% endif %}
+                {% if inspeksi.catatan %}<div class="small text-muted">{{ inspeksi.catatan }}</div>{% endif %}
+                <ul class="small mb-1">{% for hasil in inspeksi.hasil_checklist.all %}<li>{{ hasil.poin.nama }}: {{ hasil.get_hasil_display }}{% if hasil.catatan %} — {{ hasil.catatan }}{% endif %}</li>{% endfor %}</ul>
+            </div>
+            {% endfor %}
         </div>
         {% endif %}
         {% for permintaan in permintaan_list %}
@@ -109,19 +130,79 @@
         {% if pengajuan.status == 'disetujui' or pengajuan.status == 'tayang' %}
         <div class="content-card">
             <h2 class="h5 fw-bold mb-3">Pemantauan showroom</h2>
-            {% for serah in pengajuan.serah_terima.all %}<div class="border-bottom py-2"><strong>{{ serah.get_jenis_display }}</strong><small class="d-block text-muted">{{ serah.tanggal_waktu|date:"d M Y, H:i" }} · {{ serah.lokasi }}</small><small>{{ serah.nama_penyerah }} → {{ serah.nama_penerima }} · {{ serah.get_kondisi_unit_display }}</small></div>{% empty %}<p class="small text-muted">Belum ada catatan serah terima.</p>{% endfor %}
+            {% for serah in pengajuan.serah_terima.all %}<div class="border-bottom py-2"><strong>{{ serah.get_jenis_display }}{% if serah.tujuan_keluar %} · {{ serah.get_tujuan_keluar_display }}{% endif %}</strong><small class="d-block text-muted">{{ serah.tanggal_waktu|date:"d M Y, H:i" }} · {{ serah.lokasi }} · {{ serah.odometer_saat_ini|default:"—" }} km · {{ serah.jumlah_kunci|default:"—" }} kunci</small><small>{{ serah.nama_penyerah }} → {{ serah.nama_penerima }} · {{ serah.get_kondisi_unit_display }}</small>{% if serah.foto_kondisi %}<div><a class="small" href="{% url 'serah_terima_foto_download' serah.pk %}">Lihat foto kondisi privat</a></div>{% endif %}{% if serah.catatan_kondisi %}<div class="small text-muted">{{ serah.catatan_kondisi }}</div>{% endif %}</div>{% empty %}<p class="small text-muted">Belum ada catatan serah terima.</p>{% endfor %}
             <hr>
-            <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}">
+            <form method="post" enctype="multipart/form-data" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}">
                 {% csrf_token %}<input type="hidden" name="aksi" value="serah_terima">
-                <label class="form-label">Jenis serah terima</label><select class="form-select mb-2" name="jenis"><option value="masuk">Masuk showroom</option><option value="keluar">Keluar showroom</option></select>
+                <label class="form-label">Jenis serah terima</label><select class="form-select mb-2" name="jenis" required><option value="masuk">Masuk showroom</option><option value="keluar">Keluar showroom</option></select>
+                <label class="form-label">Tujuan bila keluar</label><select class="form-select mb-2" name="tujuan_keluar"><option value="">Pilih tujuan</option><option value="pemilik">Kembali kepada pemilik</option>{% if transaksi_terverifikasi_list %}<option value="pembeli">Diserahkan kepada pembeli</option>{% endif %}</select>
+                {% if transaksi_terverifikasi_list %}<label class="form-label">Transaksi pembeli</label><select class="form-select mb-2" name="transaksi_id"><option value="">Pilih transaksi terverifikasi</option>{% for transaksi in transaksi_terverifikasi_list %}<option value="{{ transaksi.pk }}">{{ transaksi.get_sumber_display }} · {{ transaksi.nama_pembeli }} · Rp {{ transaksi.harga_final|intcomma }}</option>{% endfor %}</select>{% endif %}
                 <label class="form-label">Tanggal & waktu</label><input class="form-control mb-2" name="tanggal_waktu" type="datetime-local" required>
                 <div class="row g-2"><div class="col-6"><label class="form-label">Penyerah</label><input class="form-control" name="nama_penyerah" required></div><div class="col-6"><label class="form-label">Penerima</label><input class="form-control" name="nama_penerima" required></div></div>
-                <label class="form-label mt-2">Lokasi</label><input class="form-control mb-2" name="lokasi" value="Showroom MBG Makassar">
-                <label class="form-label">Odometer</label><input class="form-control mb-2" name="odometer" type="number" min="0">
-                <label class="form-label">Kondisi</label><select class="form-select mb-2" name="kondisi_unit"><option value="baik">Baik</option><option value="sedang">Sedang</option><option value="perlu_perbaikan">Perlu perbaikan</option></select>
-                <label class="form-label">Catatan kondisi</label><textarea class="form-control mb-2" name="catatan" rows="2"></textarea>
+                <label class="form-label mt-2">Lokasi serah terima</label><input class="form-control mb-2" name="lokasi" value="Showroom MBG Makassar" required>
+                <div class="row g-2"><div class="col-6"><label class="form-label">Odometer (km)</label><input class="form-control" name="odometer_saat_ini" type="number" min="0" required></div><div class="col-6"><label class="form-label">Jumlah kunci</label><input class="form-control" name="jumlah_kunci" type="number" min="0" required></div></div>
+                <label class="form-label mt-2">Kondisi</label><select class="form-select mb-2" name="kondisi_unit"><option value="baik">Baik</option><option value="sedang">Sedang</option><option value="perlu_perbaikan">Perlu perbaikan</option></select>
+                <label class="form-label">Kelengkapan dokumen/barang</label><div class="mb-2">{% for value,label in form_serah_terima.fields.kelengkapan_dokumen.choices %}<div class="form-check"><input class="form-check-input" type="checkbox" name="kelengkapan_dokumen" value="{{ value }}" id="kelengkapan-{{ value }}"><label class="form-check-label" for="kelengkapan-{{ value }}">{{ label }}</label></div>{% endfor %}</div>
+                <label class="form-label">Catatan kondisi</label><textarea class="form-control mb-2" name="catatan_kondisi" rows="2"></textarea>
+                <label class="form-label">Foto kondisi kendaraan saat serah terima</label><input class="form-control mb-3" type="file" name="foto_kondisi" accept="image/jpeg,image/png,image/webp" required>
                 <button class="btn btn-outline-primary rounded-pill">Simpan serah terima</button>
             </form>
+        </div>
+        {% endif %}
+        {% if pengajuan.status == 'tayang' %}
+        {% if dapat_catat_penjualan_mbg %}
+        <div class="content-card">
+            <h2 class="h5 fw-bold mb-3">Catat pembeli dari MBG</h2>
+            <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}">
+                {% csrf_token %}<input type="hidden" name="aksi" value="catat_penjualan_mbg">
+                <label class="form-label">Nama pembeli</label><input class="form-control mb-2" name="nama_pembeli" maxlength="120" required>
+                <label class="form-label">Kontak pembeli</label><input class="form-control mb-2" name="kontak_pembeli" maxlength="120" required>
+                <label class="form-label">Harga final (Rp)</label><input class="form-control mb-2" name="harga_final" type="number" min="1" step="1" required>
+                <label class="form-label">Tanggal kesepakatan</label><input class="form-control mb-2" name="tanggal_kesepakatan" type="date" required>
+                <label class="form-label">Catatan</label><textarea class="form-control mb-3" name="catatan_pelapor" rows="2"></textarea>
+                <button class="btn btn-primary rounded-pill">Catat transaksi MBG</button>
+            </form>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% if transaksi_list %}
+        <div class="content-card">
+            <h2 class="h5 fw-bold mb-3">Penjualan & penyelesaian</h2>
+            {% for transaksi in transaksi_list %}
+            <div class="border rounded-3 p-3 mb-3">
+                <div class="d-flex justify-content-between gap-2"><strong>{{ transaksi.get_sumber_display }}</strong><span class="badge text-bg-secondary">{{ transaksi.get_status_display }}</span></div>
+                <div class="small mt-2">Pembeli: {{ transaksi.nama_pembeli }} · {{ transaksi.kontak_pembeli }}</div>
+                <div class="small">Harga: Rp {{ transaksi.harga_final|intcomma }} · Tanggal: {{ transaksi.tanggal_kesepakatan|date:"d M Y" }}</div>
+                {% if transaksi.catatan_pelapor %}<div class="small text-muted mt-1">{{ transaksi.catatan_pelapor }}</div>{% endif %}
+                {% if transaksi.catatan_verifikasi %}<div class="small text-muted mt-1">Verifikasi: {{ transaksi.catatan_verifikasi }}</div>{% endif %}
+                {% if transaksi.status == 'menunggu_verifikasi' and transaksi.sumber == 'pemilik' %}
+                <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}" class="mt-3">
+                    {% csrf_token %}<input type="hidden" name="aksi" value="verifikasi_penjualan_pemilik"><input type="hidden" name="transaksi_id" value="{{ transaksi.pk }}">
+                    <label class="form-label">Keputusan</label><select class="form-select mb-2" name="keputusan" required><option value="verifikasi">Verifikasi transaksi</option><option value="tolak">Tolak laporan</option></select>
+                    <label class="form-label">Catatan (wajib bila ditolak)</label><textarea class="form-control mb-2" name="catatan" rows="2"></textarea>
+                    <button class="btn btn-outline-primary btn-sm rounded-pill">Simpan verifikasi</button>
+                </form>
+                {% endif %}
+                {% if transaksi.status == 'terverifikasi' %}
+                    {% with handover=transaksi.serah_terima_keluar %}
+                    {% if handover %}
+                    <div class="alert alert-success small mt-3 mb-2">Serah-terima ke pembeli tercatat: {{ handover.tanggal_waktu|date:"d M Y, H:i" }} · {% if handover.lengkap %}lengkap{% else %}data belum lengkap{% endif %}</div>
+                    {% else %}<div class="alert alert-warning small mt-3 mb-2">Belum ada serah-terima keluar yang terhubung ke transaksi ini.</div>{% endif %}
+                    {% endwith %}
+                    {% if perjanjian_terverifikasi %}
+                    <form method="post" action="{% url 'admin_titip_jual_tindakan' pengajuan.pk %}" class="mt-3">
+                        {% csrf_token %}<input type="hidden" name="aksi" value="selesaikan_penjualan"><input type="hidden" name="transaksi_id" value="{{ transaksi.pk }}">
+                        <label class="form-label">Komisi sesuai perjanjian (Rp)</label><input class="form-control mb-2" name="komisi_final" type="number" min="0" step="1" required>
+                        <label class="form-label">Klausul perjanjian yang diperiksa</label><input class="form-control mb-2" name="komisi_diperiksa_berdasarkan" required>
+                        <label class="form-label">Catatan penyelesaian administrasi</label><textarea class="form-control mb-2" name="catatan_administrasi" rows="2" required></textarea>
+                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="konfirmasi_perjanjian_diperiksa" value="on" id="cek-perjanjian-{{ transaksi.pk }}" required><label class="form-check-label" for="cek-perjanjian-{{ transaksi.pk }}">Perjanjian yang diverifikasi telah diperiksa</label></div>
+                        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="konfirmasi_administrasi_selesai" value="on" id="cek-administrasi-{{ transaksi.pk }}" required><label class="form-check-label" for="cek-administrasi-{{ transaksi.pk }}">Administrasi transaksi telah diselesaikan</label></div>
+                        <button class="btn btn-success rounded-pill">Selesaikan penjualan</button>
+                    </form>
+                    {% else %}<p class="small text-warning mb-0">Unggah dan verifikasi perjanjian terlebih dahulu untuk menyelesaikan transaksi.</p>{% endif %}
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
         {% endif %}
         <div class="content-card">
