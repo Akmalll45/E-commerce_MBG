@@ -12,18 +12,36 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from pathlib import Path
 import certifi
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+_deployment_hosts = [
+    os.environ.get(name, '').strip()
+    for name in (
+        'RENDER_EXTERNAL_HOSTNAME',
+        'VERCEL_URL',
+        'VERCEL_PROJECT_PRODUCTION_URL',
+    )
+    if os.environ.get(name, '').strip()
+]
+_debug_env = os.environ.get('DJANGO_DEBUG')
+if _debug_env is None:
+    DEBUG = not bool(_deployment_hosts or os.environ.get('DJANGO_ALLOWED_HOSTS'))
+elif _debug_env.strip().lower() in ('true', '1', 'yes', 'on'):
+    DEBUG = True
+elif _debug_env.strip().lower() in ('false', '0', 'no', 'off'):
+    DEBUG = False
+else:
+    raise ImproperlyConfigured('DJANGO_DEBUG must be a boolean value.')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-key-for-local-development')
-
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be configured when DEBUG is disabled.')
+    SECRET_KEY = 'dev-only-key-for-local-development'
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -33,6 +51,10 @@ ALLOWED_HOSTS = [
     ).split(',')
     if host.strip()
 ]
+if not DEBUG and not os.environ.get('DJANGO_ALLOWED_HOSTS') and not _deployment_hosts:
+    raise ImproperlyConfigured(
+        'Set DJANGO_ALLOWED_HOSTS or a deployment host when DEBUG is disabled.'
+    )
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
@@ -42,23 +64,16 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
-for env_name in (
-    'RENDER_EXTERNAL_HOSTNAME',
-    'VERCEL_URL',
-    'VERCEL_PROJECT_PRODUCTION_URL',
-):
-    host = os.environ.get(env_name)
+for host in _deployment_hosts:
+    host = host.removeprefix('https://').removeprefix('http://').rstrip('/')
 
-    if host:
-        host = host.removeprefix('https://').rstrip('/')
+    if host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 
-        if host not in ALLOWED_HOSTS:
-            ALLOWED_HOSTS.append(host)
+    origin = f'https://{host}'
 
-        origin = f'https://{host}'
-
-        if origin not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(origin)
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Application definition
 
@@ -122,6 +137,15 @@ DATABASES = {
         },
     }
 }
+if not DEBUG:
+    missing_database_settings = [
+        name for name in ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST')
+        if not os.environ.get(name)
+    ]
+    if missing_database_settings:
+        raise ImproperlyConfigured(
+            'Database environment variables must be configured when DEBUG is disabled.'
+        )
 
 # Gunakan TLS terverifikasi untuk koneksi database cloud.
 # Konfigurasi ini tidak mengubah koneksi MySQL lokal Docker.
@@ -132,8 +156,6 @@ if DATABASES['default']['HOST'] not in (
     'localhost',
     'db',
 ):
-    
-
     DATABASES['default']['OPTIONS'].update({
         'ssl_ca': certifi.where(),
         'ssl_verify_cert': True,
@@ -222,5 +244,18 @@ MEDIA_ROOT = BASE_DIR / 'media'
 TITIP_JUAL_PRIVATE_MEDIA_ROOT = Path(
     os.environ.get('TITIP_JUAL_PRIVATE_MEDIA_ROOT', BASE_DIR / 'private_media')
 ).resolve()
+
+# Development defaults remain local; production requires HTTPS and secure cookies.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+X_FRAME_OPTIONS = 'DENY'
+if _deployment_hosts and os.environ.get('DJANGO_TRUST_X_FORWARDED_PROTO', 'true').lower() in (
+    'true', '1', 'yes', 'on'
+):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 

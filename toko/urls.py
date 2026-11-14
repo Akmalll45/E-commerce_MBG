@@ -30,6 +30,11 @@ urlpatterns = [
         views.dokumen_titip_jual_unduh,
         name='dokumen_titip_jual_download',
     ),
+    path(
+        'serah-terima-titip-jual/<int:serah_terima_id>/foto/',
+        views.serah_terima_foto_unduh,
+        name='serah_terima_foto_download',
+    ),
 
     # Dashboard Admin
     path('panel/', views.dashboard_admin, name='dashboard_admin'),

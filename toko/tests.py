@@ -1,9 +1,11 @@
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from .models import Produk, TitipJual
+from .models import FotoTitipJual, InspeksiC2C, Produk, SerahTerimaUnit, TitipJual
 
 
 def buat_produk(nama, **kw):
@@ -30,6 +32,46 @@ class KatalogTests(TestCase):
                                     harga=Decimal('420000000'), jarak_tempuh=15000)
         self.titip = buat_produk('Suzuki Ertiga 2019 Titip', merek='Suzuki', tahun=2019,
                                  harga=Decimal('160000000'), tipe_penjual='C2C')
+        staf = get_user_model().objects.create_user(
+            'staf-katalog', 'staf-katalog@example.test', 'Password123!', is_staff=True,
+        )
+        pengajuan = TitipJual.objects.create(
+            nama_pemilik='Pemilik Uji',
+            no_whatsapp='081234567890',
+            merek='Suzuki',
+            model='Ertiga',
+            tahun=2019,
+            harga_harapan=Decimal('160000000'),
+            harga_kesepakatan=Decimal('160000000'),
+            status='tayang',
+            status_persetujuan_harga='disetujui',
+            produk_terkait=self.titip,
+        )
+        self.titip.titip_jual_sumber = pengajuan
+        self.titip.save(update_fields=['titip_jual_sumber'])
+        for jenis in ('depan', 'belakang', 'samping_kiri', 'samping_kanan', 'ruang_mesin'):
+            FotoTitipJual.objects.create(
+                titip_jual=pengajuan,
+                jenis_foto=jenis,
+                gambar=f'titip_jual/foto/uji/{jenis}.jpg',
+            )
+        InspeksiC2C.objects.create(
+            titip_jual=pengajuan, status='lulus', pemeriksa=staf,
+        )
+        SerahTerimaUnit.objects.create(
+            titip_jual=pengajuan,
+            jenis='masuk',
+            tanggal_waktu=timezone.now(),
+            nama_penyerah='Pemilik Uji',
+            nama_penerima='Petugas Uji',
+            lokasi='Showroom Uji',
+            odometer_saat_ini=40000,
+            jumlah_kunci=2,
+            kelengkapan='STNK dan BPKB',
+            kelengkapan_dokumen=['stnk', 'bpkb'],
+            foto_kondisi='titip_jual/serah_terima/uji.jpg',
+            dicatat_oleh=staf,
+        )
         # Tidak boleh tampil di publik
         self.terjual = buat_produk('Toyota Rush Terjual', status_stok='sold')
         self.booking = buat_produk('Toyota Yaris Di-booking', status_stok='in_review')
