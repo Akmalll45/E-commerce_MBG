@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
@@ -53,7 +53,7 @@ def foto_wajib():
     }
 
 
-class TitipJualPenggunaTests(TestCase):
+class TitipJualPenggunaTests(TransactionTestCase):
     def setUp(self):
         user_model = get_user_model()
         self.pemilik = user_model.objects.create_user(
