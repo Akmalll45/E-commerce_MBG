@@ -69,6 +69,23 @@ class PembelianTestCase(TestCase):
         data.update(kw)
         return PesananPembelian.buat_dari_produk(**data)
 
+    def buat_pesanan_data_lama(self, produk=None, pelanggan=None):
+        """
+        Pesanan 'menunggu Booking Fee' yang melewati buat_dari_produk(), menyimulasikan data
+        lama dari sebelum aturan "satu pesanan aktif per unit" (Sprint 2.1) diberlakukan.
+        """
+        produk = produk or self.produk
+        pengaturan = PengaturanPembelian.ambil()
+        return PesananPembelian.objects.create(
+            pelanggan=pelanggan or self.pelanggan_lain, produk=produk,
+            nama_pelanggan='Data Lama', no_whatsapp='6281298765432',
+            nama_kendaraan=produk.nama, sku_kendaraan=produk.sku, plat_nomor=produk.plat_nomor,
+            harga_kendaraan=produk.harga,
+            persentase_booking_fee=pengaturan.persentase_booking_fee,
+            nominal_booking_fee=pengaturan.hitung_booking_fee(produk.harga),
+            metode_pembayaran='cash',
+        )
+
     def buat_pembayaran(self, pesanan, jenis='booking_fee', nominal=None, **kw):
         if nominal is None:
             nominal = pesanan.nominal_booking_fee
@@ -167,6 +184,7 @@ class PesananPembelianTests(PembelianTestCase):
 
     def test_snapshot_tidak_berubah_saat_pengaturan_atau_harga_berubah(self):
         lama = self.buat_pesanan()
+        lama.batalkan_tanpa_pembayaran(self.pelanggan, 'Batal sebelum membayar')  # unit lepas
         pengaturan = PengaturanPembelian.ambil()
         pengaturan.persentase_booking_fee = Decimal('5.00')
         pengaturan.save()
@@ -242,12 +260,12 @@ class PesananPembelianTests(PembelianTestCase):
     def test_whatsapp_dinormalisasi_dan_divalidasi(self):
         self.assertEqual(self.buat_pesanan().no_whatsapp, '6281234567890')
         with self.assertRaises(ValidationError) as ctx:
-            self.buat_pesanan(no_whatsapp='12345')
+            self.buat_pesanan(produk=buat_produk(), no_whatsapp='12345')
         self.assertIn('no_whatsapp', ctx.exception.message_dict)
 
     def test_nomor_pesanan_dibuat_otomatis_dan_unik(self):
         pertama = self.buat_pesanan()
-        kedua = self.buat_pesanan(pelanggan=self.pelanggan_lain)
+        kedua = self.buat_pesanan(produk=buat_produk(), pelanggan=self.pelanggan_lain)
         self.assertRegex(pertama.nomor_pesanan, r'^PB-MBG-\d{8}-[0-9A-F]{6}$')
         self.assertNotEqual(pertama.nomor_pesanan, kedua.nomor_pesanan)
 
@@ -396,7 +414,9 @@ class BookingFeeTests(PembelianTestCase):
 
     def test_unit_yang_dikunci_pesanan_lain_tidak_dapat_diverifikasi(self):
         a = self.buat_pesanan()
-        b = self.buat_pesanan(pelanggan=self.pelanggan_lain)
+        # Dua pesanan menunggu untuk satu unit tidak lagi bisa dibuat lewat buat_dari_produk();
+        # tetap diuji sebagai pertahanan berlapis terhadap data lama.
+        b = self.buat_pesanan_data_lama()
         pembayaran_a = self.buat_pembayaran(a)
         pembayaran_b = self.buat_pembayaran(b)
         pembayaran_a.verifikasi(self.staf, sekarang=wita(2026, 11, 15, 10))

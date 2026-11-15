@@ -77,13 +77,6 @@
         font-weight: 700;
         color: #0F172A;
     }
-    .bank-card {
-        background: #FFFFFF;
-        border: 1.5px dashed #CBD5E1;
-        border-radius: var(--radius-md);
-        padding: 1.25rem;
-        margin-bottom: 1rem;
-    }
 </style>
 {% endblock %}
 
@@ -143,32 +136,26 @@
                         <span class="h4 fw-bold text-primary font-heading mb-0">Rp {{ pesanan.nominal_booking_fee|intcomma }}</span>
                     </div>
 
-                    <!-- Rekening MBG -->
-                    <div class="bank-card mb-3">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="fw-bold text-dark small"><i class="fa-solid fa-building-columns text-primary me-1"></i> Bank BCA (Transfer Manual)</span>
-                            <span class="badge bg-light text-dark border">Garasi MBG Makassar</span>
-                        </div>
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="h5 font-monospace fw-bold text-dark mb-0">789-012-3456</span>
-                            <span class="text-muted small">a.n. PT Mobil Bekas Garasi</span>
-                        </div>
+                    <!-- Pembayaran: akan terintegrasi dengan Midtrans (tanpa rekening/transfer manual) -->
+                    <div class="alert alert-primary small mb-3" role="status">
+                        <i class="fa-solid fa-lock me-1"></i>
+                        <strong>Pembayaran Online:</strong> Booking Fee akan dibayar melalui Midtrans. Petunjuk pembayaran akan ditampilkan setelah layanan tersedia.
                     </div>
 
                     <!-- Info Ketentuan Kunci Unit -->
                     <div class="alert alert-light border small text-secondary mb-0">
                         <i class="fa-solid fa-circle-exclamation text-primary me-1"></i>
-                        <strong>Penting:</strong> Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah bukti pembayaran diverifikasi oleh staf admin MBG.
+                        <strong>Penting:</strong> Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee dikonfirmasi oleh MBG.
                     </div>
                 </div>
             </div>
 
             <!-- Tombol Navigasi / WhatsApp -->
             <div class="d-flex flex-wrap justify-content-center gap-3">
-                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20sudah%20membuat%20pesanan%20dengan%20Nomor:%20{{ pesanan.nomor_pesanan }}%20untuk%20mobil%20{{ pesanan.nama_kendaraan|urlencode }}.%20Berikut%20saya%20lampirkan%20bukti%20transfer%20Booking%20Fee%20Rp%20{{ pesanan.nominal_booking_fee|intcomma }}."
-                   target="_blank" class="btn btn-success px-4 py-2.5 rounded-pill fw-bold shadow-sm d-inline-flex align-items-center gap-2">
+                <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20sudah%20membuat%20pesanan%20dengan%20Nomor:%20{{ pesanan.nomor_pesanan }}%20untuk%20mobil%20{{ pesanan.nama_kendaraan|urlencode }}.%20Mohon%20informasi%20lanjutan%20untuk%20pembayaran%20Booking%20Fee."
+                   target="_blank" rel="noopener" class="btn btn-success px-4 py-2.5 rounded-pill fw-bold shadow-sm d-inline-flex align-items-center gap-2">
                     <i class="fa-brands fa-whatsapp fs-5"></i>
-                    <span>Konfirmasi Pembayaran via WhatsApp</span>
+                    <span>Hubungi Admin via WhatsApp</span>
                 </a>
                 <a href="{% url 'dashboard_user' %}" class="btn btn-outline-primary px-4 py-2.5 rounded-pill fw-bold">
                     <i class="fa-solid fa-table-columns me-1"></i> Dashboard Akun Saya

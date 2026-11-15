@@ -2758,6 +2758,26 @@ def admin_pengaturan(request):
 # 14. ALUR PEMBELIAN MOBIL OLEH PELANGGAN (SPRINT 2 — CUSTOMER PURCHASE FLOW)
 # ═══════════════════════════════════════════════════════════════════
 
+def _alihkan_jika_ada_pesanan_aktif(request, produk):
+    """
+    Satu kendaraan hanya boleh punya satu pesanan aktif. Jika unit sudah dipegang pesanan
+    aktif, kembalikan redirect yang sesuai (ke pesanan milik pengguna sendiri, atau ke detail
+    unit jika dipegang pelanggan lain); jika tidak, kembalikan None. Ini hanya pemeriksaan
+    awal untuk pengalaman pengguna; penjaga sebenarnya ada di PesananPembelian.buat_dari_produk.
+    """
+    aktif = PesananPembelian.pesanan_aktif_unit(produk)
+    if aktif is None:
+        return None
+    if aktif.pelanggan_id == request.user.id:
+        messages.info(
+            request,
+            f'Anda sudah memiliki pesanan aktif untuk unit ini ({aktif.nomor_pesanan}).',
+        )
+        return redirect('pesanan_detail', nomor_pesanan=aktif.nomor_pesanan)
+    messages.error(request, 'Kendaraan ini sedang dalam proses pemesanan oleh pelanggan lain.')
+    return redirect('detail_produk', id=produk.id)
+
+
 @login_required(login_url='login')
 def checkout_pembelian(request, id):
     """
@@ -2783,13 +2803,13 @@ def checkout_pembelian(request, id):
         messages.error(request, pesan)
         return redirect('detail_produk', id=produk.id)
 
-    pengaturan = PengaturanPembelian.ambil()
-    nominal_booking_fee = pengaturan.hitung_booking_fee(produk.harga)
+    # Unit yang sudah dipegang pesanan aktif (milik sendiri atau pelanggan lain) tidak dapat dipesan lagi.
+    alihkan = _alihkan_jika_ada_pesanan_aktif(request, produk)
+    if alihkan is not None:
+        return alihkan
 
-    # Cek apakah pengguna sudah memiliki pesanan menunggu booking fee untuk unit ini
-    pesanan_menunggu = PesananPembelian.objects.filter(
-        produk=produk, pelanggan=request.user, status='menunggu_booking_fee',
-    ).first()
+    pengaturan_pembelian = PengaturanPembelian.ambil()
+    nominal_booking_fee = pengaturan_pembelian.hitung_booking_fee(produk.harga)
 
     session_key = f'checkout_{produk.id}'
 
@@ -2817,14 +2837,15 @@ def checkout_pembelian(request, id):
 
     sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
 
+    # Jangan memakai key 'pengaturan' di sini: itu milik context processor `pengaturan_situs`
+    # (PengaturanWebsite: WhatsApp, alamat, dll. untuk navbar/footer) dan akan tertimpa.
     return render(request, 'pembelian/checkout.html', {
         'produk': produk,
         'form': form,
-        'pengaturan': pengaturan,
-        'persentase_booking_fee': pengaturan.persentase_booking_fee,
+        'pengaturan_pembelian': pengaturan_pembelian,
+        'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
-        'pesanan_menunggu': pesanan_menunggu,
     })
 
 
@@ -2848,8 +2869,12 @@ def konfirmasi_pembelian(request, id):
         messages.error(request, 'Maaf, unit kendaraan ini sudah tidak tersedia untuk dipesan.')
         return redirect('detail_produk', id=produk.id)
 
-    pengaturan = PengaturanPembelian.ambil()
-    nominal_booking_fee = pengaturan.hitung_booking_fee(produk.harga)
+    alihkan = _alihkan_jika_ada_pesanan_aktif(request, produk)
+    if alihkan is not None:
+        return alihkan
+
+    pengaturan_pembelian = PengaturanPembelian.ambil()
+    nominal_booking_fee = pengaturan_pembelian.hitung_booking_fee(produk.harga)
     sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
 
     if request.method == 'POST':
@@ -2882,14 +2907,19 @@ def konfirmasi_pembelian(request, id):
             return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
 
         except (ValueError, ValidationError) as e:
+            # Kalah balapan dengan pesanan lain untuk unit yang sama (atau klik ganda): arahkan
+            # ke pesanan yang sudah ada alih-alih membiarkan pengguna mengulang dari checkout.
+            alihkan = _alihkan_jika_ada_pesanan_aktif(request, produk)
+            if alihkan is not None:
+                return alihkan
             messages.error(request, f'Gagal membuat pesanan: {e}')
             return redirect('checkout_pembelian', id=produk.id)
 
     return render(request, 'pembelian/konfirmasi.html', {
         'produk': produk,
         'checkout_data': checkout_data,
-        'pengaturan': pengaturan,
-        'persentase_booking_fee': pengaturan.persentase_booking_fee,
+        'pengaturan_pembelian': pengaturan_pembelian,
+        'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
     })

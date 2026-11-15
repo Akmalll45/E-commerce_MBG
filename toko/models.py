@@ -1577,6 +1577,9 @@ class PesananPembelian(models.Model):
     }
     # Pembatalan/refund hanya boleh diajukan sebelum transaksi selesai.
     STATUS_DAPAT_DIBATALKAN = ('menunggu_booking_fee', 'booking_aktif', 'kedaluwarsa')
+    # Pesanan "aktif" = masih memegang unit. Satu kendaraan hanya boleh punya satu pesanan
+    # aktif. 'kedaluwarsa' tidak termasuk karena kunci unitnya sudah dilepas.
+    STATUS_AKTIF = ('menunggu_booking_fee', 'booking_aktif')
 
     nomor_pesanan = models.CharField(
         max_length=30, unique=True, blank=True, verbose_name="Nomor Pesanan",
@@ -1727,6 +1730,21 @@ class PesananPembelian(models.Model):
     # ── Pembuatan pesanan (snapshot) ──────────────────────────────
 
     @classmethod
+    def pesanan_aktif_unit(cls, produk, kunci=False):
+        """
+        Pesanan aktif (menunggu Booking Fee atau booking aktif) milik `produk`, atau None.
+
+        kunci=True memakai SELECT ... FOR UPDATE dan hanya boleh dipanggil di dalam atomic()
+        setelah baris Produk dikunci. Pembacaan terkunci selalu melihat data terbaru yang sudah
+        di-commit, bukan snapshot lama transaksi (MySQL REPEATABLE READ), sehingga pesanan yang
+        baru saja dibuat transaksi lain tidak terlewat.
+        """
+        qs = cls.objects.filter(produk=produk, status__in=cls.STATUS_AKTIF)
+        if kunci:
+            qs = qs.select_for_update()
+        return qs.order_by('pk').first()
+
+    @classmethod
     def buat_dari_produk(
         cls, produk, pelanggan, nama_pelanggan, no_whatsapp, metode_pembayaran,
         opsi_penyerahan='showroom', email='', alamat_pengantaran='',
@@ -1735,6 +1753,12 @@ class PesananPembelian(models.Model):
         Buat pesanan dengan snapshot harga dan Booking Fee dari pengaturan yang berlaku.
         Unit TIDAK dikunci di sini; kunci baru berlaku setelah Booking Fee diverifikasi admin.
         Hanya unit stok MBG (B2C) berstatus ready; unit C2C tetap memakai alur titip-jual.
+
+        Satu kendaraan hanya boleh punya satu pesanan aktif. Karena unit masih 'ready' selama
+        pesanan menunggu Booking Fee, aturan ini dijaga di sini: baris Produk dikunci lebih dulu
+        (urutan kunci Produk → Pesanan, sama dengan method domain lain), lalu pesanan aktif
+        dibaca dengan kunci. Pembuat pesanan lain untuk unit yang sama menunggu di kunci Produk
+        dan, setelah giliran tiba, melihat pesanan yang sudah di-commit.
         """
         if pelanggan is None:
             raise ValueError('Pelanggan wajib diisi.')
@@ -1744,6 +1768,10 @@ class PesananPembelian(models.Model):
                 raise ValueError('Hanya unit stok MBG (B2C) yang dapat dipesan melalui alur ini.')
             if produk.status_stok != 'ready':
                 raise ValueError('Kendaraan tidak tersedia untuk dipesan.')
+            if cls.pesanan_aktif_unit(produk, kunci=True) is not None:
+                raise ValueError(
+                    'Kendaraan ini sudah memiliki pesanan aktif dan tidak dapat dipesan lagi.'
+                )
             if not produk.harga or produk.harga <= 0:
                 raise ValueError('Harga kendaraan belum valid.')
             pengaturan = PengaturanPembelian.ambil()
