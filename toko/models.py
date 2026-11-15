@@ -1,13 +1,15 @@
 from django.conf import settings
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, URLValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, URLValidator
 from django.contrib.auth.models import AbstractUser
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from katalog_mbg.storage import PrivateTitipJualStorage
 from .fields import EncryptedCharField
+from decimal import Decimal, ROUND_HALF_UP
+from zoneinfo import ZoneInfo
 import os
 import re
 import uuid
@@ -1457,3 +1459,806 @@ class PengaturanWebsite(models.Model):
 
     def __str__(self):
         return "Pengaturan Website"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. PEMBELIAN MOBIL — PENGATURAN, PESANAN, PEMBAYARAN, REFUND, RIWAYAT
+# ═══════════════════════════════════════════════════════════════════
+# Alur pembelian ini sengaja terpisah dari BookingCekUnit/Transaksi (O2O) dan
+# TransaksiTitipJual (C2C): tidak ada relasi ke model-model tersebut. Satu-satunya
+# titik temu dengan katalog adalah Produk.status_stok — 'ready' → 'in_review'
+# (dikunci) → 'sold' — sehingga produk_tayang() tetap berlaku tanpa perubahan.
+#
+# Status dipisah per proses:
+#   PesananPembelian.status      → siklus hidup pesanan & kunci unit
+#   PembayaranPesanan.status     → verifikasi tiap pembayaran
+#   RefundPesanan.status         → pengajuan, verifikasi, dan pencatatan refund
+#
+# Aturan lintas-model dijalankan lewat method domain (verifikasi, setujui, dst.) di dalam
+# transaction.atomic() dengan select_for_update(), selalu dengan urutan kunci
+# Produk → PesananPembelian → (Pembayaran | Refund) agar tidak terjadi deadlock.
+# Catatan: MySQL tidak mendukung unique constraint bersyarat, jadi aturan "satu pesanan
+# aktif per unit" dan "satu refund terbuka per pesanan" dijaga lewat kunci baris tersebut.
+
+ZONA_WITA = ZoneInfo('Asia/Makassar')
+
+
+def akhir_masa_booking(waktu_verifikasi):
+    """
+    Masa booking berakhir pukul 23.59 WITA pada tanggal verifikasi Booking Fee. Tanggal
+    dihitung dalam WITA (bukan UTC), dan batasnya mencakup seluruh menit 23.59.
+    """
+    lokal = timezone.localtime(waktu_verifikasi, ZONA_WITA)
+    return lokal.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+
+def _pastikan_staf(user):
+    if not (user and (user.is_staff or user.is_superuser)):
+        raise ValueError('Tindakan ini hanya dapat dilakukan oleh staf MBG.')
+
+
+def _alasan_wajib(teks, pesan):
+    teks = (teks or '').strip()
+    if not teks:
+        raise ValueError(pesan)
+    return teks
+
+
+class PengaturanPembelian(models.Model):
+    """
+    Konfigurasi alur pembelian (satu baris saja, pk=1) yang dikelola admin. Persentase
+    Booking Fee tidak ditulis di kode: setiap pesanan menyimpan salinan (snapshot)
+    persentase yang berlaku saat dibuat, sehingga perubahan di sini tidak mengubah pesanan lama.
+    """
+    persentase_booking_fee = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('1.00'),
+        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('100'))],
+        verbose_name="Persentase Booking Fee (%)",
+        help_text="Persentase dari harga kendaraan. Booking Fee menjadi bagian dari pembayaran kendaraan.",
+    )
+    diperbarui_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='pengaturan_pembelian_diperbarui',
+        verbose_name="Diperbarui Oleh",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Pengaturan Pembelian"
+        verbose_name_plural = "Pengaturan Pembelian"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(persentase_booking_fee__gt=0, persentase_booking_fee__lte=100),
+                name='pengaturan_pembelian_persen_valid',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.pk = 1   # singleton: selalu satu baris
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan (dibuat dengan nilai bawaan jika belum ada)."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def hitung_booking_fee(self, harga):
+        """Booking Fee = persentase × harga kendaraan, dibulatkan ke rupiah penuh."""
+        nominal = Decimal(harga) * self.persentase_booking_fee / Decimal('100')
+        return nominal.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+    def __str__(self):
+        return "Pengaturan Pembelian"
+
+
+class PesananPembelian(models.Model):
+    METODE_PEMBAYARAN_CHOICES = [
+        ('cash', 'Cash'),
+        ('kredit', 'Kredit'),
+    ]
+    OPSI_PENYERAHAN_CHOICES = [
+        ('showroom', 'Ambil di Showroom MBG Makassar'),
+        ('towing', 'Diantar via Truk Towing ke Rumah'),
+    ]
+    STATUS_CHOICES = [
+        ('menunggu_booking_fee', 'Menunggu Booking Fee'),
+        ('booking_aktif', 'Booking Aktif (Unit Dikunci)'),
+        ('selesai', 'Selesai'),
+        ('dibatalkan', 'Dibatalkan'),
+        ('kedaluwarsa', 'Masa Booking Berakhir'),
+    ]
+    TRANSISI_DIIZINKAN = {
+        'menunggu_booking_fee': ['booking_aktif', 'dibatalkan'],
+        'booking_aktif': ['selesai', 'dibatalkan', 'kedaluwarsa'],
+        'kedaluwarsa': ['dibatalkan'],
+        'selesai': [],
+        'dibatalkan': [],
+    }
+    # Pembatalan/refund hanya boleh diajukan sebelum transaksi selesai.
+    STATUS_DAPAT_DIBATALKAN = ('menunggu_booking_fee', 'booking_aktif', 'kedaluwarsa')
+
+    nomor_pesanan = models.CharField(
+        max_length=30, unique=True, blank=True, verbose_name="Nomor Pesanan",
+        help_text="Dibuat otomatis, contoh: PB-MBG-20261115-A1B2C3",
+    )
+    pelanggan = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name='pesanan_pembelian', verbose_name="Pelanggan",
+    )
+    produk = models.ForeignKey(
+        Produk, on_delete=models.PROTECT, related_name='pesanan_pembelian',
+        verbose_name="Kendaraan",
+    )
+
+    # Data pelanggan saat memesan (tetap utuh walau akun berubah/dihapus)
+    nama_pelanggan = models.CharField(max_length=120, verbose_name="Nama Pelanggan")
+    no_whatsapp = models.CharField(
+        max_length=15, validators=[validasi_whatsapp], verbose_name="Nomor WhatsApp",
+    )
+    email = models.EmailField(blank=True, verbose_name="Email")
+
+    # Snapshot kendaraan & harga saat pesanan dibuat (tidak berubah mengikuti katalog)
+    nama_kendaraan = models.CharField(max_length=200, verbose_name="Nama Kendaraan (Snapshot)")
+    sku_kendaraan = models.CharField(max_length=50, verbose_name="SKU (Snapshot)")
+    plat_nomor = models.CharField(max_length=20, verbose_name="Plat Nomor (Snapshot)")
+    harga_kendaraan = models.DecimalField(
+        max_digits=12, decimal_places=0, verbose_name="Harga Kendaraan (Snapshot, Rp)",
+    )
+    harga_promo = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Harga Promo/Subsidi DP (Snapshot, Rp)",
+    )
+    persentase_booking_fee = models.DecimalField(
+        max_digits=5, decimal_places=2, verbose_name="Persentase Booking Fee (Snapshot, %)",
+    )
+    nominal_booking_fee = models.DecimalField(
+        max_digits=12, decimal_places=0, verbose_name="Nominal Booking Fee (Snapshot, Rp)",
+    )
+
+    metode_pembayaran = models.CharField(
+        max_length=10, choices=METODE_PEMBAYARAN_CHOICES, verbose_name="Metode Pembayaran",
+    )
+    opsi_penyerahan = models.CharField(
+        max_length=10, choices=OPSI_PENYERAHAN_CHOICES, default='showroom',
+        verbose_name="Pilihan Penyerahan",
+    )
+    alamat_pengantaran = models.TextField(
+        blank=True, verbose_name="Alamat Pengantaran",
+        help_text="Wajib diisi jika memilih pengantaran towing.",
+    )
+
+    status = models.CharField(
+        max_length=24, choices=STATUS_CHOICES, default='menunggu_booking_fee',
+        db_index=True, verbose_name="Status Pesanan",
+    )
+    booking_berakhir_pada = models.DateTimeField(
+        null=True, blank=True, verbose_name="Masa Booking Berakhir",
+        help_text="Diisi sekali saat Booking Fee diverifikasi (23.59 WITA); tidak dapat diperpanjang.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Field yang dibekukan setelah pesanan dibuat (booking_berakhir_pada: boleh diisi sekali).
+    FIELD_SNAPSHOT_TERKUNCI = (
+        'produk_id', 'harga_kendaraan', 'persentase_booking_fee', 'nominal_booking_fee',
+    )
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [
+            models.Index(fields=['produk', 'status']),
+            models.Index(fields=['pelanggan', 'status']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(harga_kendaraan__gt=0),
+                name='pesanan_pembelian_harga_positif',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(persentase_booking_fee__gt=0, persentase_booking_fee__lte=100),
+                name='pesanan_pembelian_persen_valid',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(nominal_booking_fee__gt=0)
+                & models.Q(nominal_booking_fee__lte=models.F('harga_kendaraan')),
+                name='pesanan_pembelian_fee_valid',
+            ),
+        ]
+        verbose_name = "Pesanan Pembelian"
+        verbose_name_plural = "Pesanan Pembelian"
+
+    def __str__(self):
+        return f'{self.nomor_pesanan} — {self.nama_kendaraan} [{self.get_status_display()}]'
+
+    # ── Validasi & penyimpanan ────────────────────────────────────
+
+    def clean(self):
+        galat = {}
+        if self.opsi_penyerahan == 'towing' and not (self.alamat_pengantaran or '').strip():
+            galat['alamat_pengantaran'] = 'Alamat pengantaran wajib diisi jika memilih towing.'
+        if (
+            self.harga_kendaraan is not None and self.nominal_booking_fee is not None
+            and self.nominal_booking_fee > self.harga_kendaraan
+        ):
+            galat['nominal_booking_fee'] = 'Booking Fee tidak boleh melebihi harga kendaraan.'
+        if galat:
+            raise ValidationError(galat)
+
+    @staticmethod
+    def _buat_nomor_pesanan():
+        tanggal = timezone.localtime(timezone.now(), ZONA_WITA).strftime('%Y%m%d')
+        while True:
+            nomor = f'PB-MBG-{tanggal}-{uuid.uuid4().hex[:6].upper()}'
+            if not PesananPembelian.objects.filter(nomor_pesanan=nomor).exists():
+                return nomor
+
+    def _pastikan_data_terkunci_utuh(self, update_fields):
+        """Snapshot harga/Booking Fee beku; masa booking hanya boleh diisi sekali (tanpa perpanjangan)."""
+        if update_fields is not None and not (
+            set(update_fields)
+            & {'produk', 'harga_kendaraan', 'persentase_booking_fee',
+               'nominal_booking_fee', 'booking_berakhir_pada'}
+        ):
+            return
+        tersimpan = type(self).objects.filter(pk=self.pk).values(
+            *self.FIELD_SNAPSHOT_TERKUNCI, 'booking_berakhir_pada',
+        ).first()
+        if tersimpan is None:
+            return
+        for nama in self.FIELD_SNAPSHOT_TERKUNCI:
+            nilai = getattr(self, nama)
+            if isinstance(tersimpan[nama], Decimal) and nilai is not None:
+                nilai = Decimal(str(nilai))
+            if nilai != tersimpan[nama]:
+                raise ValueError('Snapshot kendaraan, harga, dan Booking Fee tidak dapat diubah.')
+        awal = tersimpan['booking_berakhir_pada']
+        if awal is not None and awal != self.booking_berakhir_pada:
+            raise ValueError('Masa booking tidak dapat diubah atau diperpanjang.')
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            if not self.nomor_pesanan:
+                self.nomor_pesanan = self._buat_nomor_pesanan()
+        else:
+            self._pastikan_data_terkunci_utuh(kwargs.get('update_fields'))
+        super().save(*args, **kwargs)
+
+    # ── Pembuatan pesanan (snapshot) ──────────────────────────────
+
+    @classmethod
+    def buat_dari_produk(
+        cls, produk, pelanggan, nama_pelanggan, no_whatsapp, metode_pembayaran,
+        opsi_penyerahan='showroom', email='', alamat_pengantaran='',
+    ):
+        """
+        Buat pesanan dengan snapshot harga dan Booking Fee dari pengaturan yang berlaku.
+        Unit TIDAK dikunci di sini; kunci baru berlaku setelah Booking Fee diverifikasi admin.
+        Hanya unit stok MBG (B2C) berstatus ready; unit C2C tetap memakai alur titip-jual.
+        """
+        if pelanggan is None:
+            raise ValueError('Pelanggan wajib diisi.')
+        with transaction.atomic():
+            produk = Produk.objects.get(pk=produk.pk)
+            if produk.tipe_penjual != 'B2C':
+                raise ValueError('Hanya unit stok MBG (B2C) yang dapat dipesan melalui alur ini.')
+            if produk.status_stok != 'ready':
+                raise ValueError('Kendaraan tidak tersedia untuk dipesan.')
+            if not produk.harga or produk.harga <= 0:
+                raise ValueError('Harga kendaraan belum valid.')
+            pengaturan = PengaturanPembelian.ambil()
+            pesanan = cls(
+                pelanggan=pelanggan,
+                produk=produk,
+                nama_pelanggan=(nama_pelanggan or '').strip(),
+                no_whatsapp=normalisasi_whatsapp(no_whatsapp),
+                email=email or '',
+                nama_kendaraan=produk.nama,
+                sku_kendaraan=produk.sku,
+                plat_nomor=produk.plat_nomor,
+                harga_kendaraan=produk.harga,
+                harga_promo=produk.harga_promo,
+                persentase_booking_fee=pengaturan.persentase_booking_fee,
+                nominal_booking_fee=pengaturan.hitung_booking_fee(produk.harga),
+                metode_pembayaran=metode_pembayaran,
+                opsi_penyerahan=opsi_penyerahan,
+                alamat_pengantaran=alamat_pengantaran or '',
+            )
+            pesanan.full_clean()
+            pesanan.save()
+            RiwayatPesanan.objects.create(
+                pesanan=pesanan, status_dari='', status_ke=pesanan.status,
+                diubah_oleh=pelanggan, catatan='Pesanan dibuat.',
+            )
+        return pesanan
+
+    # ── Ringkasan pembayaran ──────────────────────────────────────
+
+    def total_terverifikasi(self):
+        """Total pembayaran (Booking Fee + DP + pelunasan) yang sudah diverifikasi admin."""
+        total = self.pembayaran.filter(status='terverifikasi').aggregate(
+            total=models.Sum('nominal'),
+        )['total']
+        return total or Decimal('0')
+
+    def sisa_pembayaran(self):
+        """Booking Fee adalah bagian dari harga kendaraan, jadi ikut mengurangi sisa."""
+        return max(self.harga_kendaraan - self.total_terverifikasi(), Decimal('0'))
+
+    def booking_masih_berlaku(self, sekarang=None):
+        sekarang = sekarang or timezone.now()
+        return (
+            self.status == 'booking_aktif'
+            and self.booking_berakhir_pada is not None
+            and sekarang <= self.booking_berakhir_pada
+        )
+
+    def transisi_diizinkan(self):
+        return self.TRANSISI_DIIZINKAN.get(self.status, [])
+
+    def dapat_transisi_ke(self, status_baru):
+        return status_baru in self.transisi_diizinkan()
+
+    # ── Internal: kunci baris, transisi, kunci unit ───────────────
+
+    @classmethod
+    def _kunci(cls, pk):
+        """
+        Kunci Produk lalu pesanan (urutan tetap). Wajib dipanggil di dalam atomic().
+        Mengembalikan (produk, pesanan) yang segar dan terkunci.
+        """
+        produk_id = cls.objects.values_list('produk_id', flat=True).get(pk=pk)
+        produk = Produk.objects.select_for_update().get(pk=produk_id)
+        pesanan = cls.objects.select_for_update().get(pk=pk)
+        return produk, pesanan
+
+    def _pindah_status(self, status_baru, oleh_user=None, catatan=''):
+        if not self.dapat_transisi_ke(status_baru):
+            raise ValueError(
+                f"Transisi pesanan dari '{self.get_status_display()}' ke "
+                f"'{dict(self.STATUS_CHOICES).get(status_baru, status_baru)}' tidak diizinkan."
+            )
+        status_lama = self.status
+        self.status = status_baru
+        self.save(update_fields=['status', 'updated_at'])
+        RiwayatPesanan.objects.create(
+            pesanan=self, status_dari=status_lama, status_ke=status_baru,
+            diubah_oleh=oleh_user, catatan=catatan,
+        )
+
+    @staticmethod
+    def _lepas_kunci_unit(produk):
+        """Kembalikan unit ke ready. Hanya dipanggil oleh pesanan yang memegang kunci."""
+        if produk.status_stok == 'in_review':
+            produk.status_stok = 'ready'
+            produk.save(update_fields=['status_stok', 'updated_at'])
+
+    def _pastikan_pemilik_atau_staf(self, user):
+        if not user or not (
+            user.is_staff or user.is_superuser
+            or (self.pelanggan_id is not None and user.pk == self.pelanggan_id)
+        ):
+            raise ValueError('Tindakan ini hanya dapat dilakukan oleh pelanggan pemilik pesanan atau staf MBG.')
+
+    # ── Proses bisnis ─────────────────────────────────────────────
+
+    def kedaluwarsakan(self, sekarang=None):
+        """
+        Akhiri masa booking yang sudah lewat dan lepaskan kunci unit. Tidak ada perpanjangan.
+        Pesanan yang sudah lunas tidak dikedaluwarsakan. Mengembalikan True jika berubah.
+        """
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            produk, pesanan = self._kunci(self.pk)
+            self.refresh_from_db()
+            if pesanan.status != 'booking_aktif' or pesanan.booking_berakhir_pada is None:
+                return False
+            if sekarang <= pesanan.booking_berakhir_pada:
+                return False
+            if pesanan.sisa_pembayaran() == 0:
+                return False
+            pesanan._pindah_status('kedaluwarsa', None, 'Masa booking berakhir pukul 23.59 WITA.')
+            self._lepas_kunci_unit(produk)
+        self.refresh_from_db()
+        return True
+
+    def selesaikan(self, oleh_user, catatan=''):
+        """Tandai pesanan selesai (staf). Wajib lunas; unit menjadi terjual."""
+        _pastikan_staf(oleh_user)
+        with transaction.atomic():
+            produk, pesanan = self._kunci(self.pk)
+            if pesanan.status != 'booking_aktif':
+                raise ValueError('Hanya pesanan dengan booking aktif yang dapat diselesaikan.')
+            if pesanan.sisa_pembayaran() > 0:
+                raise ValueError('Pembayaran kendaraan belum lunas.')
+            if produk.status_stok != 'in_review':
+                raise ValueError('Kunci unit tidak lagi aktif; periksa status kendaraan.')
+            pesanan._pindah_status('selesai', oleh_user, catatan)
+            produk.status_stok = 'sold'
+            produk.save(update_fields=['status_stok', 'updated_at'])
+        self.refresh_from_db()
+        return self
+
+    def batalkan_tanpa_pembayaran(self, oleh_user, alasan):
+        """
+        Pembatalan oleh pelanggan/staf sebelum ada pembayaran terverifikasi (tidak ada refund).
+        Alasan wajib dicatat. Ditolak jika masih ada pembayaran yang menunggu verifikasi,
+        agar dana yang sudah diterima tidak terlewat.
+        """
+        alasan = _alasan_wajib(alasan, 'Alasan pembatalan wajib dicatat.')
+        self._pastikan_pemilik_atau_staf(oleh_user)
+        with transaction.atomic():
+            produk, pesanan = self._kunci(self.pk)
+            if pesanan.status != 'menunggu_booking_fee':
+                raise ValueError(
+                    'Pembatalan langsung hanya untuk pesanan yang belum ada pembayaran terverifikasi; '
+                    'gunakan pengajuan pembatalan dan refund.'
+                )
+            if pesanan.pembayaran.filter(status='menunggu_verifikasi').exists():
+                raise ValueError('Masih ada pembayaran yang menunggu verifikasi admin.')
+            pesanan._pindah_status('dibatalkan', oleh_user, alasan)
+        self.refresh_from_db()
+        return self
+
+    def ajukan_pembatalan(self, diajukan_oleh, alasan):
+        """
+        Pelanggan mengajukan pembatalan + refund sebelum transaksi selesai. Alasan wajib
+        dicatat. Pesanan baru dibatalkan (dan unit dilepas) setelah admin menyetujui refund.
+        """
+        alasan = _alasan_wajib(alasan, 'Alasan pembatalan wajib dicatat.')
+        self._pastikan_pemilik_atau_staf(diajukan_oleh)
+        with transaction.atomic():
+            produk, pesanan = self._kunci(self.pk)
+            if pesanan.status not in self.STATUS_DAPAT_DIBATALKAN:
+                raise ValueError('Pembatalan tidak dapat diajukan untuk pesanan yang sudah selesai atau dibatalkan.')
+            if pesanan.refund.filter(status__in=RefundPesanan.STATUS_TERBUKA).exists():
+                raise ValueError('Sudah ada pengajuan refund yang sedang diproses untuk pesanan ini.')
+            nominal = pesanan.total_terverifikasi()
+            if nominal <= 0:
+                raise ValueError(
+                    'Belum ada pembayaran terverifikasi yang dapat di-refund; '
+                    'gunakan pembatalan tanpa pembayaran.'
+                )
+            refund = RefundPesanan.objects.create(
+                pesanan=pesanan, alasan=alasan, nominal_diajukan=nominal,
+                diajukan_oleh=diajukan_oleh,
+            )
+        self.refresh_from_db()
+        return refund
+
+
+class PembayaranPesanan(models.Model):
+    JENIS_CHOICES = [
+        ('booking_fee', 'Booking Fee'),
+        ('dp', 'Uang Muka (DP)'),
+        ('pelunasan', 'Pelunasan'),
+    ]
+    SALURAN_CHOICES = [
+        ('transfer', 'Transfer Bank Manual'),
+        ('va', 'Virtual Account'),
+        ('qris', 'QRIS'),
+        ('tunai', 'Tunai di Showroom'),
+    ]
+    STATUS_CHOICES = [
+        ('menunggu_verifikasi', 'Menunggu Verifikasi'),
+        ('terverifikasi', 'Terverifikasi'),
+        ('ditolak', 'Ditolak'),
+    ]
+    TRANSISI_DIIZINKAN = {
+        'menunggu_verifikasi': ['terverifikasi', 'ditolak'],
+        'terverifikasi': [],
+        'ditolak': [],
+    }
+
+    pesanan = models.ForeignKey(
+        PesananPembelian, on_delete=models.PROTECT, related_name='pembayaran',
+        verbose_name="Pesanan",
+    )
+    jenis = models.CharField(max_length=12, choices=JENIS_CHOICES, verbose_name="Jenis Pembayaran")
+    nominal = models.DecimalField(max_digits=12, decimal_places=0, verbose_name="Nominal (Rp)")
+    saluran = models.CharField(
+        max_length=10, choices=SALURAN_CHOICES, default='transfer', verbose_name="Saluran Pembayaran",
+    )
+    nomor_referensi = models.CharField(
+        max_length=100, blank=True, verbose_name="Nomor Referensi",
+        help_text="Nomor referensi transfer/QRIS/VA dari pelanggan.",
+    )
+    tanggal_bayar = models.DateTimeField(null=True, blank=True, verbose_name="Waktu Pembayaran")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='menunggu_verifikasi',
+        db_index=True, verbose_name="Status Pembayaran",
+    )
+    diverifikasi_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='pembayaran_pesanan_diverifikasi',
+        verbose_name="Diverifikasi Oleh",
+    )
+    tanggal_verifikasi = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Verifikasi")
+    catatan_verifikasi = models.TextField(blank=True, verbose_name="Catatan Verifikasi")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [
+            models.Index(fields=['pesanan', 'status']),
+            models.Index(fields=['pesanan', 'jenis']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(nominal__gt=0),
+                name='pembayaran_pesanan_nominal_positif',
+            ),
+        ]
+        verbose_name = "Pembayaran Pesanan"
+        verbose_name_plural = "Pembayaran Pesanan"
+
+    def __str__(self):
+        return f'{self.pesanan.nomor_pesanan} — {self.get_jenis_display()} ({self.get_status_display()})'
+
+    def clean(self):
+        galat = {}
+        if self.nominal is not None and self.nominal <= 0:
+            galat['nominal'] = 'Nominal pembayaran harus lebih dari nol.'
+        if self.pesanan_id:
+            pesanan = self.pesanan
+            if self._state.adding:
+                if self.jenis == 'booking_fee' and pesanan.status != 'menunggu_booking_fee':
+                    galat['jenis'] = 'Booking Fee hanya dapat dibayar pada pesanan yang menunggu Booking Fee.'
+                elif self.jenis in ('dp', 'pelunasan') and pesanan.status != 'booking_aktif':
+                    galat['jenis'] = 'DP dan pelunasan hanya dapat dibayar setelah Booking Fee diverifikasi dan selama booking aktif.'
+            if (
+                self.jenis == 'booking_fee' and self.nominal is not None
+                and self.nominal != pesanan.nominal_booking_fee
+            ):
+                galat['nominal'] = 'Nominal Booking Fee harus sama dengan Booking Fee pada pesanan.'
+        if galat:
+            raise ValidationError(galat)
+
+    def verifikasi(self, oleh_user, catatan='', sekarang=None):
+        """
+        Verifikasi pembayaran oleh staf. Verifikasi Booking Fee mengunci unit (Produk →
+        'in_review') dan menetapkan masa booking sampai 23.59 WITA pada tanggal verifikasi.
+        `sekarang` hanya untuk pengujian.
+        """
+        _pastikan_staf(oleh_user)
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            produk, pesanan = PesananPembelian._kunci(self.pesanan_id)
+            PembayaranPesanan.objects.select_for_update().get(pk=self.pk)
+            self.refresh_from_db()
+            if self.status != 'menunggu_verifikasi':
+                raise ValueError('Pembayaran ini sudah diproses.')
+            if self.jenis == 'booking_fee':
+                if pesanan.status != 'menunggu_booking_fee':
+                    raise ValueError('Booking Fee hanya dapat diverifikasi untuk pesanan yang menunggu Booking Fee.')
+                if self.nominal != pesanan.nominal_booking_fee:
+                    raise ValueError('Nominal Booking Fee tidak sesuai dengan pesanan.')
+                if produk.status_stok != 'ready':
+                    raise ValueError('Kendaraan sudah tidak tersedia (sedang dikunci atau terjual).')
+                produk.status_stok = 'in_review'
+                produk.save(update_fields=['status_stok', 'updated_at'])
+                pesanan.booking_berakhir_pada = akhir_masa_booking(sekarang)
+                pesanan.save(update_fields=['booking_berakhir_pada', 'updated_at'])
+                pesanan._pindah_status(
+                    'booking_aktif', oleh_user,
+                    'Booking Fee diverifikasi; unit dikunci sampai masa booking berakhir.',
+                )
+            else:
+                if not pesanan.booking_masih_berlaku(sekarang):
+                    raise ValueError('Masa booking tidak aktif atau sudah berakhir.')
+                sisa = pesanan.sisa_pembayaran()
+                if self.nominal > sisa:
+                    raise ValueError('Nominal melebihi sisa pembayaran kendaraan.')
+                if self.jenis == 'pelunasan' and self.nominal != sisa:
+                    raise ValueError('Nominal pelunasan harus sama dengan sisa pembayaran.')
+            self.status = 'terverifikasi'
+            self.diverifikasi_oleh = oleh_user
+            self.tanggal_verifikasi = sekarang
+            self.catatan_verifikasi = catatan
+            self.save()
+        return self
+
+    def tolak(self, oleh_user, catatan, sekarang=None):
+        """Tolak pembayaran (staf). Alasan penolakan wajib dicatat."""
+        _pastikan_staf(oleh_user)
+        catatan = _alasan_wajib(catatan, 'Alasan penolakan pembayaran wajib dicatat.')
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            PesananPembelian.objects.select_for_update().get(pk=self.pesanan_id)
+            PembayaranPesanan.objects.select_for_update().get(pk=self.pk)
+            self.refresh_from_db()
+            if self.status != 'menunggu_verifikasi':
+                raise ValueError('Pembayaran ini sudah diproses.')
+            self.status = 'ditolak'
+            self.diverifikasi_oleh = oleh_user
+            self.tanggal_verifikasi = sekarang
+            self.catatan_verifikasi = catatan
+            self.save()
+        return self
+
+
+class RefundPesanan(models.Model):
+    STATUS_CHOICES = [
+        ('diajukan', 'Diajukan — Menunggu Verifikasi Admin'),
+        ('disetujui', 'Disetujui — Menunggu Pengembalian Dana'),
+        ('ditolak', 'Ditolak'),
+        ('dikembalikan', 'Dana Telah Dikembalikan'),
+    ]
+    TRANSISI_DIIZINKAN = {
+        'diajukan': ['disetujui', 'ditolak'],
+        'disetujui': ['dikembalikan'],
+        'ditolak': [],
+        'dikembalikan': [],
+    }
+    STATUS_TERBUKA = ('diajukan', 'disetujui')
+
+    pesanan = models.ForeignKey(
+        PesananPembelian, on_delete=models.PROTECT, related_name='refund',
+        verbose_name="Pesanan",
+    )
+    alasan = models.TextField(verbose_name="Alasan Pembatalan/Refund")
+    nominal_diajukan = models.DecimalField(
+        max_digits=12, decimal_places=0, verbose_name="Nominal Diajukan (Rp)",
+        help_text="Total pembayaran terverifikasi saat pengajuan.",
+    )
+    nominal_disetujui = models.DecimalField(
+        max_digits=12, decimal_places=0, null=True, blank=True,
+        verbose_name="Nominal Disetujui (Rp)",
+    )
+    status = models.CharField(
+        max_length=14, choices=STATUS_CHOICES, default='diajukan',
+        db_index=True, verbose_name="Status Refund",
+    )
+    diajukan_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name='refund_pesanan_diajukan', verbose_name="Diajukan Oleh",
+    )
+    diverifikasi_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='refund_pesanan_diverifikasi',
+        verbose_name="Diverifikasi Oleh",
+    )
+    tanggal_verifikasi = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Verifikasi")
+    catatan_verifikasi = models.TextField(blank=True, verbose_name="Catatan Verifikasi")
+    dicatat_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='refund_pesanan_dicatat',
+        verbose_name="Pengembalian Dicatat Oleh",
+    )
+    tanggal_pengembalian = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Pengembalian Dana")
+    nomor_referensi_pengembalian = models.CharField(
+        max_length=100, blank=True, verbose_name="Nomor Referensi Pengembalian",
+    )
+    catatan_pengembalian = models.TextField(blank=True, verbose_name="Catatan Pengembalian")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [models.Index(fields=['pesanan', 'status'])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(nominal_diajukan__gt=0),
+                name='refund_pesanan_diajukan_positif',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(nominal_disetujui__isnull=True)
+                | (models.Q(nominal_disetujui__gt=0)
+                   & models.Q(nominal_disetujui__lte=models.F('nominal_diajukan'))),
+                name='refund_pesanan_disetujui_valid',
+            ),
+        ]
+        verbose_name = "Refund Pesanan"
+        verbose_name_plural = "Refund Pesanan"
+
+    def __str__(self):
+        return f'Refund {self.pesanan.nomor_pesanan} — {self.get_status_display()}'
+
+    def clean(self):
+        galat = {}
+        if not (self.alasan or '').strip():
+            galat['alasan'] = 'Alasan pembatalan/refund wajib diisi.'
+        if (
+            self.nominal_disetujui is not None and self.nominal_diajukan is not None
+            and not (0 < self.nominal_disetujui <= self.nominal_diajukan)
+        ):
+            galat['nominal_disetujui'] = 'Nominal disetujui harus lebih dari nol dan tidak melebihi nominal diajukan.'
+        if galat:
+            raise ValidationError(galat)
+
+    def _kunci_refund(self):
+        """Kunci Produk → pesanan → refund (urutan tetap). Wajib di dalam atomic()."""
+        produk, pesanan = PesananPembelian._kunci(self.pesanan_id)
+        RefundPesanan.objects.select_for_update().get(pk=self.pk)
+        self.refresh_from_db()
+        return produk, pesanan
+
+    def setujui(self, oleh_user, nominal_disetujui=None, catatan='', sekarang=None):
+        """
+        Verifikasi refund oleh admin. Menyetujui berarti pesanan dibatalkan dan, jika pesanan
+        ini yang memegang kunci unit, unit dilepas kembali ke ready.
+        """
+        _pastikan_staf(oleh_user)
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            produk, pesanan = self._kunci_refund()
+            if self.status != 'diajukan':
+                raise ValueError('Refund ini sudah diverifikasi.')
+            if pesanan.status not in PesananPembelian.STATUS_DAPAT_DIBATALKAN:
+                raise ValueError('Pesanan sudah selesai atau dibatalkan.')
+            nominal = self.nominal_diajukan if nominal_disetujui is None else Decimal(nominal_disetujui)
+            if not (0 < nominal <= self.nominal_diajukan):
+                raise ValueError('Nominal disetujui harus lebih dari nol dan tidak melebihi nominal diajukan.')
+            memegang_kunci = pesanan.status == 'booking_aktif'
+            pesanan._pindah_status(
+                'dibatalkan', oleh_user, f'Pembatalan disetujui. Alasan pelanggan: {self.alasan}',
+            )
+            if memegang_kunci:
+                PesananPembelian._lepas_kunci_unit(produk)
+            self.status = 'disetujui'
+            self.nominal_disetujui = nominal
+            self.diverifikasi_oleh = oleh_user
+            self.tanggal_verifikasi = sekarang
+            self.catatan_verifikasi = catatan
+            self.save()
+        return self
+
+    def tolak(self, oleh_user, catatan, sekarang=None):
+        """Tolak refund (admin). Pesanan tetap berjalan; alasan penolakan wajib dicatat."""
+        _pastikan_staf(oleh_user)
+        catatan = _alasan_wajib(catatan, 'Alasan penolakan refund wajib dicatat.')
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            self._kunci_refund()
+            if self.status != 'diajukan':
+                raise ValueError('Refund ini sudah diverifikasi.')
+            self.status = 'ditolak'
+            self.diverifikasi_oleh = oleh_user
+            self.tanggal_verifikasi = sekarang
+            self.catatan_verifikasi = catatan
+            self.save()
+        return self
+
+    def catat_pengembalian(self, oleh_user, nomor_referensi, catatan='', sekarang=None):
+        """Catat pengembalian dana sebesar nominal disetujui (admin) setelah transfer dilakukan."""
+        _pastikan_staf(oleh_user)
+        nomor_referensi = _alasan_wajib(nomor_referensi, 'Nomor referensi pengembalian dana wajib dicatat.')
+        sekarang = sekarang or timezone.now()
+        with transaction.atomic():
+            self._kunci_refund()
+            if self.status != 'disetujui':
+                raise ValueError('Pengembalian dana hanya dapat dicatat untuk refund yang sudah disetujui.')
+            self.status = 'dikembalikan'
+            self.dicatat_oleh = oleh_user
+            self.tanggal_pengembalian = sekarang
+            self.nomor_referensi_pengembalian = nomor_referensi
+            self.catatan_pengembalian = catatan
+            self.save()
+        return self
+
+
+class RiwayatPesanan(models.Model):
+    pesanan = models.ForeignKey(
+        PesananPembelian, on_delete=models.CASCADE, related_name='riwayat',
+        verbose_name="Pesanan",
+    )
+    status_dari = models.CharField(max_length=24, blank=True, verbose_name="Status Sebelumnya")
+    status_ke = models.CharField(
+        max_length=24, choices=PesananPembelian.STATUS_CHOICES, verbose_name="Status Baru",
+    )
+    diubah_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='riwayat_pesanan_pembelian',
+        verbose_name="Diubah Oleh",
+    )
+    catatan = models.TextField(blank=True, verbose_name="Catatan")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        verbose_name = "Riwayat Pesanan Pembelian"
+        verbose_name_plural = "Riwayat Pesanan Pembelian"
+
+    def __str__(self):
+        return f'{self.pesanan.nomor_pesanan}: {self.status_dari or "—"} → {self.status_ke}'

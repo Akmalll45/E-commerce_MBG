@@ -9,6 +9,7 @@ from .models import (
     ChecklistInspeksiC2C, InspeksiC2C, HasilChecklistInspeksiC2C,
     BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide,
+    PengaturanPembelian,
 )
 
 
@@ -333,3 +334,21 @@ class PengaturanWebsiteAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# ── Pengaturan Pembelian (Singleton) ──────────────────────────────
+
+@admin.register(PengaturanPembelian)
+class PengaturanPembelianAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'persentase_booking_fee', 'diperbarui_oleh', 'updated_at')
+    readonly_fields = ('diperbarui_oleh', 'updated_at')
+
+    def has_add_permission(self, request):
+        return not PengaturanPembelian.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        obj.diperbarui_oleh = request.user
+        super().save_model(request, obj, form, change)
