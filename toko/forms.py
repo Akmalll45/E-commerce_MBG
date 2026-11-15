@@ -14,7 +14,8 @@ from django.utils import timezone
 from .models import (
     Produk, TitipJual, SerahTerimaUnit, ChecklistInspeksiC2C,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
-    PengaturanWebsite, RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
+    PengaturanWebsite, PesananPembelian, PengaturanPembelian,
+    RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
     normalisasi_whatsapp, validasi_whatsapp,
 )
 
@@ -1606,3 +1607,87 @@ class PengaturanWebsiteForm(forms.ModelForm):
 
     def clean_youtube(self):
         return self._bersihkan_url('youtube')
+
+
+# ═══════════════════════════════════════════════════════════════════
+# FORM CHECKOUT PEMBELIAN MOBIL (CUSTOMER PURCHASE FLOW)
+# ═══════════════════════════════════════════════════════════════════
+
+class CheckoutPembelianForm(forms.Form):
+    """
+    Formulir checkout pembelian mobil oleh pelanggan terautentikasi (Sprint 2).
+    Mengumpulkan identitas pemesan, pilihan pembayaran (cash/kredit), dan penyerahan unit.
+    """
+    nama_pelanggan = forms.CharField(
+        max_length=120,
+        label="Nama Lengkap Pemesan",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Nama lengkap sesuai KTP',
+            'autocomplete': 'name',
+            'required': True,
+        }),
+    )
+    no_whatsapp = forms.CharField(
+        max_length=20,
+        label="Nomor WhatsApp Aktif",
+        help_text="Format nomor Indonesia, misal: 0812-3456-7890 atau 6281234567890",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': '0812-3456-7890',
+            'autocomplete': 'tel',
+            'required': True,
+        }),
+    )
+    email = forms.EmailField(
+        required=False,
+        label="Alamat Email (Opsional)",
+        help_text="Digunakan untuk pengiriman salinan pesanan dan bukti transaksi",
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'nama@email.com',
+            'autocomplete': 'email',
+        }),
+    )
+    metode_pembayaran = forms.ChoiceField(
+        choices=PesananPembelian.METODE_PEMBAYARAN_CHOICES,
+        label="Metode Pembayaran Kendaraan",
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        initial='cash',
+    )
+    opsi_penyerahan = forms.ChoiceField(
+        choices=PesananPembelian.OPSI_PENYERAHAN_CHOICES,
+        label="Pilihan Penyerahan Kendaraan",
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        initial='showroom',
+    )
+    alamat_pengantaran = forms.CharField(
+        required=False,
+        label="Alamat Pengantaran Unit",
+        help_text="Wajib diisi jika memilih opsi pengantaran via truk towing ke rumah.",
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Alamat lengkap tujuan pengantaran towing (nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan, patokan lokasi)...',
+        }),
+    )
+
+    def clean_nama_pelanggan(self):
+        nama = ' '.join((self.cleaned_data.get('nama_pelanggan') or '').split())
+        if not nama:
+            raise ValidationError("Nama pelanggan wajib diisi.")
+        return nama
+
+    def clean_no_whatsapp(self):
+        nomor_mentah = self.cleaned_data.get('no_whatsapp') or ''
+        nomor = normalisasi_whatsapp(nomor_mentah)
+        validasi_whatsapp(nomor)
+        return nomor
+
+    def clean(self):
+        cleaned_data = super().clean()
+        opsi = cleaned_data.get('opsi_penyerahan')
+        alamat = (cleaned_data.get('alamat_pengantaran') or '').strip()
+        if opsi == 'towing' and not alamat:
+            self.add_error('alamat_pengantaran', "Alamat pengantaran wajib diisi jika memilih pengantaran towing.")
+        return cleaned_data

@@ -25,6 +25,7 @@ from .models import (
     TransaksiTitipJual, RiwayatTransaksiTitipJual,
     BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
+    PesananPembelian, PengaturanPembelian, RiwayatPesanan,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
@@ -34,6 +35,7 @@ from .forms import (
     SelesaikanPenjualanC2CForm, validasi_foto_mobil,
     validasi_dokumen_titip_jual,
     KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm, PengaturanWebsiteForm,
+    CheckoutPembelianForm,
 )
 
 User = get_user_model()
@@ -450,13 +452,16 @@ def dashboard_user(request):
         user_transaksi = Transaksi.objects.none()
 
     user_titip_jual = TitipJual.objects.filter(pengguna=user).order_by('-created_at')
+    user_pesanan_pembelian = PesananPembelian.objects.filter(pelanggan=user).select_related('produk').order_by('-created_at')
     context = {
         'user': user,
         'user_bookings': user_bookings,
         'user_titip_jual': user_titip_jual,
         'user_transaksi': user_transaksi,
+        'user_pesanan_pembelian': user_pesanan_pembelian,
         'total_booking': user_bookings.count(),
         'total_titip_jual': user_titip_jual.count(),
+        'total_pesanan_pembelian': user_pesanan_pembelian.count(),
         'titip_jual_dalam_proses': user_titip_jual.filter(
             status__in=['pending', 'revisi', 'dijadwalkan', 'inspeksi', 'negosiasi']
         ).count(),
@@ -2746,4 +2751,187 @@ def admin_pengaturan(request):
         'form':       form,
         'page_title': 'Pengaturan Website',
         'terakhir':   pengaturan.updated_at if pengaturan.pk else None,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 14. ALUR PEMBELIAN MOBIL OLEH PELANGGAN (SPRINT 2 — CUSTOMER PURCHASE FLOW)
+# ═══════════════════════════════════════════════════════════════════
+
+@login_required(login_url='login')
+def checkout_pembelian(request, id):
+    """
+    Halaman formulir checkout pembelian kendaraan stok MBG (B2C).
+    Hanya untuk pengguna yang sudah login.
+    Menampilkan rincian kendaraan, identitas pembeli, opsi pembayaran & penyerahan,
+    serta perhitungan Booking Fee dari PengaturanPembelian.
+    """
+    produk = get_object_or_404(Produk, pk=id)
+
+    # Validasi kelayakan unit untuk dibeli
+    if produk.tipe_penjual != 'B2C':
+        messages.error(request, 'Hanya unit stok MBG (B2C) yang dapat dibeli melalui alur ini.')
+        return redirect('detail_produk', id=produk.id)
+
+    if produk.status_stok != 'ready':
+        if produk.status_stok == 'in_review':
+            pesan = 'Kendaraan ini sedang dalam proses booking oleh pelanggan lain.'
+        elif produk.status_stok == 'sold':
+            pesan = 'Kendaraan ini sudah terjual (sold out).'
+        else:
+            pesan = 'Kendaraan ini tidak tersedia untuk dipesan.'
+        messages.error(request, pesan)
+        return redirect('detail_produk', id=produk.id)
+
+    pengaturan = PengaturanPembelian.ambil()
+    nominal_booking_fee = pengaturan.hitung_booking_fee(produk.harga)
+
+    # Cek apakah pengguna sudah memiliki pesanan menunggu booking fee untuk unit ini
+    pesanan_menunggu = PesananPembelian.objects.filter(
+        produk=produk, pelanggan=request.user, status='menunggu_booking_fee',
+    ).first()
+
+    session_key = f'checkout_{produk.id}'
+
+    if request.method == 'POST':
+        form = CheckoutPembelianForm(request.POST)
+        if form.is_valid():
+            # Simpan data checkout yang tervalidasi ke session untuk konfirmasi
+            request.session[session_key] = form.cleaned_data
+            return redirect('konfirmasi_pembelian', id=produk.id)
+    else:
+        # Pre-fill data pemesan dari session sebelumnya atau profil akun pengguna
+        stored_data = request.session.get(session_key)
+        if stored_data:
+            form = CheckoutPembelianForm(initial=stored_data)
+        else:
+            initial_data = {
+                'nama_pelanggan': request.user.get_full_name() or request.user.username,
+                'no_whatsapp': request.user.no_whatsapp or '',
+                'email': request.user.email or '',
+                'alamat_pengantaran': request.user.alamat or '',
+                'metode_pembayaran': 'cash',
+                'opsi_penyerahan': 'showroom',
+            }
+            form = CheckoutPembelianForm(initial=initial_data)
+
+    sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
+
+    return render(request, 'pembelian/checkout.html', {
+        'produk': produk,
+        'form': form,
+        'pengaturan': pengaturan,
+        'persentase_booking_fee': pengaturan.persentase_booking_fee,
+        'nominal_booking_fee': nominal_booking_fee,
+        'sisa_estimasi': sisa_estimasi,
+        'pesanan_menunggu': pesanan_menunggu,
+    })
+
+
+@login_required(login_url='login')
+def konfirmasi_pembelian(request, id):
+    """
+    Halaman konfirmasi pesanan sebelum dibuat secara permanen di database.
+    Menampilkan ringkasan unit, identitas pemesan, rincian biaya, dan syarat booking fee.
+    Saat dikonfirmasi (POST), pesanan disimpan secara atomic dengan row-lock select_for_update.
+    """
+    produk = get_object_or_404(Produk, pk=id)
+    session_key = f'checkout_{produk.id}'
+    checkout_data = request.session.get(session_key)
+
+    if not checkout_data:
+        messages.warning(request, 'Silakan lengkapi formulir pemesanan terlebih dahulu.')
+        return redirect('checkout_pembelian', id=produk.id)
+
+    # Validasi ketersediaan unit
+    if produk.tipe_penjual != 'B2C' or produk.status_stok != 'ready':
+        messages.error(request, 'Maaf, unit kendaraan ini sudah tidak tersedia untuk dipesan.')
+        return redirect('detail_produk', id=produk.id)
+
+    pengaturan = PengaturanPembelian.ambil()
+    nominal_booking_fee = pengaturan.hitung_booking_fee(produk.harga)
+    sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
+
+    if request.method == 'POST':
+        # Pencegahan double booking dan race conditions dengan transaksi database + row-level lock
+        try:
+            with transaction.atomic():
+                produk_terkunci = Produk.objects.select_for_update().get(pk=produk.pk)
+                if produk_terkunci.tipe_penjual != 'B2C' or produk_terkunci.status_stok != 'ready':
+                    messages.error(request, 'Maaf, kendaraan ini baru saja tidak tersedia untuk dipesan.')
+                    return redirect('detail_produk', id=produk.id)
+
+                pesanan = PesananPembelian.buat_dari_produk(
+                    produk=produk_terkunci,
+                    pelanggan=request.user,
+                    nama_pelanggan=checkout_data['nama_pelanggan'],
+                    no_whatsapp=checkout_data['no_whatsapp'],
+                    metode_pembayaran=checkout_data['metode_pembayaran'],
+                    opsi_penyerahan=checkout_data['opsi_penyerahan'],
+                    email=checkout_data.get('email', ''),
+                    alamat_pengantaran=checkout_data.get('alamat_pengantaran', ''),
+                )
+
+            # Hapus data form di session setelah berhasil dibuat
+            request.session.pop(session_key, None)
+            messages.success(
+                request,
+                f'Pesanan {pesanan.nomor_pesanan} berhasil dibuat! '
+                f'Silakan lakukan pembayaran Booking Fee agar unit dapat diverifikasi dan dikunci.'
+            )
+            return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
+
+        except (ValueError, ValidationError) as e:
+            messages.error(request, f'Gagal membuat pesanan: {e}')
+            return redirect('checkout_pembelian', id=produk.id)
+
+    return render(request, 'pembelian/konfirmasi.html', {
+        'produk': produk,
+        'checkout_data': checkout_data,
+        'pengaturan': pengaturan,
+        'persentase_booking_fee': pengaturan.persentase_booking_fee,
+        'nominal_booking_fee': nominal_booking_fee,
+        'sisa_estimasi': sisa_estimasi,
+    })
+
+
+@login_required(login_url='login')
+def pesanan_berhasil(request, nomor_pesanan):
+    """
+    Halaman konfirmasi pesanan berhasil dibuat (Sprint 2).
+    Menampilkan nomor pesanan, instruksi pembayaran Booking Fee, dan status awal (menunggu Booking Fee).
+    """
+    pesanan = get_object_or_404(
+        PesananPembelian.objects.select_related('produk', 'pelanggan'),
+        nomor_pesanan=nomor_pesanan,
+    )
+
+    # Batasi akses hanya pemilik pesanan atau staf MBG
+    if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
+        raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
+
+    return render(request, 'pembelian/pesanan_berhasil.html', {
+        'pesanan': pesanan,
+        'produk': pesanan.produk,
+    })
+
+
+@login_required(login_url='login')
+def pesanan_detail(request, nomor_pesanan):
+    """
+    Halaman detail status pesanan pembelian untuk pelanggan.
+    Menampilkan timeline status, riwayat pembayaran, sisa tagihan, dan rincian unit.
+    """
+    pesanan = get_object_or_404(
+        PesananPembelian.objects.select_related('produk', 'pelanggan').prefetch_related('riwayat', 'pembayaran'),
+        nomor_pesanan=nomor_pesanan,
+    )
+
+    # Batasi akses hanya pemilik pesanan atau staf MBG
+    if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
+        raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
+
+    return render(request, 'pembelian/pesanan_detail.html', {
+        'pesanan': pesanan,
+        'produk': pesanan.produk,
     })

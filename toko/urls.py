@@ -109,4 +109,11 @@ urlpatterns = [
 
     # Pengaturan Website — Admin
     path('panel/pengaturan/', views.admin_pengaturan, name='admin_pengaturan'),
+
+    # Customer Purchase Flow (Sprint 2)
+    path('mobil/<int:id>/beli/', views.checkout_pembelian, name='beli_mobil'),
+    path('pembelian/<int:id>/checkout/', views.checkout_pembelian, name='checkout_pembelian'),
+    path('pembelian/<int:id>/konfirmasi/', views.konfirmasi_pembelian, name='konfirmasi_pembelian'),
+    path('pembelian/pesanan/<str:nomor_pesanan>/berhasil/', views.pesanan_berhasil, name='pesanan_berhasil'),
+    path('pembelian/pesanan/<str:nomor_pesanan>/', views.pesanan_detail, name='pesanan_detail'),
 ]

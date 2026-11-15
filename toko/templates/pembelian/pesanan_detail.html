@@ -1,0 +1,187 @@
+{% extends 'base_publik.html' %}
+{% load humanize %}
+
+{% block title %}Detail Pesanan {{ pesanan.nomor_pesanan }} — MBG Makassar{% endblock %}
+
+{% block content %}
+<section class="py-4 bg-light border-bottom">
+    <div class="container" style="max-width: 1040px;">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2 small">
+                <li class="breadcrumb-item"><a href="{% url 'beranda' %}" class="text-decoration-none">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'dashboard_user' %}" class="text-decoration-none">Dashboard Akun</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Pesanan {{ pesanan.nomor_pesanan }}</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h1 class="h3 fw-bold text-dark mb-1 font-heading">Detail Pesanan Pembelian</h1>
+                <p class="text-muted small mb-0">Nomor Pesanan: <strong class="font-monospace text-dark">{{ pesanan.nomor_pesanan }}</strong> &bull; Dibuat: {{ pesanan.created_at|date:"d M Y, H:i" }} WITA</p>
+            </div>
+            <div>
+                {% if pesanan.status == 'menunggu_booking_fee' %}
+                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-clock me-1"></i> Menunggu Booking Fee
+                    </span>
+                {% elif pesanan.status == 'booking_aktif' %}
+                    <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-lock me-1"></i> Booking Aktif (Unit Dikunci)
+                    </span>
+                {% elif pesanan.status == 'selesai' %}
+                    <span class="badge bg-primary px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-circle-check me-1"></i> Selesai
+                    </span>
+                {% elif pesanan.status == 'dibatalkan' %}
+                    <span class="badge bg-danger px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-ban me-1"></i> Dibatalkan
+                    </span>
+                {% elif pesanan.status == 'kedaluwarsa' %}
+                    <span class="badge bg-secondary px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-hourglass-end me-1"></i> Kedaluwarsa
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container" style="max-width: 1040px;">
+        <div class="row g-4">
+            <!-- Kolom Kiri: Detail Unit & Keuangan -->
+            <div class="col-lg-7">
+                <!-- Unit Card -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <h2 class="h6 fw-bold text-dark mb-0 font-heading">
+                            <i class="fa-solid fa-car text-primary me-2"></i> Unit Kendaraan
+                        </h2>
+                        <a href="{% url 'detail_produk' pesanan.produk_id %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                            Lihat di Katalog
+                        </a>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-4">
+                            {% if pesanan.produk.gambar_utama %}
+                                <img src="{{ pesanan.produk.gambar_utama.url }}" alt="{{ pesanan.nama_kendaraan }}" class="img-fluid rounded-3" style="width: 100%; height: 110px; object-fit: cover;">
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-8">
+                            <h3 class="h6 fw-bold text-dark mb-1 font-heading">{{ pesanan.nama_kendaraan }}</h3>
+                            <div class="small text-muted mb-2">
+                                SKU: <code>{{ pesanan.sku_kendaraan }}</code> &bull; Plat: <strong>{{ pesanan.plat_nomor }}</strong>
+                            </div>
+                            <div class="h5 fw-bold text-primary mb-0 font-heading">
+                                Rp {{ pesanan.harga_kendaraan|intcomma }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Pemesanan & Penyerahan -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h2 class="h6 fw-bold text-dark mb-3 pb-2 border-bottom font-heading">
+                        <i class="fa-solid fa-file-invoice text-primary me-2"></i> Data Pemesanan
+                    </h2>
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4 text-secondary">Pemesan</dt>
+                        <dd class="col-sm-8 text-dark fw-bold">{{ pesanan.nama_pelanggan }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">WhatsApp</dt>
+                        <dd class="col-sm-8 text-dark font-monospace">{{ pesanan.no_whatsapp }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">Email</dt>
+                        <dd class="col-sm-8 text-dark">{{ pesanan.email|default:"—" }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">Metode Bayar</dt>
+                        <dd class="col-sm-8 text-dark">{{ pesanan.get_metode_pembayaran_display }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">Penyerahan</dt>
+                        <dd class="col-sm-8 text-dark">{{ pesanan.get_opsi_penyerahan_display }}</dd>
+
+                        {% if pesanan.alamat_pengantaran %}
+                        <dt class="col-sm-4 text-secondary">Alamat Towing</dt>
+                        <dd class="col-sm-8 text-dark bg-light p-2 rounded-2 border">{{ pesanan.alamat_pengantaran }}</dd>
+                        {% endif %}
+
+                        {% if pesanan.booking_berakhir_pada %}
+                        <dt class="col-sm-4 text-secondary">Masa Booking</dt>
+                        <dd class="col-sm-8 text-danger fw-bold">Hingga {{ pesanan.booking_berakhir_pada|date:"d M Y, H:i" }} WITA</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+
+                <!-- Riwayat Aktivitas Pesanan -->
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <h2 class="h6 fw-bold text-dark mb-3 pb-2 border-bottom font-heading">
+                        <i class="fa-solid fa-clock-rotate-left text-primary me-2"></i> Riwayat Status Pesanan
+                    </h2>
+                    <div class="timeline small">
+                        {% for r in pesanan.riwayat.all %}
+                        <div class="d-flex gap-3 mb-3">
+                            <div class="text-primary mt-1"><i class="fa-solid fa-circle-dot"></i></div>
+                            <div>
+                                <div class="fw-bold text-dark">
+                                    {{ r.get_status_ke_display }}
+                                </div>
+                                <div class="text-muted">{{ r.created_at|date:"d M Y, H:i" }} WITA {% if r.diubah_oleh %}&bull; oleh {{ r.diubah_oleh.get_full_name|default:r.diubah_oleh.username }}{% endif %}</div>
+                                {% if r.catatan %}
+                                <div class="text-secondary mt-1 bg-light p-2 rounded-2 border">{{ r.catatan }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted small mb-0">Belum ada catatan riwayat status.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Keuangan & Aksi -->
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 position-sticky" style="top: 100px;">
+                    <h2 class="h6 fw-bold text-dark mb-3 pb-2 border-bottom font-heading">
+                        Status Pembayaran
+                    </h2>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2 small">
+                        <span class="text-secondary">Harga OTR</span>
+                        <span class="fw-bold text-dark">Rp {{ pesanan.harga_kendaraan|intcomma }}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2 small">
+                        <span class="text-secondary">Booking Fee ({{ pesanan.persentase_booking_fee }}%)</span>
+                        <span class="fw-bold text-primary">Rp {{ pesanan.nominal_booking_fee|intcomma }}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2 small">
+                        <span class="text-secondary">Total Terverifikasi</span>
+                        <span class="fw-bold text-success">Rp {{ pesanan.total_terverifikasi|intcomma }}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-4">
+                        <span class="fw-bold text-dark">Sisa Tagihan</span>
+                        <span class="h5 fw-bold text-dark mb-0 font-heading">Rp {{ pesanan.sisa_pembayaran|intcomma }}</span>
+                    </div>
+
+                    {% if pesanan.status == 'menunggu_booking_fee' %}
+                    <div class="alert alert-warning small mb-3 border-warning-subtle">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> menunggu verifikasi staf MBG.
+                    </div>
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20konfirmasi%20pembayaran%20Booking%20Fee%20untuk%20pesanan%20nomor%20{{ pesanan.nomor_pesanan }}."
+                       target="_blank" class="btn btn-success w-100 py-2.5 rounded-pill fw-bold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-brands fa-whatsapp fs-5"></i>
+                        <span>Konfirmasi via WhatsApp</span>
+                    </a>
+                    {% endif %}
+
+                    <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary w-100 py-2 small rounded-pill">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -444,11 +444,23 @@
                     </div>
                 </div>
 
-                <!-- 3 Quick Stat Cards -->
+                <!-- 4 Quick Stat Cards -->
                 <div class="row g-3 mb-4">
-                    <div class="col-md-4">
+                    <div class="col-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
                             <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fa-solid fa-cart-shopping"></i>
+                            </div>
+                            <div>
+                                <div class="stat-value">{{ total_pesanan_pembelian }}</div>
+                                <div class="stat-label">Pesanan Pembelian</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card d-flex align-items-center gap-3">
+                            <div class="stat-icon bg-info bg-opacity-10 text-info">
                                 <i class="fa-solid fa-calendar-check"></i>
                             </div>
                             <div>
@@ -458,27 +470,27 @@
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
                             <div class="stat-icon bg-warning bg-opacity-10 text-warning">
                                 <i class="fa-solid fa-hand-holding-dollar"></i>
                             </div>
                             <div>
                                 <div class="stat-value">{{ total_titip_jual }}</div>
-                                <div class="stat-label">Pengajuan Titip-Jual</div>
-                                <small class="text-muted d-block mt-1">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan · {{ titip_jual_terjual }} terjual</small>
+                                <div class="stat-label">Titip-Jual C2C</div>
+                                <small class="text-muted d-block mt-1">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
                             <div class="stat-icon bg-success bg-opacity-10 text-success">
                                 <i class="fa-solid fa-receipt"></i>
                             </div>
                             <div>
                                 <div class="stat-value">{{ total_transaksi }}</div>
-                                <div class="stat-label">Transaksi Selesai</div>
+                                <div class="stat-label">Transaksi O2O</div>
                             </div>
                         </div>
                     </div>
@@ -510,6 +522,81 @@
                             <div class="fw-bold text-dark">{{ user.alamat|default:"Makassar, Sulawesi Selatan" }}</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- 0. Daftar Pesanan Pembelian Mobil (B2C) -->
+                <div class="content-card mb-4">
+                    <div class="card-header-clean">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-cart-shopping text-primary me-2"></i> Pesanan Pembelian Mobil</h5>
+                        <span class="badge bg-primary rounded-pill px-3">{{ total_pesanan_pembelian }} Pesanan</span>
+                    </div>
+
+                    {% if user_pesanan_pembelian %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase text-secondary">
+                                    <tr>
+                                        <th>Nomor &amp; Kendaraan</th>
+                                        <th>Tanggal Pesan</th>
+                                        <th>Harga &amp; Booking Fee</th>
+                                        <th>Metode &amp; Opsi</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in user_pesanan_pembelian %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-dark font-monospace small text-primary">{{ p.nomor_pesanan }}</div>
+                                            <div class="fw-bold text-dark">{{ p.nama_kendaraan }}</div>
+                                            <small class="text-muted">SKU: {{ p.sku_kendaraan }} &bull; Plat: {{ p.plat_nomor }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="small fw-semibold text-dark">{{ p.created_at|date:"d M Y" }}</div>
+                                            <small class="text-muted">{{ p.created_at|date:"H:i" }} WITA</small>
+                                        </td>
+                                        <td>
+                                            <div class="small fw-bold text-dark">Rp {{ p.harga_kendaraan|intcomma }}</div>
+                                            <small class="text-primary fw-semibold">Fee: Rp {{ p.nominal_booking_fee|intcomma }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="small text-dark">{{ p.get_metode_pembayaran_display }}</div>
+                                            <small class="text-muted">{{ p.get_opsi_penyerahan_display }}</small>
+                                        </td>
+                                        <td>
+                                            {% if p.status == 'menunggu_booking_fee' %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu Booking Fee</span>
+                                            {% elif p.status == 'booking_aktif' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">Booking Aktif (Terkunci)</span>
+                                            {% elif p.status == 'selesai' %}
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill">Selesai</span>
+                                            {% elif p.status == 'dibatalkan' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">Dibatalkan</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2.5 py-1 rounded-pill">{{ p.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="{% url 'pesanan_detail' p.nomor_pesanan %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                Detail
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fa-solid fa-cart-arrow-down"></i></div>
+                            <h6 class="fw-bold text-dark mb-1">Belum Ada Pesanan Pembelian Mobil</h6>
+                            <p class="text-muted small mb-3">Temukan mobil impian bergaransi inspeksi transparan di garasi MBG Makassar.</p>
+                            <a href="{% url 'katalog' %}" class="btn btn-sm btn-primary rounded-pill px-4">
+                                <i class="fa-solid fa-car me-1"></i> Beli Mobil di Katalog
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- 1. Daftar Booking Cek Unit -->

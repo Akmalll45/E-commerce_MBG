@@ -1,0 +1,261 @@
+{% extends 'base_publik.html' %}
+{% load humanize %}
+
+{% block title %}Konfirmasi Pesanan — {{ produk.nama }} — MBG Makassar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-wizard {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        gap: 0.5rem;
+    }
+    .step-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #94A3B8;
+    }
+    .step-item.active {
+        color: var(--mbg-blue);
+    }
+    .step-item.completed {
+        color: var(--mbg-emerald);
+    }
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #E2E8F0;
+        color: #64748B;
+        display: grid;
+        place-items: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+    .step-item.active .step-number {
+        background: var(--mbg-blue);
+        color: #FFFFFF;
+        box-shadow: 0 0 0 4px var(--mbg-blue-glow);
+    }
+    .step-item.completed .step-number {
+        background: var(--mbg-emerald);
+        color: #FFFFFF;
+    }
+    .step-divider {
+        width: 40px;
+        height: 2px;
+        background: #CBD5E1;
+    }
+    .confirm-card {
+        background: var(--mbg-card);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-card);
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .confirm-unit-img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+    }
+    .summary-box {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="py-4 bg-light border-bottom">
+    <div class="container" style="max-width: 1040px;">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2 small">
+                <li class="breadcrumb-item"><a href="{% url 'beranda' %}" class="text-decoration-none">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'katalog' %}" class="text-decoration-none">Katalog Mobil</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'checkout_pembelian' produk.id %}" class="text-decoration-none">Checkout</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Konfirmasi Pesanan</li>
+            </ol>
+        </nav>
+        <h1 class="h3 fw-bold text-dark mb-0 font-heading">Konfirmasi Pesanan Pembelian</h1>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container" style="max-width: 1040px;">
+        <!-- Step Wizard -->
+        <div class="step-wizard">
+            <div class="step-item completed">
+                <div class="step-number"><i class="fa-solid fa-check"></i></div>
+                <span>Isi Data</span>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step-item active">
+                <div class="step-number">2</div>
+                <span>Konfirmasi Pesanan</span>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step-item">
+                <div class="step-number">3</div>
+                <span>Pesanan Selesai</span>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Kolom Kiri: Rincian Konfirmasi -->
+            <div class="col-lg-7">
+                <!-- Data Pemesan -->
+                <div class="confirm-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-user-check text-primary fs-5"></i>
+                            <h2 class="h6 fw-bold text-dark mb-0 font-heading">Identitas Pemesan</h2>
+                        </div>
+                        <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Ubah
+                        </a>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4 text-secondary">Nama Lengkap</dt>
+                        <dd class="col-sm-8 fw-bold text-dark mb-2">{{ checkout_data.nama_pelanggan }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">WhatsApp</dt>
+                        <dd class="col-sm-8 text-dark mb-2 font-monospace">{{ checkout_data.no_whatsapp }}</dd>
+
+                        <dt class="col-sm-4 text-secondary">Email</dt>
+                        <dd class="col-sm-8 text-dark mb-0">{{ checkout_data.email|default:"—" }}</dd>
+                    </dl>
+                </div>
+
+                <!-- Metode & Penyerahan -->
+                <div class="confirm-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-handshake text-primary fs-5"></i>
+                            <h2 class="h6 fw-bold text-dark mb-0 font-heading">Pilihan Pembelian &amp; Penyerahan</h2>
+                        </div>
+                        <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Ubah
+                        </a>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4 text-secondary">Rencana Bayar</dt>
+                        <dd class="col-sm-8 fw-bold text-dark mb-2">
+                            {% if checkout_data.metode_pembayaran == 'cash' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">
+                                    <i class="fa-solid fa-money-bill-wave me-1"></i> Cash / Tunai
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">
+                                    <i class="fa-solid fa-handshake me-1"></i> Kredit / Pembiayaan
+                                </span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4 text-secondary">Opsi Penyerahan</dt>
+                        <dd class="col-sm-8 fw-bold text-dark mb-2">
+                            {% if checkout_data.opsi_penyerahan == 'showroom' %}
+                                <i class="fa-solid fa-building text-warning me-1"></i> Ambil di Showroom MBG Makassar
+                            {% else %}
+                                <i class="fa-solid fa-truck-flatbed text-info me-1"></i> Diantar via Truk Towing ke Rumah
+                            {% endif %}
+                        </dd>
+
+                        {% if checkout_data.opsi_penyerahan == 'towing' %}
+                        <dt class="col-sm-4 text-secondary">Alamat Towing</dt>
+                        <dd class="col-sm-8 text-dark mb-0 bg-light p-2 rounded-2 border">
+                            {{ checkout_data.alamat_pengantaran }}
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+
+                <!-- Pernyataan & Kebijakan MBG -->
+                <div class="confirm-card border-primary-subtle" style="background: rgba(37, 99, 235, 0.02);">
+                    <div class="d-flex gap-3">
+                        <i class="fa-solid fa-shield-halved text-primary fs-3 mt-1"></i>
+                        <div>
+                            <h3 class="h6 fw-bold text-dark font-heading mb-1">Ketentuan Pemesanan Garasi MBG</h3>
+                            <ul class="text-secondary small mb-0 ps-3">
+                                <li class="mb-1">Booking Fee bersifat resmi sebagai tanda jadi dan memotong total harga kendaraan.</li>
+                                <li class="mb-1">Unit mobil akan resmi <strong>dikunci</strong> setelah bukti transfer diverifikasi oleh staf admin MBG.</li>
+                                <li>Pencegahan double-booking aktif: pesanan Anda dijamin aman di sistem transaksi database kami.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Ringkasan Final & Tombol Aksi -->
+            <div class="col-lg-5">
+                <div class="confirm-card position-sticky" style="top: 100px;">
+                    <h2 class="h5 fw-bold text-dark mb-3 pb-2 border-bottom font-heading">
+                        Ringkasan Pembayaran
+                    </h2>
+
+                    <!-- Kartu Unit Singkat -->
+                    <div class="d-flex gap-3 align-items-center mb-3 p-2 bg-light rounded-3 border">
+                        {% if produk.gambar_utama %}
+                            <img src="{{ produk.gambar_utama.url }}" alt="{{ produk.nama }}" style="width: 80px; height: 60px; object-fit: cover; border-radius: 8px;">
+                        {% endif %}
+                        <div class="overflow-hidden">
+                            <h3 class="h6 fw-bold text-dark mb-0 text-truncate font-heading">{{ produk.nama }}</h3>
+                            <small class="text-muted d-block">SKU: {{ produk.sku }} &bull; Plat: {{ produk.plat_nomor }}</small>
+                            <small class="text-primary fw-bold">Rp {{ produk.harga|intcomma }}</small>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown Biaya -->
+                    <div class="summary-box mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2 small">
+                            <span class="text-secondary">Harga OTR Kendaraan</span>
+                            <span class="fw-bold text-dark">Rp {{ produk.harga|intcomma }}</span>
+                        </div>
+
+                        {% if produk.harga_promo %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 small text-danger">
+                            <span><i class="fa-solid fa-tag me-1"></i> Subsidi DP Khusus</span>
+                            <span class="fw-bold">- Rp {{ produk.harga_promo|intcomma }}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
+                            <div>
+                                <span class="fw-bold text-primary small d-block">Booking Fee Wajib</span>
+                                <small class="text-muted">{{ persentase_booking_fee }}% dari harga</small>
+                            </div>
+                            <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ nominal_booking_fee|intcomma }}</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top small">
+                            <span class="text-secondary">Estimasi Sisa Tagihan</span>
+                            <span class="fw-bold text-dark">Rp {{ sisa_estimasi|intcomma }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Form Konfirmasi Final (POST) -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100 py-3 fs-6 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 mb-2" style="border-radius: 12px; background: linear-gradient(135deg, #10B981, #059669); border: none;">
+                            <i class="fa-solid fa-check-double fs-5"></i>
+                            <span>Konfirmasi &amp; Buat Pesanan</span>
+                        </button>
+                    </form>
+
+                    <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-outline-secondary w-100 py-2 small rounded-pill">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Kembali Ubah Data
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

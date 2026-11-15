@@ -1,0 +1,163 @@
+diff a/toko/templates/detail_mobil.html b/toko/templates/detail_mobil.html	(rejected hunks)
+@@ -104,45 +112,145 @@
+             font-family: 'Montserrat', sans-serif;
+             font-weight: 800; font-size: 1.35rem;
+             color: var(--mbg-navy); line-height: 1.1;
++            letter-spacing: -0.025em;
++            white-space: nowrap;
+         }
+         .brand-text .brand-sub {
+-            font-size: .70rem; font-weight: 700;
++            font-size: 0.70rem; font-weight: 700;
+             color: #64748B; text-transform: uppercase;
++            letter-spacing: 0.06em;
++            white-space: nowrap;
++        }
++
++        .navbar-mbg #desktopNav {
++            display: flex;
++            align-items: center;
++            justify-content: space-between;
++            flex-grow: 1;
++            gap: 1.25rem;
++            min-width: 0;
++        }
++        .navbar-mbg .navbar-nav {
++            display: flex;
++            align-items: center;
++            gap: 0.35rem;
++            margin: 0 auto !important;
++            flex-shrink: 1;
+         }
+         .nav-link {
+             font-family: 'Inter', system-ui, sans-serif;
+-            font-weight: 600 !important; font-size: 14.5px !important;
++            font-weight: 600 !important;
++            font-size: 14.5px !important;
+             color: #334155 !important;
+             padding: 0.55rem 0.85rem !important;
+             border-radius: 10px;
+-            text-decoration: none !important;
++            transition: all .2s ease;
+             white-space: nowrap;
++            text-decoration: none !important;
++            display: inline-flex;
++            align-items: center;
++            gap: 0.35rem;
++        }
++        .nav-link:hover, .nav-link.active {
++            color: var(--mbg-blue) !important;
++            background: rgba(37, 99, 235, 0.07);
++            text-decoration: none !important;
++        }
++
++        .navbar-mbg .dropdown-menu {
++            border-radius: 14px;
++            box-shadow: 0 10px 30px -4px rgba(8, 13, 26, 0.12);
++            border: 1px solid rgba(0, 0, 0, 0.06);
++            padding: 0.5rem;
++        }
++        .navbar-mbg .dropdown-item {
++            font-size: 0.88rem;
++            font-weight: 600;
++            border-radius: 8px;
++            padding: 0.55rem 0.85rem;
++            transition: all 0.15s ease;
++        }
++        .navbar-mbg .dropdown-item:hover {
++            background: rgba(37, 99, 235, 0.06);
++            color: var(--mbg-blue);
+         }
+-        .nav-link:hover { color: var(--mbg-blue) !important; background: rgba(37, 99, 235, 0.07); }
+ 
+         .nav-actions-wrap {
+-            display: flex; align-items: center; gap: 0.65rem; flex-shrink: 0;
++            display: flex;
++            align-items: center;
++            gap: 0.65rem;
++            flex-shrink: 0;
+         }
+         .nav-actions-wrap a, .nav-actions-wrap button {
+             text-decoration: none !important;
+         }
+ 
+         .btn-nav-auth-login {
+-            height: 46px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center;
+-            gap: 0.45rem; font-size: 0.88rem; font-weight: 700; color: var(--mbg-blue) !important;
+-            background: rgba(37, 99, 235, 0.06); border: 1.5px solid rgba(37, 99, 235, 0.25);
+-            border-radius: 999px; text-decoration: none !important; white-space: nowrap;
++            height: 46px;
++            padding: 0 1.25rem;
++            display: inline-flex;
++            align-items: center;
++            justify-content: center;
++            gap: 0.45rem;
++            font-size: 0.88rem;
++            font-weight: 700;
++            color: var(--mbg-blue) !important;
++            background: rgba(37, 99, 235, 0.06);
++            border: 1.5px solid rgba(37, 99, 235, 0.25);
++            border-radius: 999px;
++            text-decoration: none !important;
++            white-space: nowrap;
++            transition: all 0.2s ease;
++        }
++        .btn-nav-auth-login:hover {
++            background: rgba(37, 99, 235, 0.12);
++            border-color: var(--mbg-blue);
++            color: #1D4ED8 !important;
++            transform: translateY(-1px);
+         }
+         .btn-nav-auth-register {
+-            height: 46px; padding: 0 1.25rem; display: inline-flex; align-items: center; justify-content: center;
+-            gap: 0.45rem; font-size: 0.88rem; font-weight: 700; color: #FFFFFF !important;
+-            background: #080D1A; border: 1.5px solid #080D1A; border-radius: 999px;
+-            text-decoration: none !important; white-space: nowrap;
++            height: 46px;
++            padding: 0 1.25rem;
++            display: inline-flex;
++            align-items: center;
++            justify-content: center;
++            gap: 0.45rem;
++            font-size: 0.88rem;
++            font-weight: 700;
++            color: #FFFFFF !important;
++            background: #080D1A;
++            border: 1.5px solid #080D1A;
++            border-radius: 999px;
++            text-decoration: none !important;
++            white-space: nowrap;
++            box-shadow: 0 4px 12px rgba(8, 13, 26, 0.15);
++            transition: all 0.2s ease;
++        }
++        .btn-nav-auth-register:hover {
++            background: #1E293B;
++            border-color: #1E293B;
++            color: #FFFFFF !important;
++            transform: translateY(-1px);
++            box-shadow: 0 6px 16px rgba(8, 13, 26, 0.22);
+         }
+         .btn-nav-auth-user {
+-            height: 46px; padding: 0 1.15rem; display: inline-flex; align-items: center; gap: 0.55rem;
+-            font-size: 0.88rem; font-weight: 700; border-radius: 999px; border: 1.5px solid #E2E8F0;
+-            background: #FFFFFF; color: #080D1A;
++            height: 46px;
++            padding: 0 1.15rem;
++            display: inline-flex;
++            align-items: center;
++            gap: 0.55rem;
++            font-size: 0.88rem;
++            font-weight: 700;
++            white-space: nowrap;
++            border-radius: 999px;
++            border: 1.5px solid #E2E8F0;
++            background: #FFFFFF;
++            color: #080D1A;
++            transition: all 0.2s ease;
++        }
++        .btn-nav-auth-user:hover {
++            border-color: var(--mbg-blue);
++            background: #F8FAFC;
+         }
+ 
+         .btn-nav-cta,

@@ -1739,7 +1739,7 @@ class PesananPembelian(models.Model):
         if pelanggan is None:
             raise ValueError('Pelanggan wajib diisi.')
         with transaction.atomic():
-            produk = Produk.objects.get(pk=produk.pk)
+            produk = Produk.objects.select_for_update().get(pk=produk.pk)
             if produk.tipe_penjual != 'B2C':
                 raise ValueError('Hanya unit stok MBG (B2C) yang dapat dipesan melalui alur ini.')
             if produk.status_stok != 'ready':
