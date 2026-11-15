@@ -13,6 +13,11 @@ import re
 import uuid
 
 
+RINGKASAN_INSPEKSI_DEFAULT_LEGACY = (
+    "100% Bebas Banjir & Bebas Bekas Tabrak Struktural."
+)
+
+
 def validasi_link_tombol(nilai):
     """
     Link tombol hero hanya boleh: alamat internal (/katalog/), anchor (#titip-jual),
@@ -127,8 +132,15 @@ class Produk(models.Model):
     status_stok = models.CharField(max_length=10, choices=STATUS_STOK_CHOICES, default='ready')
     
     # Fitur Inspeksi & Kepercayaan (LK 5)
-    lulus_inspeksi = models.BooleanField(default=True, help_text="Lulus 150 Titik Inspeksi Transparan MBG")
-    ringkasan_inspeksi = models.TextField(default="100% Bebas Banjir & Bebas Bekas Tabrak Struktural.")
+    lulus_inspeksi = models.BooleanField(
+        default=False,
+        help_text="Tandai lulus hanya jika hasil inspeksi kendaraan menyatakan lulus.",
+    )
+    ringkasan_inspeksi = models.TextField(
+        blank=True,
+        default="",
+        help_text="Catatan faktual hasil pemeriksaan, bila tersedia.",
+    )
 
     # Media & Deskripsi
     gambar_utama = models.ImageField(upload_to='mobil/')
@@ -152,6 +164,15 @@ class Produk(models.Model):
 
     def __str__(self):
         return f"{self.nama} ({self.get_status_stok_display()})"
+
+    @property
+    def has_inspection_result(self):
+        summary = (self.ringkasan_inspeksi or "").strip()
+        return (
+            self.lulus_inspeksi
+            and bool(summary)
+            and summary != RINGKASAN_INSPEKSI_DEFAULT_LEGACY
+        )
 
 
 
@@ -368,6 +389,14 @@ class TitipJual(models.Model):
         verbose_name        = "Pengajuan Titip-Jual (C2C)"
         verbose_name_plural = "Pengajuan Titip-Jual (C2C)"
         ordering            = ['-created_at']
+        permissions = [
+            ('inspect_titipjual', 'Can record C2C vehicle inspections'),
+            ('manage_documents_titipjual', 'Can access and manage private C2C documents'),
+            ('change_status_titipjual', 'Can change C2C application status'),
+            ('manage_handover_titipjual', 'Can record C2C vehicle handovers'),
+            ('manage_sales_titipjual', 'Can verify and complete C2C sales'),
+            ('manage_price_titipjual', 'Can manage C2C price requests'),
+        ]
         indexes             = [
             models.Index(fields=['status']),
             models.Index(fields=['pengguna', 'status']),

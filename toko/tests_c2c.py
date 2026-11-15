@@ -6,9 +6,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from cryptography.fernet import Fernet
+from django.apps import apps
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
-from django.core.exceptions import ImproperlyConfigured
+from django.contrib.auth.models import Group, Permission
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
+from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import TransactionTestCase, override_settings
@@ -16,14 +18,14 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from .forms import HasilInspeksiC2CForm
+from .forms import HasilInspeksiC2CForm, validasi_dokumen_titip_jual
 from .models import (
     ChecklistInspeksiC2C, DokumenTitipJual, FotoTitipJual,
     HasilChecklistInspeksiC2C, InspeksiC2C, PermintaanTitipJual,
     Produk, RiwayatTransaksiTitipJual, SerahTerimaUnit,
-    TitipJual, TransaksiTitipJual,
+    TitipJual, TransaksiTitipJual, RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
 )
-from .views import produk_tayang
+from .views import _periksa_izin_tindakan_c2c, produk_tayang
 
 
 def gambar_unggahan(nama='foto.jpg'):
@@ -63,6 +65,13 @@ def foto_wajib():
 
 class TitipJualPenggunaTests(TransactionTestCase):
     def setUp(self):
+        role_migration = import_module(
+            'toko.migrations.0015_c2c_permissions_and_inspection_default'
+        )
+        role_migration.create_c2c_roles(
+            apps,
+            SimpleNamespace(connection=connection),
+        )
         user_model = get_user_model()
         self.pemilik = user_model.objects.create_user(
             'pemilik', 'pemilik@example.test', 'Password123!',
@@ -75,10 +84,7 @@ class TitipJualPenggunaTests(TransactionTestCase):
         self.admin = user_model.objects.create_user(
             'staf-mbg', 'staf@example.test', 'Password123!', is_staff=True,
         )
-        self.admin.user_permissions.add(*Permission.objects.filter(
-            content_type__app_label='toko',
-            codename__in=('view_titipjual', 'change_titipjual'),
-        ))
+        self.admin.groups.add(Group.objects.get(name='Admin C2C'))
         self.checklist = ChecklistInspeksiC2C.objects.create(
             kode='test-item', kategori='Pengujian', nama='Poin pemeriksaan uji',
             urutan=1,
@@ -163,6 +169,7 @@ class TitipJualPenggunaTests(TransactionTestCase):
             harga=Decimal('200000000'),
             tipe_penjual='C2C',
             status_stok='ready',
+            lulus_inspeksi=True,
             gambar_utama=foto_utama.gambar.name,
             deskripsi_singkat='Unit uji.',
             deskripsi_detail='Unit uji untuk transaksi C2C.',
@@ -247,7 +254,7 @@ class TitipJualPenggunaTests(TransactionTestCase):
     def test_nomor_ktp_terenkripsi_di_database_dan_membutuhkan_kunci(self):
         nomor_ktp = '1234567890123456'
         key = Fernet.generate_key().decode('ascii')
-        with override_settings(C2C_KTP_ENCRYPTION_KEY=key):
+        with override_settings(TITIP_JUAL_KTP_ENCRYPTION_KEY=key):
             pengajuan = TitipJual.objects.create(
                 pengguna=self.pemilik,
                 nama_pemilik='Pemilik MBG',
@@ -272,7 +279,7 @@ class TitipJualPenggunaTests(TransactionTestCase):
             pengajuan.refresh_from_db()
             self.assertEqual(pengajuan.no_ktp, nomor_ktp)
 
-        with override_settings(C2C_KTP_ENCRYPTION_KEY=''):
+        with override_settings(TITIP_JUAL_KTP_ENCRYPTION_KEY=''):
             with self.assertRaises(ImproperlyConfigured):
                 TitipJual.objects.create(
                     pengguna=self.pemilik,
@@ -318,7 +325,7 @@ class TitipJualPenggunaTests(TransactionTestCase):
 
         key = Fernet.generate_key().decode('ascii')
         try:
-            with override_settings(C2C_KTP_ENCRYPTION_KEY=key):
+            with override_settings(TITIP_JUAL_KTP_ENCRYPTION_KEY=key):
                 migration.encrypt_legacy_ktp(FakeApps, schema_editor)
                 with connection.cursor() as cursor:
                     cursor.execute(f'SELECT {quoted_ktp} FROM {quoted_table} WHERE {quoted_id} = %s', [1])
@@ -374,6 +381,128 @@ class TitipJualPenggunaTests(TransactionTestCase):
             Produk.objects.filter(titip_jual_sumber=pengajuan, status_stok='ready').count(),
             1,
         )
+        self.assertTrue(pengajuan.produk_terkait.lulus_inspeksi)
+        self.assertEqual(
+            pengajuan.produk_terkait.ringkasan_inspeksi,
+            'Checklist inspeksi lulus.',
+        )
+
+    def test_default_lulus_inspeksi_tidak_lulus_sebelum_diperiksa(self):
+        self.assertFalse(Produk._meta.get_field('lulus_inspeksi').default)
+        self.assertNotIn('150', Produk._meta.get_field('lulus_inspeksi').help_text)
+        self.assertEqual(Produk._meta.get_field('ringkasan_inspeksi').default, '')
+        self.assertTrue(Produk._meta.get_field('ringkasan_inspeksi').blank)
+        self.assertFalse(Produk(
+            lulus_inspeksi=True,
+            ringkasan_inspeksi=RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
+        ).has_inspection_result)
+
+    def test_ringkasan_inspeksi_baru_dan_lama_tidak_mengklaim_hasil(self):
+        produk = Produk(
+            sku='B2C-LEGACY-SUMMARY',
+            nama='Kendaraan uji',
+            merek='Toyota',
+            kategori='MPV',
+            tahun=2021,
+            jarak_tempuh=42000,
+            warna='Putih',
+            plat_nomor='DD 4321 XX',
+            harga=Decimal('200000000'),
+            tipe_penjual='B2C',
+            status_stok='ready',
+            lulus_inspeksi=True,
+            ringkasan_inspeksi=RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
+            gambar_utama='mobil/legacy-summary.jpg',
+            deskripsi_singkat='Unit uji.',
+            deskripsi_detail='Unit uji.',
+        )
+        produk.save()
+
+        response = self.client.get(reverse('detail_produk', args=[produk.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, RINGKASAN_INSPEKSI_DEFAULT_LEGACY)
+        self.assertNotContains(response, 'Bebas Terendam Banjir')
+        self.assertNotContains(response, 'Lulus 150 Titik')
+
+    def test_migrasi_0015_dependency_dan_urutan_tidak_mengubah_produk_lama(self):
+        migration = import_module(
+            'toko.migrations.0015_c2c_permissions_and_inspection_default'
+        )
+        self.assertIn(
+            ('toko', '0014_encrypt_titipjual_ktp'),
+            migration.Migration.dependencies,
+        )
+        self.assertIn(
+            ('auth', '0012_alter_user_first_name_max_length'),
+            migration.Migration.dependencies,
+        )
+        self.assertIn(
+            ('contenttypes', '0002_remove_content_type_name'),
+            migration.Migration.dependencies,
+        )
+        operations = migration.Migration.operations
+        self.assertEqual(len(operations), 4)
+        self.assertEqual(operations[0].model_name, 'produk')
+        self.assertEqual(operations[0].name, 'lulus_inspeksi')
+        self.assertFalse(operations[0].field.default)
+        self.assertNotIn('150', operations[0].field.help_text)
+        self.assertEqual(operations[1].model_name, 'produk')
+        self.assertEqual(operations[1].name, 'ringkasan_inspeksi')
+        self.assertEqual(operations[1].field.default, '')
+        self.assertTrue(operations[1].field.blank)
+        self.assertEqual(operations[2].name, 'titipjual')
+        run_python_operations = [
+            operation for operation in operations
+            if operation.__class__.__name__ == 'RunPython'
+        ]
+        self.assertEqual(len(run_python_operations), 1)
+        self.assertIs(run_python_operations[0].code, migration.create_c2c_roles)
+
+    def test_dashboard_oculta_dados_c2c_de_staf_sem_permissao(self):
+        TitipJual.objects.create(
+            pengguna=self.pemilik,
+            nama_pemilik='Pemilik Rahasia',
+            no_whatsapp='081298765432',
+            merek='Toyota',
+            model='Avanza',
+            tahun=2021,
+            harga_harapan=Decimal('200000000'),
+        )
+        staf_tanpa_izin_c2c = get_user_model().objects.create_user(
+            'staf-tanpa-izin-c2c', 'staf-lain@example.test', 'Password123!', is_staff=True,
+        )
+        self.client.force_login(staf_tanpa_izin_c2c)
+
+        response = self.client.get(reverse('dashboard_admin'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['can_view_c2c'])
+        self.assertIsNone(response.context['total_titip_jual'])
+        self.assertFalse(response.context['recent_titip_jual'])
+        self.assertNotContains(response, 'Pemilik Rahasia')
+        self.assertNotContains(response, '081298765432')
+        self.assertNotContains(response, 'Titip-Jual C2C')
+
+    def test_produk_c2c_tanpa_inspeksi_sah_tidak_ditayangkan_ke_publik(self):
+        produk = Produk.objects.create(
+            sku='C2C-TEST-TANPA-INSPEKSI-PUBLIK',
+            nama='Kendaraan tanpa inspeksi',
+            merek='Toyota',
+            kategori='MPV',
+            tahun=2021,
+            jarak_tempuh=42000,
+            warna='Putih',
+            plat_nomor='DD 4321 XX',
+            harga=Decimal('200000000'),
+            tipe_penjual='C2C',
+            status_stok='ready',
+            lulus_inspeksi=True,
+            gambar_utama='mobil/without-inspection-public.jpg',
+            deskripsi_singkat='Unit uji.',
+            deskripsi_detail='Unit tanpa inspeksi sah.',
+        )
+        self.assertNotIn(produk, produk_tayang())
 
     def test_perubahan_harga_dan_pembatalan_diproses_admin(self):
         pengajuan = TitipJual.objects.create(
@@ -683,6 +812,15 @@ class TitipJualPenggunaTests(TransactionTestCase):
 
     def test_dokumen_dan_foto_serah_terima_mewajibkan_izin_pemilik_atau_staf_c2c(self):
         pengajuan = self._buat_pengajuan_tayang()
+        dokumen = DokumenTitipJual.objects.create(
+            titip_jual=pengajuan,
+            jenis='stnk',
+            nama_file='private-test.pdf',
+            file=SimpleUploadedFile(
+                'STNK.pdf', b'%PDF-1.4 private test document',
+                content_type='application/pdf',
+            ),
+        )
         serah = pengajuan.serah_terima.get(jenis='masuk')
         url = reverse('serah_terima_foto_download', args=[serah.pk])
         response = self.client.get(url)
@@ -703,6 +841,24 @@ class TitipJualPenggunaTests(TransactionTestCase):
         self.client.force_login(staf_tanpa_izin)
         self.assertEqual(self.client.get(url).status_code, 404)
 
+        petugas_dokumen = get_user_model().objects.create_user(
+            'petugas-dokumen', 'dokumen@example.test', 'Password123!', is_staff=True,
+        )
+        petugas_dokumen.groups.add(Group.objects.get(name='Petugas Dokumen'))
+        self.client.force_login(petugas_dokumen)
+        url_dokumen = reverse('dokumen_titip_jual_download', args=[dokumen.pk])
+        response = self.client.get(url_dokumen)
+        self.assertEqual(response.status_code, 200)
+        response.close()
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+        petugas_inspeksi = get_user_model().objects.create_user(
+            'petugas-inspeksi', 'inspeksi@example.test', 'Password123!', is_staff=True,
+        )
+        petugas_inspeksi.groups.add(Group.objects.get(name='Petugas Inspeksi'))
+        self.client.force_login(petugas_inspeksi)
+        self.assertEqual(self.client.get(url_dokumen).status_code, 404)
+
     def test_panel_admin_c2c_menolak_staf_tanpa_permission_model(self):
         staf = get_user_model().objects.create_user(
             'staf-tanpa-permission', 'staf3@example.test', 'Password123!', is_staff=True,
@@ -719,6 +875,175 @@ class TitipJualPenggunaTests(TransactionTestCase):
             403,
         )
 
+    def test_lima_role_mendapat_permission_c2c_terpisah(self):
+        migration = import_module(
+            'toko.migrations.0015_c2c_permissions_and_inspection_default'
+        )
+        expected = {
+            'Staf C2C': {
+                'view_titipjual', 'change_status_titipjual', 'manage_price_titipjual',
+            },
+            'Petugas Inspeksi': {'view_titipjual', 'inspect_titipjual'},
+            'Petugas Dokumen': {'view_titipjual', 'manage_documents_titipjual'},
+            'Admin C2C': {
+                'view_titipjual', 'change_titipjual', 'change_status_titipjual',
+                'inspect_titipjual', 'manage_documents_titipjual',
+                'manage_handover_titipjual', 'manage_sales_titipjual',
+                'manage_price_titipjual',
+            },
+        }
+        for nama_grup, izin_diharapkan in expected.items():
+            with self.subTest(role=nama_grup):
+                grup = Group.objects.get(name=nama_grup)
+                izin = set(
+                    grup.permissions.filter(
+                        content_type__app_label='toko',
+                    ).values_list('codename', flat=True)
+                )
+                self.assertTrue(izin_diharapkan.issubset(izin))
+                managed_izin = izin & migration.MANAGED_PERMISSION_CODES
+                self.assertEqual(managed_izin, izin_diharapkan)
+
+        izin_tambahan = Permission.objects.get(
+            content_type__app_label='toko',
+            codename='add_titipjual',
+        )
+        petugas_dokumen_group = Group.objects.get(name='Petugas Dokumen')
+        petugas_dokumen_group.permissions.add(izin_tambahan)
+        anggota_lama = get_user_model().objects.create_user(
+            'anggota-role-lama', 'anggota-lama@example.test', 'Password123!',
+        )
+        anggota_lama.groups.add(petugas_dokumen_group)
+        grup_lama = Group.objects.create(name='Tim Operasi Lama')
+        grup_lama.permissions.add(izin_tambahan)
+        anggota_lama.groups.add(grup_lama)
+
+        migration.create_c2c_roles(apps, SimpleNamespace(connection=connection))
+        migration.create_c2c_roles(apps, SimpleNamespace(connection=connection))
+
+        petugas_dokumen_group.refresh_from_db()
+        grup_lama.refresh_from_db()
+        anggota_lama.refresh_from_db()
+        self.assertTrue(petugas_dokumen_group.permissions.filter(pk=izin_tambahan.pk).exists())
+        self.assertTrue(grup_lama.permissions.filter(pk=izin_tambahan.pk).exists())
+        self.assertTrue(anggota_lama.groups.filter(pk=petugas_dokumen_group.pk).exists())
+        self.assertTrue(anggota_lama.groups.filter(pk=grup_lama.pk).exists())
+
+        superuser = get_user_model().objects.create_superuser(
+            'super-c2c', 'super@example.test', 'Password123!',
+        )
+        self.assertTrue(superuser.has_perm('toko.manage_sales_titipjual'))
+
+    def test_pembatasan_tindakan_c2c_untuk_setiap_role(self):
+        roles = {
+            'Staf C2C': {
+                'status', 'price_request', 'cancellation_request',
+            },
+            'Petugas Inspeksi': {
+                'jadwalkan_inspeksi', 'mulai_inspeksi', 'hasil_inspeksi',
+            },
+            'Petugas Dokumen': {'verifikasi_dokumen', 'unggah_dokumen'},
+            'Admin C2C': {
+                'status', 'jadwalkan_inspeksi', 'mulai_inspeksi',
+                'hasil_inspeksi', 'verifikasi_dokumen', 'unggah_dokumen',
+                'serah_terima', 'verifikasi_penjualan_pemilik',
+                'catat_penjualan_mbg', 'selesaikan_penjualan',
+                'price_request', 'cancellation_request',
+            },
+        }
+        tindakan = (
+            'status', 'jadwalkan_inspeksi', 'mulai_inspeksi', 'hasil_inspeksi',
+            'verifikasi_dokumen', 'unggah_dokumen', 'serah_terima',
+            'verifikasi_penjualan_pemilik', 'catat_penjualan_mbg',
+            'selesaikan_penjualan',
+        )
+        pengajuan = TitipJual.objects.create(
+            pengguna=self.pemilik, nama_pemilik='Pemilik MBG',
+            no_whatsapp='081234567890', merek='Toyota', model='Avanza',
+            tahun=2021, harga_harapan=Decimal('200000000'),
+        )
+        request_harga = PermintaanTitipJual.objects.create(
+            titip_jual=pengajuan, jenis='ubah_harga', dibuat_oleh=self.pemilik,
+        )
+        request_batal = PermintaanTitipJual.objects.create(
+            titip_jual=pengajuan, jenis='pembatalan', dibuat_oleh=self.pemilik,
+        )
+        for nama_role, izin_diharapkan in roles.items():
+            user = self.admin if nama_role == 'Admin C2C' else get_user_model().objects.create_user(
+                f'role-{nama_role.lower().replace(" ", "-")}',
+                f'{nama_role.lower().replace(" ", "-")}@example.test',
+                'Password123!',
+                is_staff=True,
+            )
+            if nama_role != 'Admin C2C':
+                user.groups.add(Group.objects.get(name=nama_role))
+            self.assertTrue(user.has_perm('toko.view_titipjual'))
+            for aksi in tindakan:
+                request = SimpleNamespace(user=user, POST={})
+                with self.subTest(role=nama_role, action=aksi):
+                    if aksi in izin_diharapkan:
+                        _periksa_izin_tindakan_c2c(request, aksi, pengajuan)
+                    else:
+                        with self.assertRaises(PermissionDenied):
+                            _periksa_izin_tindakan_c2c(request, aksi, pengajuan)
+
+            for jenis, permintaan in (
+                ('price_request', request_harga),
+                ('cancellation_request', request_batal),
+            ):
+                request = SimpleNamespace(
+                    user=user,
+                    POST={'permintaan_id': str(permintaan.pk)},
+                )
+                with self.subTest(role=nama_role, request=jenis):
+                    if jenis in izin_diharapkan:
+                        _periksa_izin_tindakan_c2c(request, 'proses_permintaan', pengajuan)
+                    else:
+                        with self.assertRaises(PermissionDenied):
+                            _periksa_izin_tindakan_c2c(
+                                request, 'proses_permintaan', pengajuan,
+                            )
+
+        superuser = get_user_model().objects.create_superuser(
+            'role-superuser', 'role-superuser@example.test', 'Password123!',
+        )
+        for aksi in tindakan:
+            _periksa_izin_tindakan_c2c(
+                SimpleNamespace(user=superuser, POST={}),
+                aksi,
+                pengajuan,
+            )
+        for permintaan in (request_harga, request_batal):
+            _periksa_izin_tindakan_c2c(
+                SimpleNamespace(
+                    user=superuser,
+                    POST={'permintaan_id': str(permintaan.pk)},
+                ),
+                'proses_permintaan',
+                pengajuan,
+            )
+
+    def test_inspektor_dapat_inspeksi_tetapi_tidak_mengubah_status(self):
+        petugas = get_user_model().objects.create_user(
+            'petugas-inspeksi-aksi', 'inspeksi-aksi@example.test',
+            'Password123!', is_staff=True,
+        )
+        petugas.groups.add(Group.objects.get(name='Petugas Inspeksi'))
+        pengajuan = TitipJual.objects.create(
+            pengguna=self.pemilik, nama_pemilik='Pemilik MBG',
+            no_whatsapp='081234567890', merek='Toyota', model='Avanza',
+            tahun=2021, harga_harapan=Decimal('200000000'), status='pending',
+        )
+        self.client.force_login(petugas)
+        url = reverse('admin_titip_jual_tindakan', args=[pengajuan.pk])
+        self.assertEqual(self.client.post(url, {
+            'aksi': 'status', 'status': 'ditolak', 'catatan': 'Tidak sesuai.',
+        }).status_code, 403)
+        self.assertEqual(self.client.post(url, {
+            'aksi': 'jadwalkan_inspeksi',
+            'jadwal_inspeksi': '2030-01-15T10:00',
+        }).status_code, 302)
+
     def test_foto_tambahan_tidak_menggantikan_foto_wajib_dan_file_invalid_ditolak(self):
         post_data = {
             **data_pengajuan(),
@@ -729,6 +1054,23 @@ class TitipJualPenggunaTests(TransactionTestCase):
         response = self.client.post(reverse('titip_jual_tambah'), post_data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(TitipJual.objects.exists())
+
+    def test_validasi_dokumen_mengganti_nama_dan_membatasi_ukuran(self):
+        dokumen = SimpleUploadedFile(
+            '../../nama-asli-ktp.PDF',
+            b'%PDF-1.4 test document',
+            content_type='application/pdf',
+        )
+        dokumen = validasi_dokumen_titip_jual(dokumen)
+        self.assertRegex(dokumen.name, r'^[0-9a-f]{32}\.pdf$')
+
+        terlalu_besar = SimpleUploadedFile(
+            'besar.pdf',
+            b'x' * (10 * 1024 * 1024 + 1),
+            content_type='application/pdf',
+        )
+        with self.assertRaises(ValidationError):
+            validasi_dokumen_titip_jual(terlalu_besar)
 
         post_data = {**data_pengajuan(), **foto_wajib()}
         post_data['foto_depan'] = SimpleUploadedFile(

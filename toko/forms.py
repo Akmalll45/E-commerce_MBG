@@ -14,7 +14,8 @@ from django.utils import timezone
 from .models import (
     Produk, TitipJual, SerahTerimaUnit, ChecklistInspeksiC2C,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
-    PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp,
+    PengaturanWebsite, RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
+    normalisasi_whatsapp, validasi_whatsapp,
 )
 
 User = get_user_model()
@@ -891,8 +892,8 @@ class ProdukForm(forms.ModelForm):
             'harga_promo': 'Harga Promo / Subsidi DP (Rp)',
             'tipe_penjual': 'Sumber Unit',
             'status_stok': 'Status Stok',
-            'lulus_inspeksi': 'Lulus 150 Titik Inspeksi',
-            'ringkasan_inspeksi': 'Ringkasan Hasil Inspeksi',
+            'lulus_inspeksi': 'Lulus inspeksi kendaraan',
+            'ringkasan_inspeksi': 'Ringkasan hasil inspeksi (opsional)',
             'gambar_utama': 'Foto Utama',
             'deskripsi_singkat': 'Deskripsi Singkat (untuk kartu katalog)',
             'deskripsi_detail': 'Deskripsi Detail & Spesifikasi',
@@ -928,6 +929,11 @@ class ProdukForm(forms.ModelForm):
             self.instance.gambar_utama.name
             if self.instance.pk and self.instance.gambar_utama else None
         )
+        if (
+            self.instance.pk
+            and self.instance.ringkasan_inspeksi == RINGKASAN_INSPEKSI_DEFAULT_LEGACY
+        ):
+            self.initial['ringkasan_inspeksi'] = ''
 
         # Pilihan "Pilih…" yang jelas untuk dropdown, tanpa mengubah pilihan model.
         for nama in ('transmisi', 'tipe_penjual', 'status_stok'):
@@ -1268,7 +1274,7 @@ class HeroSlideForm(forms.ModelForm):
         widgets = {
             'judul': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Contoh: Mobil Bekas Berkualitas, 100% Lulus Inspeksi',
+                'placeholder': 'Contoh: Mobil Bekas Berkualitas',
                 'maxlength': 200,
             }),
             'judul_sorot': forms.TextInput(attrs={

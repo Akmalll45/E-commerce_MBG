@@ -797,10 +797,13 @@ def dokumen_titip_jual_unduh(request, dokumen_id):
         DokumenTitipJual.objects.select_related('titip_jual'),
         pk=dokumen_id,
     )
-    if request.user.is_staff or request.user.is_superuser:
-        if not request.user.is_superuser and not request.user.has_perm('toko.view_titipjual'):
-            raise Http404
-    elif dokumen.titip_jual.pengguna_id != request.user.pk:
+    if dokumen.titip_jual.pengguna_id != request.user.pk and not (
+        request.user.is_superuser
+        or (
+            request.user.is_staff
+            and request.user.has_perm('toko.manage_documents_titipjual')
+        )
+    ):
         raise Http404
     try:
         berkas = dokumen.file.open('rb')
@@ -828,10 +831,13 @@ def serah_terima_foto_unduh(request, serah_terima_id):
         SerahTerimaUnit.objects.select_related('titip_jual'),
         pk=serah_terima_id,
     )
-    if request.user.is_staff or request.user.is_superuser:
-        if not request.user.is_superuser and not request.user.has_perm('toko.view_titipjual'):
-            raise Http404
-    elif serah_terima.titip_jual.pengguna_id != request.user.pk:
+    if serah_terima.titip_jual.pengguna_id != request.user.pk and not (
+        request.user.is_superuser
+        or (
+            request.user.is_staff
+            and request.user.has_perm('toko.manage_handover_titipjual')
+        )
+    ):
         raise Http404
     if not serah_terima.foto_kondisi:
         raise Http404
@@ -972,10 +978,18 @@ def dashboard_admin(request):
     booking_menunggu_dp = BookingCekUnit.objects.filter(status='menunggu_dp').count()
     booking_terkonfirmasi = BookingCekUnit.objects.filter(status='terkonfirmasi').count()
 
-    # 4. Statistik Pengajuan Titip-Jual
-    total_titip_jual = TitipJual.objects.count()
-    titip_jual_pending = TitipJual.objects.filter(status__in=['pending', 'revisi']).count()
-    titip_jual_disetujui = TitipJual.objects.filter(status__in=['disetujui', 'tayang']).count()
+    can_view_c2c = (
+        request.user.is_superuser
+        or request.user.has_perm('toko.view_titipjual')
+    )
+    if can_view_c2c:
+        total_titip_jual = TitipJual.objects.count()
+        titip_jual_pending = TitipJual.objects.filter(status__in=['pending', 'revisi']).count()
+        titip_jual_disetujui = TitipJual.objects.filter(status__in=['disetujui', 'tayang']).count()
+    else:
+        total_titip_jual = None
+        titip_jual_pending = None
+        titip_jual_disetujui = None
 
     # 5. Statistik Transaksi
     total_transaksi = Transaksi.objects.count()
@@ -984,7 +998,10 @@ def dashboard_admin(request):
 
     # Ringkasan data terbaru untuk quick monitoring
     recent_booking = BookingCekUnit.objects.select_related('produk').order_by('-created_at')[:5]
-    recent_titip_jual = TitipJual.objects.order_by('-created_at')[:5]
+    recent_titip_jual = (
+        TitipJual.objects.order_by('-created_at')[:5]
+        if can_view_c2c else TitipJual.objects.none()
+    )
     recent_transaksi = Transaksi.objects.select_related('booking', 'booking__produk').order_by('-created_at')[:5]
     recent_produk = Produk.objects.order_by('-created_at')[:5]
 
@@ -1001,6 +1018,7 @@ def dashboard_admin(request):
         'total_titip_jual': total_titip_jual,
         'titip_jual_pending': titip_jual_pending,
         'titip_jual_disetujui': titip_jual_disetujui,
+        'can_view_c2c': can_view_c2c,
         'total_transaksi': total_transaksi,
         'transaksi_berhasil': transaksi_berhasil,
         'transaksi_pending': transaksi_pending,
@@ -1108,6 +1126,41 @@ def c2c_permission_required(permission):
     return decorator
 
 
+def _periksa_izin_tindakan_c2c(request, tindakan, pengajuan):
+    izin_aksi = {
+        'status': 'change_status_titipjual',
+        'jadwalkan_inspeksi': 'inspect_titipjual',
+        'mulai_inspeksi': 'inspect_titipjual',
+        'hasil_inspeksi': 'inspect_titipjual',
+        'verifikasi_dokumen': 'manage_documents_titipjual',
+        'unggah_dokumen': 'manage_documents_titipjual',
+        'serah_terima': 'manage_handover_titipjual',
+        'verifikasi_penjualan_pemilik': 'manage_sales_titipjual',
+        'catat_penjualan_mbg': 'manage_sales_titipjual',
+        'selesaikan_penjualan': 'manage_sales_titipjual',
+    }
+    if tindakan == 'proses_permintaan':
+        permintaan = get_object_or_404(
+            PermintaanTitipJual.objects.filter(
+                titip_jual=pengajuan,
+                status='menunggu',
+            ),
+            pk=request.POST.get('permintaan_id'),
+        )
+        permission = (
+            'manage_price_titipjual'
+            if permintaan.jenis == 'ubah_harga'
+            else 'change_status_titipjual'
+        )
+    else:
+        permission = izin_aksi.get(tindakan)
+    if permission is None or (
+        not request.user.is_superuser
+        and not request.user.has_perm(f'toko.{permission}')
+    ):
+        raise PermissionDenied
+
+
 TAHAP_TITIP_JUAL_ADMIN = {
     'verifikasi': ('Verifikasi & Revisi', ['pending', 'revisi']),
     'inspeksi': ('Jadwal Inspeksi', ['dijadwalkan', 'inspeksi']),
@@ -1206,8 +1259,8 @@ def _buat_atau_perbarui_produk_c2c(pengajuan):
             harga=harga,
             tipe_penjual='C2C',
             status_stok='ready',
-            lulus_inspeksi=True,
-            ringkasan_inspeksi=pengajuan.hasil_inspeksi or 'Lulus checklist inspeksi MBG.',
+            lulus_inspeksi=inspeksi.status == 'lulus',
+            ringkasan_inspeksi=pengajuan.hasil_inspeksi or 'Checklist inspeksi lulus.',
             gambar_utama=foto_utama.gambar.name,
             deskripsi_singkat=f'Kendaraan titip-jual pengguna MBG. Harga rekomendasi Rp {harga:,.0f}.',
             deskripsi_detail=(
@@ -1227,6 +1280,10 @@ def _buat_atau_perbarui_produk_c2c(pengajuan):
         product.harga = harga
         product.tipe_penjual = 'C2C'
         product.status_stok = 'ready'
+        product.lulus_inspeksi = inspeksi.status == 'lulus'
+        product.ringkasan_inspeksi = (
+            pengajuan.hasil_inspeksi or 'Checklist inspeksi lulus.'
+        )
         product.gambar_utama = foto_utama.gambar.name
         product.deskripsi_detail = (
             f'{pengajuan.kondisi_eksterior}\n\nHasil inspeksi MBG:\n'
@@ -1363,7 +1420,7 @@ def admin_titip_jual_detail(request, pengajuan_id):
     })
 
 
-@c2c_permission_required('change')
+@c2c_permission_required('view')
 @require_POST
 def admin_titip_jual_tindakan(request, pengajuan_id):
     pengajuan = get_object_or_404(
@@ -1371,6 +1428,7 @@ def admin_titip_jual_tindakan(request, pengajuan_id):
         pk=pengajuan_id,
     )
     tindakan = request.POST.get('aksi') or request.POST.get('tindakan')
+    _periksa_izin_tindakan_c2c(request, tindakan, pengajuan)
     catatan = request.POST.get('catatan', '').strip()
     try:
         with transaction.atomic():
@@ -1471,7 +1529,10 @@ def admin_titip_jual_tindakan(request, pengajuan_id):
                     )
                 elif hasil == 'gagal' and pengajuan.produk_terkait_id:
                     pengajuan.produk_terkait.status_stok = 'in_review'
-                    pengajuan.produk_terkait.save(update_fields=['status_stok', 'updated_at'])
+                    pengajuan.produk_terkait.lulus_inspeksi = False
+                    pengajuan.produk_terkait.save(
+                        update_fields=['status_stok', 'lulus_inspeksi', 'updated_at']
+                    )
                 elif (
                     hasil == 'lulus'
                     and pengajuan.status == 'tayang'

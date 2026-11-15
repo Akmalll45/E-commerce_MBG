@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 import os
 from pathlib import Path
+from secrets import token_urlsafe
 import certifi
 from django.core.exceptions import ImproperlyConfigured
 
@@ -41,25 +42,27 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured('DJANGO_SECRET_KEY must be configured when DEBUG is disabled.')
-    SECRET_KEY = 'dev-only-key-for-local-development'
+    SECRET_KEY = token_urlsafe(50)
 
 # Keep this stable in a secret manager; changing it without re-encryption makes KTP data unreadable.
-C2C_KTP_ENCRYPTION_KEY = os.environ.get('C2C_KTP_ENCRYPTION_KEY', '').strip()
-if not C2C_KTP_ENCRYPTION_KEY and not DEBUG:
+TITIP_JUAL_KTP_ENCRYPTION_KEY = os.environ.get(
+    'TITIP_JUAL_KTP_ENCRYPTION_KEY', ''
+).strip()
+if not TITIP_JUAL_KTP_ENCRYPTION_KEY and not DEBUG:
     raise ImproperlyConfigured(
-        'C2C_KTP_ENCRYPTION_KEY must be configured when DEBUG is disabled.'
+        'TITIP_JUAL_KTP_ENCRYPTION_KEY must be configured when DEBUG is disabled.'
     )
 C2C_KTP_ALLOW_PLAINTEXT_ROLLBACK = os.environ.get(
     'C2C_KTP_ALLOW_PLAINTEXT_ROLLBACK', ''
 ).strip().lower() in ('1', 'true', 'yes', 'on')
-if C2C_KTP_ENCRYPTION_KEY:
+if TITIP_JUAL_KTP_ENCRYPTION_KEY:
     from cryptography.fernet import Fernet
 
     try:
-        Fernet(C2C_KTP_ENCRYPTION_KEY.encode('ascii'))
+        Fernet(TITIP_JUAL_KTP_ENCRYPTION_KEY.encode('ascii'))
     except (UnicodeEncodeError, TypeError, ValueError) as error:
         raise ImproperlyConfigured(
-            'C2C_KTP_ENCRYPTION_KEY must be a valid Fernet key.'
+            'TITIP_JUAL_KTP_ENCRYPTION_KEY must be a valid Fernet key.'
         ) from error
 
 ALLOWED_HOSTS = [
@@ -146,9 +149,9 @@ WSGI_APPLICATION = 'katalog_mbg.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'django_db_name'),
-        'USER': os.environ.get('DB_USER', 'django_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'djangopassword'),
+        'NAME': os.environ.get('DB_NAME', ''),
+        'USER': os.environ.get('DB_USER', ''),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '3308'),
         'OPTIONS': {

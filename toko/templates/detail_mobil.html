@@ -350,7 +350,7 @@
                 <span><i class="fa-regular fa-clock text-warning me-1"></i> {{ pengaturan.jam_buka }}</span>
             </div>
             <div>
-                <span><i class="fa-solid fa-shield-halved text-success me-1"></i> Jaminan 100% Lulus 150 Titik Inspeksi</span>
+                <span><i class="fa-solid fa-shield-halved text-success me-1"></i> Informasi kendaraan</span>
                 <span class="separator">|</span>
                 <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank"><i class="fa-brands fa-whatsapp text-success me-1"></i> CS: {{ pengaturan.whatsapp_tampil }}</a>
             </div>
@@ -514,10 +514,12 @@
                 <!-- Header Info Mobil -->
                 <div class="mb-4">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        {% if produk.has_inspection_result %}
                         <span class="badge-inspeksi-exclusive">
                             <i class="fa-solid fa-shield-check"></i>
-                            <span>100% Lulus 150 Titik Inspeksi MBG</span>
+                            <span>Lulus inspeksi kendaraan</span>
                         </span>
+                        {% endif %}
                         <span class="badge bg-light text-secondary border px-2.5 py-1.5 rounded-pill small">
                             <i class="fa-solid fa-barcode me-1"></i> SKU: {{ produk.sku }}
                         </span>
@@ -529,7 +531,7 @@
                     <p class="lead text-muted fs-6">{{ produk.deskripsi_singkat }}</p>
                 </div>
 
-                <!-- 150 Titik Inspeksi Report Card -->
+                {% if produk.has_inspection_result %}
                 <div class="card border-0 rounded-4 mb-4" style="background: linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%); border: 1.5px solid #A7F3D0 !important;">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center gap-3 mb-3">
@@ -537,37 +539,15 @@
                                 <i class="fa-solid fa-clipboard-check fs-4"></i>
                             </div>
                             <div>
-                                <h5 class="fw-bold text-dark mb-0">Laporan Hasil 150 Titik Inspeksi MBG</h5>
-                                <small class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i> Tersertifikasi Siap Pakai &amp; Layak Garansi</small>
+                                <h5 class="fw-bold text-dark mb-0">Ringkasan Hasil Inspeksi</h5>
                             </div>
                         </div>
                         <p class="text-muted small mb-3">
-                            <strong>Catatan Tim Mekanik MBG:</strong> {{ produk.ringkasan_inspeksi }}
+                            {{ produk.ringkasan_inspeksi|linebreaksbr }}
                         </p>
-                        <div class="row g-2 small text-dark fw-semibold">
-                            <div class="col-sm-6">
-                                <div class="p-2 bg-white rounded-3 border border-success-subtle d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-check text-success"></i> Bebas Tabrakan Rangka/Sasis
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="p-2 bg-white rounded-3 border border-success-subtle d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-check text-success"></i> Bebas Terendam Banjir Makassar
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="p-2 bg-white rounded-3 border border-success-subtle d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-check text-success"></i> Kompresi &amp; Transmisi Normal Sehat
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="p-2 bg-white rounded-3 border border-success-subtle d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-check text-success"></i> Keaslian Odometer &amp; BPKB Sah
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Spesifikasi Lengkap Grid -->
                 <div class="mb-4">

@@ -365,10 +365,12 @@
                         {% endif %}
                     </span>
                 </li>
+                {% if produk.has_inspection_result %}
                 <li class="list-group-item d-flex justify-content-between px-0 py-2">
                     <span class="text-muted">Inspeksi MBG</span>
-                    <span class="text-success fw-bold"><i class="fa-solid fa-shield-halved me-1"></i> Lulus 150 Titik</span>
+                    <span class="text-success fw-bold"><i class="fa-solid fa-shield-halved me-1"></i> Lulus inspeksi</span>
                 </li>
+                {% endif %}
             </ul>
 
             <a href="{% url 'admin_katalog_edit' produk.id %}" class="btn btn-outline-secondary w-100 btn-sm rounded-pill fw-semibold">

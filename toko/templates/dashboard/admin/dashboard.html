@@ -287,6 +287,7 @@
                             <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
                         {% endif %}
                     </a>
+                    {% if can_view_c2c %}
                     <button class="admin-side-item w-100 border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="false" aria-controls="menuTitipJualC2C" style="background:transparent;">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
                         {% if titip_jual_pending > 0 %}
@@ -301,6 +302,7 @@
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'showroom' %}">Kendaraan di Showroom</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'penjualan' %}">Penjualan &amp; Penyelesaian</a>
                     </div>
+                    {% endif %}
                     <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
                         <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi & DP</span>
                         <span class="badge bg-secondary rounded-pill small">{{ total_transaksi }}</span>
@@ -402,6 +404,7 @@
                         </div>
                     </div>
 
+                    {% if can_view_c2c %}
                     <!-- 4. Pengajuan Titip-Jual -->
                     <div class="col-md-6 col-xl-2">
                         <div class="kpi-card">
@@ -413,6 +416,7 @@
                             <div class="kpi-sub mt-1">Pending: <strong class="text-danger">{{ titip_jual_pending }}</strong> | Disetujui: <strong>{{ titip_jual_disetujui }}</strong></div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- 5. Transaksi & Pembayaran -->
                     <div class="col-md-6 col-xl-3">
@@ -562,6 +566,7 @@
                             {% endif %}
                         </div>
 
+                        {% if can_view_c2c %}
                         <!-- Pengajuan Titip-Jual Terbaru Table -->
                         <div class="content-card">
                             <div class="card-header-clean">
@@ -603,6 +608,7 @@
                                 </div>
                             {% endif %}
                         </div>
+                        {% endif %}
                     </div>
 
                     <!-- Right Column: Transaksi & Katalog Produk -->

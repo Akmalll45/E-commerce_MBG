@@ -739,9 +739,9 @@ class HeroSlidePublikTests(TestCase):
         self.assertContains(r, 'Baris satu<br>Baris dua')
         self.assertContains(r, 'href="/katalog/"')
         self.assertNotContains(r, 'Subsidi DP s/d Rp 15 Juta')   # teks statis lama hilang
-        # chip kepercayaan & kartu inspeksi tetap ada
-        self.assertContains(r, 'Bebas Tabrak')
-        self.assertContains(r, 'Sertifikasi MBG Garasi')
+        # kartu inspeksi dan pengecekan fisik tetap ada tanpa klaim hasil otomatis
+        self.assertContains(r, 'Cek Fisik Kendaraan')
+        self.assertContains(r, 'Ringkasan inspeksi jika tersedia')
 
     def test_urutan_mengikuti_kolom_urutan(self):
         buat_slide('Kedua', urutan=2)

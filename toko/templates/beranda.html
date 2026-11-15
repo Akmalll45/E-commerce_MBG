@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBG — Mobil Bekas Garasi Makassar | 100% Lulus 150 Titik Inspeksi</title>
+    <title>MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive</title>
 
     <!-- Google Fonts: Montserrat (Heading) & Inter (Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -668,7 +668,7 @@
             gap: 4px;
         }
 
-        /* Badge Kepercayaan: "Lulus 150 Titik Inspeksi" Eksklusif (Emas/Hijau Premium) */
+        /* Badge inspection result shown only when the unit has a recorded result. */
         .badge-inspeksi-exclusive {
             background: linear-gradient(135deg, #ECFDF5 0%, #FFFBEB 100%);
             color: #065F46;
@@ -1325,9 +1325,9 @@
                     </div>
 
                     <h1 class="hero-title mb-3">
-                        Mobil Bekas Berkualitas,<br>
-                        <span class="gradient-text">100% Lulus 150 Titik Inspeksi</span><br>
-                        Transparan &amp; Terpercaya di Makassar
+                        Mobil Bekas Pilihan,<br>
+                        <span class="gradient-text">Informasi Unit Transparan</span><br>
+                        Cek Langsung di Makassar
                     </h1>
 
                     <p class="hero-subtitle mb-4 mx-auto mx-lg-0">
@@ -1347,14 +1347,14 @@
 
                     <!-- Trust Chips -->
                     <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
-                        <div class="trust-chip"><i class="fa-solid fa-shield-halved text-success"></i> Bebas Tabrak &amp; Banjir</div>
-                        <div class="trust-chip"><i class="fa-solid fa-file-circle-check text-info"></i> Dokumen Asli Samsat</div>
+                        <div class="trust-chip"><i class="fa-solid fa-shield-halved text-success"></i> Informasi kondisi unit</div>
+                        <div class="trust-chip"><i class="fa-solid fa-calendar-check text-info"></i> Booking cek unit</div>
                         <div class="trust-chip"><i class="fa-solid fa-store text-warning"></i> Showroom Makassar</div>
                         <div class="trust-chip"><i class="fa-solid fa-rotate-left text-success"></i> Garansi 5 Hari</div>
                     </div>
                 </div>
 
-                <!-- Right Column — Inspection Info Card -->
+                <!-- Right Column — Vehicle Info Card -->
                 <div class="col-lg-5 d-none d-lg-block" data-aos="fade-left" data-aos-duration="700" data-aos-delay="150">
                     <div class="hero-inspect-card">
                         <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.08);">
@@ -1362,16 +1362,16 @@
                                 <i class="fa-solid fa-clipboard-check text-white fs-5"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold text-white" style="font-size:.95rem;">Sertifikasi MBG Garasi</h6>
-                                <small style="color:#64748B;">Standar Inspeksi 150 Titik</small>
+                                <h6 class="mb-0 fw-bold text-white" style="font-size:.95rem;">Informasi Kendaraan</h6>
+                                <small style="color:#64748B;">Detail sebelum Anda booking</small>
                             </div>
                         </div>
-                        <p class="small mb-3" style="color:#94A3B8;">Setiap unit diperiksa oleh mekanik independen bersertifikasi:</p>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Kompresi &amp; Ruang Mesin</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Transmisi &amp; Kaki-kaki</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Keaslian Odometer Digital</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Bebas Karat Air Laut / Banjir</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Validasi BPKB &amp; STNK Asli Samsat</div>
+                        <p class="small mb-3" style="color:#94A3B8;">Tinjau informasi unit dan jadwalkan pengecekan langsung:</p>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Spesifikasi dan foto kendaraan</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Harga dan status stok</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Booking cek unit online</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Test drive di showroom</div>
+                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Ringkasan inspeksi jika tersedia</div>
 
                         <div class="mt-3 p-2 text-center rounded-3" style="background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.20);">
                             <small class="fw-bold" style="color:#93C5FD;"><i class="fa-solid fa-location-dot me-1"></i> Siap Test Drive di Pettarani, Makassar</small>
@@ -1523,13 +1523,14 @@
                     <!-- 2. Konten Bodi Card -->
                     <div class="card-body-content">
                         
-                        <!-- Badge Kepercayaan: Ganti Rating Bintang dengan "Lulus 150 Titik Inspeksi" (Eksklusif Emas/Hijau) -->
+                        {% if mobil.has_inspection_result %}
                         <div class="mb-2">
                             <span class="badge-inspeksi-exclusive">
                                 <i class="fa-solid fa-shield-check"></i>
-                                <span>Lulus 150 Titik Inspeksi</span>
+                                <span>Lulus inspeksi</span>
                             </span>
                         </div>
+                        {% endif %}
 
                         <!-- Teks: Nama / Merek Mobil (Tebal & Jelas) -->
                         <h3 class="card-car-title mb-2" title="{{ mobil.nama }}">
@@ -1634,29 +1635,29 @@
         <div class="container">
             <div class="text-center mb-5" data-aos="fade-up">
                 <span class="section-label">Keunggulan Standar MBG</span>
-                <h2 class="section-heading mt-2">Standar Baru Membeli Mobil Bekas di Makassar</h2>
-                <p class="text-muted mx-auto mt-2" style="max-width:560px;">Kami menghilangkan rasa cemas membeli mobil bekas dengan proses O2O transparan dan sertifikasi inspeksi independen.</p>
+                <h2 class="section-heading mt-2">Informasi Jelas Sebelum Membeli Mobil</h2>
+                <p class="text-muted mx-auto mt-2" style="max-width:560px;">Tinjau detail unit dan jadwalkan pengecekan langsung sebelum mengambil keputusan.</p>
             </div>
 
             <div class="row g-4">
                 <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="0">
                     <div class="feature-card">
                         <div class="feature-icon bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-clipboard-check"></i></div>
-                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">150 Titik Inspeksi</h5>
-                        <p class="text-muted small mb-0">Pemeriksaan ketat pada mesin, transmisi, sasis, rem &amp; kelistrikan. Laporan hasil terbuka tanpa ditutup-tutupi.</p>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Ringkasan Inspeksi</h5>
+                        <p class="text-muted small mb-0">Ringkasan hasil pemeriksaan ditampilkan jika tersedia untuk unit tersebut.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
                     <div class="feature-card">
                         <div class="feature-icon bg-success bg-opacity-10 text-success"><i class="fa-solid fa-shield-halved"></i></div>
-                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Bebas Banjir &amp; Tabrak</h5>
-                        <p class="text-muted small mb-0">Jaminan mutlak unit bukan bekas terendam air laut/banjir Makassar dan sasis bebas kecelakaan berat.</p>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Cek Fisik Kendaraan</h5>
+                        <p class="text-muted small mb-0">Jadwalkan pemeriksaan fisik dan test drive di showroom sebelum transaksi.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
                     <div class="feature-card">
                         <div class="feature-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-store"></i></div>
-                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Showroom O2O Offline</h5>
+                        <h5 class="fw-bold mb-2" style="font-size:.95rem;">Showroom O2O</h5>
                         <p class="text-muted small mb-0">Pilih mobil di website, langsung booking jadwal untuk cek fisik &amp; test drive di Garasi Jl. Pettarani Makassar.</p>
                     </div>
                 </div>

@@ -152,10 +152,10 @@
                     {{ form.lulus_inspeksi }}
                     <label class="form-check-label fw-semibold" for="{{ form.lulus_inspeksi.id_for_label }}">{{ form.lulus_inspeksi.label }}</label>
                 </div>
-                <div class="field-help">Menampilkan badge “Lulus 150 Titik Inspeksi” pada kartu katalog.</div>
+                <div class="field-help">Tandai hanya setelah hasil inspeksi kendaraan menyatakan lulus.</div>
             </div>
             <div class="col-12 {% if form.ringkasan_inspeksi.errors %}is-invalid-box{% endif %}">
-                <label class="form-label" for="{{ form.ringkasan_inspeksi.id_for_label }}">{{ form.ringkasan_inspeksi.label }} <span class="req">*</span></label>
+                <label class="form-label" for="{{ form.ringkasan_inspeksi.id_for_label }}">{{ form.ringkasan_inspeksi.label }}</label>
                 {{ form.ringkasan_inspeksi }}
                 {% for e in form.ringkasan_inspeksi.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
             </div>

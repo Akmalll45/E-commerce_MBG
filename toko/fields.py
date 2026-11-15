@@ -6,16 +6,16 @@ from django.db import models
 
 
 def get_ktp_fernet():
-    key = getattr(settings, 'C2C_KTP_ENCRYPTION_KEY', '')
+    key = getattr(settings, 'TITIP_JUAL_KTP_ENCRYPTION_KEY', '')
     if not key:
         raise ImproperlyConfigured(
-            'C2C_KTP_ENCRYPTION_KEY must be configured before reading or saving KTP data.'
+            'TITIP_JUAL_KTP_ENCRYPTION_KEY must be configured before reading or saving KTP data.'
         )
     try:
         return Fernet(key.encode('ascii'))
     except (AttributeError, UnicodeEncodeError, TypeError, ValueError) as error:
         raise ImproperlyConfigured(
-            'C2C_KTP_ENCRYPTION_KEY must be a valid Fernet key.'
+            'TITIP_JUAL_KTP_ENCRYPTION_KEY must be a valid Fernet key.'
         ) from error
 
 
@@ -55,5 +55,6 @@ class EncryptedCharField(models.CharField):
             return get_ktp_fernet().decrypt(value.encode('ascii')).decode('utf-8')
         except (InvalidToken, UnicodeDecodeError, UnicodeEncodeError) as error:
             raise ImproperlyConfigured(
-                'KTP data could not be decrypted. Verify the configured C2C_KTP_ENCRYPTION_KEY.'
+                'KTP data could not be decrypted. Verify the configured '
+                'TITIP_JUAL_KTP_ENCRYPTION_KEY.'
             ) from error
