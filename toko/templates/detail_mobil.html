@@ -503,6 +503,13 @@
             border: none;
             transition: transform 0.25s var(--transition-snappy), box-shadow 0.25s ease, background 0.25s ease;
         }
+        #formBookingUnit { margin: 0; }
+        .btn-cta-beli:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
+            transform: none;
+            box-shadow: none;
+        }
         .btn-cta-beli {
             background: linear-gradient(135deg, #10B981 0%, #059669 100%);
             box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
@@ -1010,9 +1017,15 @@
 
                     <!-- Status Unit -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold">
-                            <i class="fa-solid fa-circle me-1" style="font-size:0.5rem;"></i> {{ produk.get_status_stok_display }}
-                        </span>
+                        {% if unit_memiliki_booking and produk.tipe_penjual == 'B2C' %}
+                            <span id="unitStockBadge" class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill fw-bold">
+                                <i class="fa-solid fa-clock me-1"></i> Sedang Dipesan
+                            </span>
+                        {% else %}
+                            <span id="unitStockBadge" class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold">
+                                <i class="fa-solid fa-circle me-1" style="font-size:0.5rem;"></i> {{ produk.get_status_stok_display }}
+                            </span>
+                        {% endif %}
                         <span class="text-muted small"><i class="fa-solid fa-shield-halved text-primary me-1"></i> Garansi 1 Tahun</span>
                     </div>
 
@@ -1035,21 +1048,71 @@
                     <!-- CTA BUTTONS UTAMA: BELI MOBIL, BOOKING CEK UNIT & WA -->
                     <div class="cta-stack mb-4">
                         {% if produk.tipe_penjual == 'B2C' %}
-                            {% if produk.status_stok == 'ready' %}
-                                <!-- CTA 0: Beli Mobil Sekarang (Customer Purchase Flow Sprint 2) -->
-                                <a href="{% url 'checkout_pembelian' produk.id %}" class="btn-cta-beli">
-                                    <i class="fa-solid fa-cart-shopping"></i>
-                                    <span>Beli Mobil Sekarang</span>
-                                </a>
-                            {% elif produk.status_stok == 'in_review' %}
-                                <div class="p-3 rounded-3 bg-warning bg-opacity-10 border border-warning-subtle text-warning-emphasis small fw-bold text-center">
-                                    <i class="fa-solid fa-lock me-1"></i> Unit Sedang Di-booking Pelanggan Lain
-                                </div>
-                            {% elif produk.status_stok == 'sold' %}
-                                <div class="p-3 rounded-3 bg-secondary bg-opacity-10 border border-secondary-subtle text-secondary small fw-bold text-center">
-                                    <i class="fa-solid fa-ban me-1"></i> Unit Sudah Terjual (Sold Out)
-                                </div>
+                            {% if unit_dapat_dipesan %}
+                                <form method="get" action="{% url 'checkout_pembelian' produk.id %}"
+                                      id="formBookingUnit"
+                                      data-checkout-url="{% url 'checkout_pembelian' produk.id %}"
+                                      data-availability-url="{{ url_status_ketersediaan }}">
+                                    <button type="submit" id="btnBookingUnit" class="btn-cta-beli">
+                                        <i class="fa-solid fa-cart-shopping"></i>
+                                        <span>Beli Mobil Sekarang</span>
+                                    </button>
+                                </form>
+                            {% elif pesanan_aktif_milik_pengguna %}
+                                <form method="get" action="{% url 'pesanan_detail' pesanan_aktif.nomor_pesanan %}"
+                                      id="formBookingUnit"
+                                      data-checkout-url="{% url 'checkout_pembelian' produk.id %}"
+                                      data-availability-url="{{ url_status_ketersediaan }}">
+                                    <button type="submit" id="btnBookingUnit" class="btn-cta-beli">
+                                        <i class="fa-solid fa-receipt"></i>
+                                        <span>Lihat Pesanan Saya</span>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="get" action="{% url 'checkout_pembelian' produk.id %}"
+                                      id="formBookingUnit"
+                                      data-checkout-url="{% url 'checkout_pembelian' produk.id %}"
+                                      data-availability-url="{{ url_status_ketersediaan }}">
+                                    <button type="submit" id="btnBookingUnit" class="btn-cta-beli" disabled>
+                                        <i class="fa-solid fa-lock"></i>
+                                        <span>
+                                            {% if unit_dipesan_pelanggan_lain %}
+                                                Unit Sedang Di-booking Pelanggan Lain
+                                            {% else %}
+                                                Unit Tidak Tersedia
+                                            {% endif %}
+                                        </span>
+                                    </button>
+                                </form>
                             {% endif %}
+                            <div id="unitAvailabilityMessage" class="small text-warning-emphasis text-center"
+                                 role="status" aria-live="polite">
+                                {% if unit_dipesan_pelanggan_lain %}
+                                    Unit ini sedang di-booking pelanggan lain. Pemesanan langsung dinonaktifkan.
+                                {% endif %}
+                            </div>
+                            <div class="modal fade" id="unitBookedModal" tabindex="-1"
+                                 aria-labelledby="unitBookedModalTitle" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 rounded-4 shadow">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h2 class="modal-title fs-5 fw-bold" id="unitBookedModalTitle">
+                                                Unit sedang di-booking
+                                            </h2>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                    aria-label="Tutup"></button>
+                                        </div>
+                                        <div class="modal-body text-secondary">
+                                            Unit ini sedang dipesan pelanggan lain. Untuk mencegah double booking,
+                                            tombol pemesanan dinonaktifkan. Ketersediaan akan diperiksa kembali otomatis.
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-primary rounded-pill px-4"
+                                                    data-bs-dismiss="modal">Mengerti</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         {% endif %}
 
                         <!-- CTA 1: Booking Cek Unit Langsung di Showroom Pettarani -->
@@ -1243,5 +1306,114 @@
     <script>
         AOS.init({ once: true, duration: 650, easing: 'ease-out-cubic' });
     </script>
+    {% if produk.tipe_penjual == 'B2C' %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('formBookingUnit');
+            const button = document.getElementById('btnBookingUnit');
+            const message = document.getElementById('unitAvailabilityMessage');
+            const modalElement = document.getElementById('unitBookedModal');
+            const stockBadge = document.getElementById('unitStockBadge');
+            if (!form || !button) return;
+
+            const checkoutUrl = form.dataset.checkoutUrl;
+            const availabilityUrl = form.dataset.availabilityUrl;
+            let submissionChecked = false;
+            let modalShown = false;
+            let requestInFlight = false;
+
+            function showBookedModal() {
+                if (!modalElement || modalShown) return;
+                modalShown = true;
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+                } else {
+                    window.alert('Unit sedang di-booking pelanggan lain. Pemesanan langsung dinonaktifkan.');
+                }
+            }
+
+            function applyAvailability(data) {
+                if (stockBadge) {
+                    if (data.available) {
+                        stockBadge.className = 'badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold';
+                        stockBadge.innerHTML = '<i class="fa-solid fa-circle me-1" style="font-size:0.5rem;"></i> Ready Stock';
+                    } else if (data.state === 'booked' || data.state === 'reserved_by_you') {
+                        stockBadge.className = 'badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill fw-bold';
+                        stockBadge.innerHTML = '<i class="fa-solid fa-clock me-1"></i> Sedang Dipesan';
+                    } else {
+                        stockBadge.className = 'badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle px-3 py-2 rounded-pill fw-bold';
+                        stockBadge.innerHTML = '<i class="fa-solid fa-ban me-1"></i> Tidak Tersedia';
+                    }
+                }
+
+                if (data.available) {
+                    modalShown = false;
+                    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
+                        const modal = window.bootstrap.Modal.getInstance(modalElement);
+                        if (modal) modal.hide();
+                    }
+                    form.action = checkoutUrl;
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fa-solid fa-cart-shopping"></i><span>Beli Mobil Sekarang</span>';
+                    if (message) message.textContent = '';
+                    return;
+                }
+
+                if (data.reserved_by_you && data.order_url) {
+                    form.action = data.order_url;
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fa-solid fa-receipt"></i><span>Lihat Pesanan Saya</span>';
+                    if (message) message.textContent = data.message;
+                    return;
+                }
+
+                form.action = checkoutUrl;
+                button.disabled = true;
+                button.innerHTML = '<i class="fa-solid fa-lock"></i><span>Unit Sedang Di-booking</span>';
+                if (message) message.textContent = data.message || 'Unit tidak tersedia untuk dipesan.';
+                if (data.state === 'booked') showBookedModal();
+            }
+
+            function checkAvailability() {
+                if (requestInFlight) return Promise.resolve(null);
+                requestInFlight = true;
+                return fetch(availabilityUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Status ketersediaan unit tidak dapat diperiksa.');
+                    return response.json();
+                }).then(function(data) {
+                    if (data.status !== 'success') {
+                        throw new Error('Respons ketersediaan unit tidak valid.');
+                    }
+                    applyAvailability(data);
+                    return data;
+                }).catch(function(error) {
+                    button.disabled = true;
+                    if (message) message.textContent = error.message;
+                    return null;
+                }).finally(function() {
+                    requestInFlight = false;
+                });
+            }
+
+            form.addEventListener('submit', function(event) {
+                if (submissionChecked) return;
+                event.preventDefault();
+                checkAvailability().then(function(data) {
+                    if (!data) return;
+                    submissionChecked = true;
+                    form.requestSubmit();
+                });
+            });
+
+            checkAvailability();
+            window.setInterval(function() {
+                if (!document.hidden && !requestInFlight) checkAvailability();
+            }, 10000);
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

@@ -7,8 +7,8 @@ Fitur:
 2. Pencegahan transaksi ganda (idempotensi pembuatan token dan penanganan pembayaran).
 3. Validasi webhook Midtrans (SHA512 signature, order_id, nominal gross_amount).
 4. Penanganan status transaksi: pending, settlement, capture, expire, cancel, deny.
-5. Kepatuhan domain MBG: Pembayaran sukses mencatat PembayaranPesanan berstatus
-   'menunggu_verifikasi'; unit kendaraan HANYA dikunci setelah diverifikasi oleh staf admin.
+5. Kepatuhan domain MBG: Booking Fee sukses menunggu verifikasi staf; pembelian langsung
+   tervalidasi otomatis sebelum unit dikunci.
 6. Keamanan: Server Key hanya digunakan di sisi backend, tidak pernah diekspos ke klien.
 """
 import base64
@@ -107,7 +107,7 @@ def buat_snap_transaksi(pesanan, server_key=None, snap_url=None):
             raise ValueError('Pesanan tidak dalam status menunggu Booking Fee.')
 
         pembayaran_aktif = pesanan.pembayaran.filter(
-            jenis='booking_fee',
+            jenis=pesanan.jenis_pembayaran_midtrans,
             status__in=['terverifikasi', 'menunggu_verifikasi'],
         ).first()
         if pembayaran_aktif:
@@ -122,7 +122,7 @@ def buat_snap_transaksi(pesanan, server_key=None, snap_url=None):
                 pesanan.midtrans_order_id,
             )
 
-        gross_amount = int(pesanan.nominal_booking_fee)
+        gross_amount = int(pesanan.nominal_pembayaran_midtrans)
         if (
             not pesanan.midtrans_order_id
             or pesanan.midtrans_transaction_status in ('expire', 'cancel', 'deny')
@@ -162,7 +162,11 @@ def buat_snap_transaksi(pesanan, server_key=None, snap_url=None):
                 'id': f'BF-{pesanan.sku_kendaraan[:20]}',
                 'price': gross_amount,
                 'quantity': 1,
-                'name': f'Booking Fee {pesanan.nama_kendaraan[:35]}',
+                'name': (
+                    f'Pembelian Langsung {pesanan.nama_kendaraan[:25]}'
+                    if pesanan.jenis_pembelian == 'beli_langsung'
+                    else f'Booking Fee {pesanan.nama_kendaraan[:35]}'
+                ),
             }],
         }
 
@@ -223,12 +227,11 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
     Validasi:
     1. Signature SHA512.
     2. Keberadaan pesanan berdasarkan order_id.
-    3. Kecocokan nominal gross_amount dengan nominal Booking Fee pesanan.
+    3. Kecocokan nominal gross_amount dengan tagihan sesuai jenis pembelian.
 
-    Aturan Utama MBG:
-    Pembayaran sukses (settlement / capture) mencatat PembayaranPesanan berstatus
-    'menunggu_verifikasi'. Status pesanan tetap 'menunggu_booking_fee' dan stok kendaraan
-    tetap 'ready'. Unit hanya dikunci saat admin memverifikasi pembayaran.
+    Booking Fee yang sukses menunggu verifikasi admin sebelum mengunci unit. Pembelian
+    langsung hanya dianggap berhasil setelah nominal penuh tervalidasi; pembayarannya
+    otomatis tercatat terverifikasi dan unit dikunci dalam transaksi database yang sama.
     """
     sekarang = sekarang or timezone.now()
 
@@ -276,15 +279,16 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
     except (InvalidOperation, ValueError):
         return {'success': False, 'error': 'invalid_amount', 'message': 'Nominal pembayaran tidak valid.'}
 
-    if not nominal_notif.is_finite() or nominal_notif != pesanan.nominal_booking_fee:
+    nominal_tagihan = pesanan.nominal_pembayaran_midtrans
+    if not nominal_notif.is_finite() or nominal_notif != nominal_tagihan:
         logger.warning(
-            "Midtrans Webhook: Mismatch nominal order_id=%s. Notif=%s, Pesanan=%s",
-            order_id, nominal_notif, pesanan.nominal_booking_fee
+            "Midtrans Webhook: Mismatch nominal order_id=%s. Notif=%s, Tagihan=%s",
+            order_id, nominal_notif, nominal_tagihan
         )
         return {
             'success': False,
             'error': 'nominal_mismatch',
-            'message': f'Nominal tidak cocok: diterima {nominal_notif}, tagihan {pesanan.nominal_booking_fee}.'
+            'message': f'Nominal tidak cocok: diterima {nominal_notif}, tagihan {nominal_tagihan}.'
         }
 
     if pesanan_lama:
@@ -296,7 +300,7 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
 
     # 4. Proses Transaksi secara Idempotent dengan Row-Level Lock
     with transaction.atomic():
-        pesanan = PesananPembelian.objects.select_for_update().get(pk=pesanan.pk)
+        produk, pesanan = PesananPembelian._kunci(pesanan.pk)
 
         if order_id != pesanan.midtrans_order_id:
             return {
@@ -316,8 +320,9 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
             }
 
         nomor_referensi = transaction_id or order_id
-        pembayaran_booking = PembayaranPesanan.objects.select_for_update().filter(
-            pesanan=pesanan, jenis='booking_fee', nomor_referensi=nomor_referensi,
+        jenis_pembayaran = pesanan.jenis_pembayaran_midtrans
+        pembayaran_midtrans = PembayaranPesanan.objects.select_for_update().filter(
+            pesanan=pesanan, jenis=jenis_pembayaran, nomor_referensi=nomor_referensi,
         ).first()
         status_saat_ini = pesanan.midtrans_transaction_status
         status_terminal = ('expire', 'cancel', 'deny')
@@ -335,16 +340,93 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
 
         # A. Pembayaran Sukses (settlement atau capture yang di-accept)
         if transaction_status == 'settlement' or (transaction_status == 'capture' and fraud_status == 'accept'):
-            if pembayaran_booking:
-                if pembayaran_booking.status == 'terverifikasi':
+            if pesanan.jenis_pembelian == 'beli_langsung':
+                if pembayaran_midtrans and pembayaran_midtrans.status == 'terverifikasi':
+                    if pesanan.midtrans_transaction_status != transaction_status:
+                        pesanan.midtrans_transaction_status = transaction_status
+                        pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
                     # Sudah diverifikasi oleh admin sebelumnya (idempotent)
                     return {
                         'success': True,
                         'action': 'already_verified',
                         'pesanan_id': pesanan.pk,
-                        'pembayaran_id': pembayaran_booking.pk,
+                        'pembayaran_id': pembayaran_midtrans.pk,
                     }
-                if pembayaran_booking.status == 'menunggu_verifikasi':
+                waktu_bayar = parse_datetime(str(settlement_time)) if settlement_time else sekarang
+                if not waktu_bayar:
+                    waktu_bayar = sekarang
+                elif timezone.is_naive(waktu_bayar):
+                    waktu_bayar = timezone.make_aware(waktu_bayar)
+                if pembayaran_midtrans is None:
+                    pembayaran_midtrans = PembayaranPesanan.objects.create(
+                        pesanan=pesanan,
+                        jenis='pelunasan',
+                        nominal=pesanan.harga_kendaraan,
+                        saluran=petakan_saluran_midtrans(payment_type),
+                        nomor_referensi=nomor_referensi,
+                        tanggal_bayar=waktu_bayar,
+                        status='menunggu_verifikasi',
+                        catatan_verifikasi='Pembayaran penuh terverifikasi oleh Midtrans.',
+                    )
+                if pesanan.status != 'menunggu_booking_fee':
+                    return {
+                        'success': True,
+                        'action': 'ignored_order_inactive',
+                        'pesanan_id': pesanan.pk,
+                        'status_pesanan': pesanan.status,
+                    }
+                if produk.status_stok != 'ready':
+                    pembayaran_midtrans.catatan_verifikasi = (
+                        'Midtrans memvalidasi pembayaran penuh, tetapi unit tidak lagi tersedia. '
+                        'Perlu penanganan staf MBG.'
+                    )
+                    pembayaran_midtrans.save(update_fields=[
+                        'catatan_verifikasi', 'updated_at',
+                    ])
+                    logger.error(
+                        'Validated direct purchase has unavailable inventory for order %s.',
+                        pesanan.nomor_pesanan,
+                    )
+                    return {
+                        'success': True,
+                        'action': 'inventory_conflict_review_required',
+                        'pesanan_id': pesanan.pk,
+                        'pembayaran_id': pembayaran_midtrans.pk,
+                    }
+                pembayaran_midtrans.status = 'terverifikasi'
+                pembayaran_midtrans.tanggal_bayar = waktu_bayar
+                pembayaran_midtrans.catatan_verifikasi = (
+                    f'Midtrans {transaction_status} ({payment_type}); '
+                    'nominal penuh tervalidasi otomatis.'
+                )
+                pembayaran_midtrans.save(update_fields=[
+                    'status', 'tanggal_bayar', 'catatan_verifikasi', 'updated_at',
+                ])
+                produk.status_stok = 'in_review'
+                produk.save(update_fields=['status_stok', 'updated_at'])
+                pesanan._pindah_status(
+                    'booking_aktif', None,
+                    'Pembelian langsung lunas dan diverifikasi otomatis oleh Midtrans; '
+                    'unit dikunci menunggu administrasi dan serah terima.',
+                )
+                pesanan.midtrans_transaction_status = transaction_status
+                pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
+                return {
+                    'success': True,
+                    'action': 'direct_purchase_verified',
+                    'pesanan_id': pesanan.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
+                }
+
+            if pembayaran_midtrans:
+                if pembayaran_midtrans.status == 'terverifikasi':
+                    return {
+                        'success': True,
+                        'action': 'already_verified',
+                        'pesanan_id': pesanan.pk,
+                        'pembayaran_id': pembayaran_midtrans.pk,
+                    }
+                if pembayaran_midtrans.status == 'menunggu_verifikasi':
                     if pesanan.midtrans_transaction_status != transaction_status:
                         pesanan.midtrans_transaction_status = transaction_status
                         pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
@@ -352,15 +434,15 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                         'success': True,
                         'action': 'already_recorded',
                         'pesanan_id': pesanan.pk,
-                        'pembayaran_id': pembayaran_booking.pk,
+                        'pembayaran_id': pembayaran_midtrans.pk,
                     }
-                status_sebelumnya = pembayaran_booking.status
-                pembayaran_booking.status = 'menunggu_verifikasi'
-                pembayaran_booking.catatan_verifikasi = (
+                status_sebelumnya = pembayaran_midtrans.status
+                pembayaran_midtrans.status = 'menunggu_verifikasi'
+                pembayaran_midtrans.catatan_verifikasi = (
                     f'Midtrans mengonfirmasi {transaction_status} setelah status '
                     f'{status_sebelumnya}. Menunggu verifikasi admin MBG.'
                 )
-                pembayaran_booking.save(update_fields=[
+                pembayaran_midtrans.save(update_fields=[
                     'status', 'catatan_verifikasi', 'updated_at',
                 ])
                 pesanan.midtrans_transaction_status = transaction_status
@@ -369,12 +451,12 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'success': True,
                     'action': 'payment_recorded',
                     'pesanan_id': pesanan.pk,
-                    'pembayaran_id': pembayaran_booking.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
                 }
 
             pembayaran_lain = PembayaranPesanan.objects.select_for_update().filter(
                 pesanan=pesanan,
-                jenis='booking_fee',
+                jenis=jenis_pembayaran,
                 status__in=['terverifikasi', 'menunggu_verifikasi'],
             ).first()
 
@@ -388,8 +470,8 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
             saluran = petakan_saluran_midtrans(payment_type)
             pembayaran = PembayaranPesanan.objects.create(
                 pesanan=pesanan,
-                jenis='booking_fee',
-                nominal=pesanan.nominal_booking_fee,
+                jenis=jenis_pembayaran,
+                nominal=pesanan.nominal_pembayaran_midtrans,
                 saluran=saluran,
                 nomor_referensi=transaction_id or order_id,
                 tanggal_bayar=waktu_bayar,
@@ -443,14 +525,14 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'action': 'ignored_stale_status',
                     'pesanan_id': pesanan.pk,
                 }
-            if pembayaran_booking and pembayaran_booking.status in (
+            if pembayaran_midtrans and pembayaran_midtrans.status in (
                 'menunggu_verifikasi', 'terverifikasi',
             ):
                 return {
                     'success': True,
                     'action': 'ignored_stale_status',
                     'pesanan_id': pesanan.pk,
-                    'pembayaran_id': pembayaran_booking.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
                 }
             pesanan.midtrans_transaction_status = 'pending'
             pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
@@ -467,14 +549,14 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'action': 'ignored_stale_status',
                     'pesanan_id': pesanan.pk,
                 }
-            if pembayaran_booking and pembayaran_booking.status in (
+            if pembayaran_midtrans and pembayaran_midtrans.status in (
                 'menunggu_verifikasi', 'terverifikasi',
             ):
                 return {
                     'success': True,
                     'action': 'ignored_stale_status',
                     'pesanan_id': pesanan.pk,
-                    'pembayaran_id': pembayaran_booking.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
                 }
             pesanan.midtrans_transaction_status = 'challenge'
             pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
@@ -493,20 +575,20 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'pesanan_id': pesanan.pk,
                 }
             if status_saat_ini in ('settlement', 'capture') or (
-                pembayaran_booking and pembayaran_booking.status == 'terverifikasi'
+                pembayaran_midtrans and pembayaran_midtrans.status == 'terverifikasi'
             ):
                 return {
                     'success': True,
                     'action': 'ignored_stale_status',
                     'pesanan_id': pesanan.pk,
-                    'pembayaran_id': pembayaran_booking.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
                 }
-            if pembayaran_booking and pembayaran_booking.status == 'menunggu_verifikasi':
-                pembayaran_booking.status = 'ditolak'
-                pembayaran_booking.catatan_verifikasi = (
+            if pembayaran_midtrans and pembayaran_midtrans.status == 'menunggu_verifikasi':
+                pembayaran_midtrans.status = 'ditolak'
+                pembayaran_midtrans.catatan_verifikasi = (
                     f"Transaksi {transaction_status} di Midtrans ({payment_type}). TRX: {transaction_id}."
                 )
-                pembayaran_booking.save(update_fields=['status', 'catatan_verifikasi', 'updated_at'])
+                pembayaran_midtrans.save(update_fields=['status', 'catatan_verifikasi', 'updated_at'])
 
             pesanan.midtrans_transaction_status = transaction_status
             pesanan.midtrans_snap_token = ''

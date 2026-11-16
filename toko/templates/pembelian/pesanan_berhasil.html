@@ -106,7 +106,9 @@
             <div class="success-icon-wrap">
                 <i class="fa-solid fa-circle-check"></i>
             </div>
-            <h1 class="h3 fw-bold text-dark font-heading mb-2">Pesanan Pembelian Berhasil Dibuat!</h1>
+            <h1 class="h3 fw-bold text-dark font-heading mb-2">
+                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pesanan Beli Langsung Tercatat!{% else %}Pesanan Pembelian Berhasil Dibuat!{% endif %}
+            </h1>
             <p class="text-secondary mb-4" style="max-width: 620px; margin-left: auto; margin-right: auto;">
                 Terima kasih, <strong>{{ pesanan.nama_pelanggan }}</strong>. Pesanan kendaraan Anda telah tercatat di sistem Mobil Bekas Garasi Makassar.
             </p>
@@ -116,30 +118,39 @@
                     <i class="fa-solid fa-receipt text-primary"></i>
                     <span>{{ pesanan.nomor_pesanan }}</span>
                 </div>
-                <span class="badge bg-warning text-dark py-2 px-3 rounded-pill fw-bold">
-                    <i class="fa-solid fa-clock me-1"></i> Menunggu Booking Fee
+                <span class="badge {% if pesanan.jenis_pembelian == 'beli_langsung' %}bg-success{% else %}bg-warning text-dark{% endif %} py-2 px-3 rounded-pill fw-bold">
+                    <i class="fa-solid fa-clock me-1"></i>
+                    {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu Pembayaran Penuh Midtrans{% else %}Menunggu Booking Fee{% endif %}
                 </span>
             </div>
 
-            <!-- Kartu Pembayaran Booking Fee -->
+            <!-- Kartu Pembayaran Midtrans -->
             <div class="card border-primary text-start mx-auto mb-4" style="max-width: 640px; background: rgba(37, 99, 235, 0.02);">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                         <h2 class="h6 fw-bold text-primary mb-0 font-heading">
-                            <i class="fa-solid fa-wallet me-1"></i> Tagihan Booking Fee
+                            <i class="fa-solid fa-wallet me-1"></i>
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Penuh{% else %}Tagihan Booking Fee{% endif %}
                         </h2>
-                        <span class="badge bg-primary rounded-pill">{{ pesanan.persentase_booking_fee }}% dari harga OTR</span>
+                        <span class="badge {% if pesanan.jenis_pembelian == 'beli_langsung' %}bg-success{% else %}bg-primary{% endif %} rounded-pill">
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}100% OTR{% else %}{{ pesanan.persentase_booking_fee }}% OTR{% endif %}
+                        </span>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-baseline mb-3">
                         <span class="text-secondary small">Nominal yang Harus Dibayar:</span>
-                        <span class="h4 fw-bold text-primary font-heading mb-0">Rp {{ pesanan.nominal_booking_fee|intcomma }}</span>
+                        <span class="h4 fw-bold {% if pesanan.jenis_pembelian == 'beli_langsung' %}text-success{% else %}text-primary{% endif %} font-heading mb-0">Rp {{ pesanan.nominal_pembayaran_midtrans|intcomma }}</span>
                     </div>
 
                     <!-- Pembayaran: terintegrasi dengan Midtrans Snap Sandbox -->
                     <div class="alert alert-primary small mb-3" role="status">
                         <i class="fa-solid fa-shield-halved me-1 text-primary"></i>
-                        <strong>Pembayaran Online:</strong> Bayar Booking Fee secara aman melalui <strong>Midtrans</strong> (Virtual Account, QRIS, GoPay, Kartu Kredit).
+                        <strong>Pembayaran Online:</strong>
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}
+                            Bayar 100% harga OTR melalui <strong>Midtrans</strong>. Unit akan dikunci otomatis setelah pembayaran tervalidasi.
+                        {% else %}
+                            Bayar Booking Fee melalui <strong>Midtrans</strong> (Virtual Account, QRIS, GoPay, Kartu Kredit). Unit dikunci setelah verifikasi admin.
+                        {% endif %}
                     </div>
 
                     {% if pesanan.status == 'menunggu_booking_fee' %}
@@ -149,7 +160,7 @@
                     </div>
                     <button id="btnPaySnap" class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mb-3" style="background: linear-gradient(135deg, #2563EB, #1D4ED8); border: none;">
                         <i class="fa-solid fa-credit-card fs-5"></i>
-                        <span id="btnPaySnapText">Bayar Booking Fee Sekarang (Midtrans)</span>
+                        <span id="btnPaySnapText">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Bayar Penuh Sekarang (Midtrans){% else %}Bayar Booking Fee Sekarang (Midtrans){% endif %}</span>
                     </button>
                     <div id="paymentAlert" class="alert alert-danger small d-none mb-3"></div>
                     {% endif %}
@@ -157,7 +168,12 @@
                     <!-- Info Ketentuan Kunci Unit -->
                     <div class="alert alert-light border small text-secondary mb-0">
                         <i class="fa-solid fa-circle-exclamation text-primary me-1"></i>
-                        <strong>Penting:</strong> Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee diverifikasi oleh staf MBG.
+                        <strong>Penting:</strong>
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}
+                            Browser tidak menentukan status sukses. Unit dikunci hanya setelah webhook atau Get Status API Midtrans memvalidasi pembayaran penuh.
+                        {% else %}
+                            Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee diverifikasi oleh staf MBG.
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -198,7 +214,7 @@
                 </div>
                 <div class="col-sm-6">
                     <span class="text-muted d-block">Rencana Pembayaran:</span>
-                    <span class="text-dark">{{ pesanan.get_metode_pembayaran_display }}</span>
+                        <span class="text-dark">{{ pesanan.get_jenis_pembelian_display }}{% if pesanan.jenis_pembelian != 'beli_langsung' %} · {{ pesanan.get_metode_pembayaran_display }}{% endif %}</span>
                 </div>
                 <div class="col-sm-6">
                     <span class="text-muted d-block">Opsi Penyerahan Unit:</span>
@@ -214,6 +230,17 @@
         </div>
     </div>
 </section>
+{% if pesanan.jenis_pembelian == 'beli_langsung' %}
+<div id="directPurchaseSuccessModal" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style="z-index: 1090;" role="dialog" aria-modal="true" aria-labelledby="directPurchaseSuccessTitle" hidden>
+    <div class="bg-white rounded-4 shadow-lg p-4 text-center" style="max-width: 460px;">
+        <div class="text-success display-4 mb-2"><i class="fa-solid fa-circle-check"></i></div>
+        <h2 id="directPurchaseSuccessTitle" class="h4 fw-bold text-dark">Pembayaran Terverifikasi!</h2>
+        <p class="text-muted">Pembayaran penuh telah divalidasi Midtrans dan unit sudah dikunci. Silakan lanjutkan administrasi dan serah terima bersama tim MBG.</p>
+        <a href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" class="btn btn-success rounded-pill px-4">Lihat Detail Pesanan</a>
+        <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Riwayat Pesanan</a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -231,6 +258,7 @@
         const originalText = btnText.innerHTML;
         const tokenUrl = "{% url 'midtrans_snap_token' pesanan.nomor_pesanan %}";
         const statusUrl = "{% url 'midtrans_payment_status' pesanan.nomor_pesanan %}";
+        const directPurchaseSuccessModal = document.getElementById('directPurchaseSuccessModal');
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let activeToken = "{{ pesanan.midtrans_snap_token|default:''|escapejs }}";
         let tokenRequest = null;
@@ -312,7 +340,7 @@
             try {
                 window.snap.pay(token, {
                     onSuccess: function() {
-                        showStatus('Midtrans melaporkan pembayaran berhasil. Menunggu konfirmasi server dan verifikasi staf MBG.', 'info');
+                        showStatus('Pembayaran dikirim. Server sedang memverifikasi status langsung ke Midtrans.', 'info');
                         pollStatus();
                     },
                     onPending: function() {
@@ -342,6 +370,12 @@
                 .then(function(data) {
                     if (data.status !== 'success') return;
                     showStatus(data.message, data.payment_status === 'menunggu_verifikasi' ? 'success' : 'info');
+                    if (data.purchase_type === 'beli_langsung' && data.payment_status === 'terverifikasi') {
+                        btn.disabled = true;
+                        btnText.textContent = 'Pembayaran Penuh Terverifikasi';
+                        if (directPurchaseSuccessModal) directPurchaseSuccessModal.hidden = false;
+                        return;
+                    }
                     if (data.order_status !== lastOrderStatus) {
                         window.location.reload();
                         return;
@@ -349,7 +383,9 @@
                     lastOrderStatus = data.order_status;
                     if (!data.can_pay) {
                         btn.disabled = true;
-                        btnText.textContent = 'Menunggu Verifikasi Booking Fee';
+                        btnText.textContent = data.purchase_type === 'beli_langsung'
+                            ? 'Menunggu Validasi Pembayaran'
+                            : 'Menunggu Verifikasi Booking Fee';
                     } else if (['expire', 'cancel', 'deny'].indexOf(data.transaction_status) !== -1
                         || data.payment_status === 'ditolak') {
                         activeToken = '';

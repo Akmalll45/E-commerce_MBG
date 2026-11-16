@@ -197,6 +197,37 @@
                     <!-- Kartu 2: Pilihan Pembayaran & Penyerahan -->
                     <div class="checkout-card">
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                            <i class="fa-solid fa-car-side text-primary fs-5"></i>
+                            <h2 class="h5 fw-bold text-dark mb-0 font-heading">Pilih Alur Pembelian</h2>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            {% for radio in form.jenis_pembelian %}
+                            <div class="col-sm-6">
+                                <label class="option-card d-block h-100" for="{{ radio.id_for_label }}">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        {{ radio.tag }}
+                                        <span class="fw-bold text-dark">
+                                            {% if radio.data.value == 'beli_langsung' %}
+                                                <i class="fa-solid fa-bolt text-success me-1"></i> Beli Langsung
+                                            {% else %}
+                                                <i class="fa-solid fa-calendar-check text-primary me-1"></i> Booking Kendaraan
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted d-block ps-4">
+                                        {% if radio.data.value == 'beli_langsung' %}
+                                            Bayar penuh 100% harga OTR melalui Midtrans. Pembayaran tervalidasi otomatis dan unit langsung dikunci.
+                                        {% else %}
+                                            Bayar Booking Fee {{ persentase_booking_fee }}% OTR. Unit dikunci setelah pembayaran diverifikasi admin.
+                                        {% endif %}
+                                    </small>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div id="wrapperMetodePembayaran">
+                        <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <i class="fa-solid fa-credit-card text-primary fs-5"></i>
                             <h2 class="h5 fw-bold text-dark mb-0 font-heading">Metode Pembayaran Kendaraan</h2>
                         </div>
@@ -228,6 +259,7 @@
                                 </label>
                             </div>
                             {% endfor %}
+                        </div>
                         </div>
 
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom pt-3">
@@ -323,23 +355,37 @@
                         </div>
                         {% endif %}
 
-                        <div class="d-flex justify-content-between align-items-center mb-2 pt-2 border-top">
-                            <div>
-                                <span class="fw-bold text-primary small d-block">Booking Fee Wajib</span>
-                                <span class="fee-badge">{{ persentase_booking_fee }}% dari harga OTR</span>
+                        <div id="bookingPaymentSummary">
+                            <div class="d-flex justify-content-between align-items-center mb-2 pt-2 border-top">
+                                <div>
+                                    <span class="fw-bold text-primary small d-block">Booking Fee</span>
+                                    <span class="fee-badge">{{ persentase_booking_fee }}% dari harga OTR</span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ nominal_booking_fee|intcomma }}</span>
+                                </div>
                             </div>
-                            <div class="text-end">
-                                <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ nominal_booking_fee|intcomma }}</span>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3 pt-2 border-top">
+                                <span class="text-muted small">Estimasi Sisa Pembayaran</span>
+                                <span class="fw-bold text-secondary small">Rp {{ sisa_estimasi|intcomma }}</span>
+                            </div>
+                            <div class="p-3 rounded-3 mb-4 bg-primary bg-opacity-10 text-secondary small">
+                                Booking Fee masuk ke sisa harga kendaraan. Unit dikunci setelah Booking Fee diverifikasi staf MBG.
                             </div>
                         </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-3 pt-2 border-top">
-                            <span class="text-muted small">Estimasi Sisa Pembayaran</span>
-                            <span class="fw-bold text-secondary small">Rp {{ sisa_estimasi|intcomma }}</span>
+                        <div id="directPaymentSummary" class="d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-3 pt-2 border-top">
+                                <span class="fw-bold text-success">Total dibayar melalui Midtrans</span>
+                                <span class="h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
+                            </div>
+                            <div class="p-3 rounded-3 mb-4 bg-success bg-opacity-10 text-secondary small">
+                                Setelah Midtrans memvalidasi pembayaran 100% OTR, unit langsung dikunci dan pesanan masuk ke proses administrasi serta serah terima.
+                            </div>
                         </div>
 
                         <!-- Aturan Booking MBG Notice -->
-                        <div class="p-3 rounded-3 mb-4" style="background: rgba(37, 99, 235, 0.05); border-left: 4px solid var(--mbg-blue);">
+                        <div id="bookingTerms" class="p-3 rounded-3 mb-4" style="background: rgba(37, 99, 235, 0.05); border-left: 4px solid var(--mbg-blue);">
                             <div class="d-flex gap-2">
                                 <i class="fa-solid fa-shield-halved text-primary mt-1"></i>
                                 <div class="small text-secondary">
@@ -400,6 +446,25 @@
 
         // Styling radio metode pembayaran
         const radioPembayaran = document.querySelectorAll('input[name="metode_pembayaran"]');
+        const radioJenisPembelian = document.querySelectorAll('input[name="jenis_pembelian"]');
+        const wrapperMetodePembayaran = document.getElementById('wrapperMetodePembayaran');
+        const bookingPaymentSummary = document.getElementById('bookingPaymentSummary');
+        const directPaymentSummary = document.getElementById('directPaymentSummary');
+        const bookingTerms = document.getElementById('bookingTerms');
+        function updateJenisPembelian() {
+            let jenis = 'booking';
+            radioJenisPembelian.forEach(r => {
+                if (r.checked) jenis = r.value;
+                const card = r.closest('.option-card');
+                if (card) card.classList.toggle('selected', r.checked);
+            });
+            const beliLangsung = jenis === 'beli_langsung';
+            wrapperMetodePembayaran.style.display = beliLangsung ? 'none' : '';
+            bookingPaymentSummary.classList.toggle('d-none', beliLangsung);
+            directPaymentSummary.classList.toggle('d-none', !beliLangsung);
+            bookingTerms.classList.toggle('d-none', beliLangsung);
+        }
+        radioJenisPembelian.forEach(r => r.addEventListener('change', updateJenisPembelian));
         function updatePembayaranCard() {
             radioPembayaran.forEach(r => {
                 const card = r.closest('.option-card');
@@ -413,6 +478,7 @@
 
         updateAlamatVisibility();
         updatePembayaranCard();
+        updateJenisPembelian();
     });
 </script>
 {% endblock %}

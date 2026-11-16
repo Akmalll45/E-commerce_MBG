@@ -1553,6 +1553,10 @@ class PengaturanPembelian(models.Model):
 
 
 class PesananPembelian(models.Model):
+    JENIS_PEMBELIAN_CHOICES = [
+        ('booking', 'Booking dengan Booking Fee'),
+        ('beli_langsung', 'Beli Langsung'),
+    ]
     METODE_PEMBAYARAN_CHOICES = [
         ('cash', 'Cash'),
         ('kredit', 'Kredit'),
@@ -1619,6 +1623,10 @@ class PesananPembelian(models.Model):
         max_digits=12, decimal_places=0, verbose_name="Nominal Booking Fee (Snapshot, Rp)",
     )
 
+    jenis_pembelian = models.CharField(
+        max_length=20, choices=JENIS_PEMBELIAN_CHOICES, default='booking',
+        db_index=True, verbose_name="Jenis Pembelian",
+    )
     metode_pembayaran = models.CharField(
         max_length=10, choices=METODE_PEMBAYARAN_CHOICES, verbose_name="Metode Pembayaran",
     )
@@ -1665,6 +1673,7 @@ class PesananPembelian(models.Model):
     # Field yang dibekukan setelah pesanan dibuat (booking_berakhir_pada: boleh diisi sekali).
     FIELD_SNAPSHOT_TERKUNCI = (
         'produk_id', 'harga_kendaraan', 'persentase_booking_fee', 'nominal_booking_fee',
+        'jenis_pembelian',
     )
 
     class Meta:
@@ -1768,10 +1777,12 @@ class PesananPembelian(models.Model):
     def buat_dari_produk(
         cls, produk, pelanggan, nama_pelanggan, no_whatsapp, metode_pembayaran,
         opsi_penyerahan='showroom', email='', alamat_pengantaran='',
+        jenis_pembelian='booking',
     ):
         """
-        Buat pesanan dengan snapshot harga dan Booking Fee dari pengaturan yang berlaku.
-        Unit TIDAK dikunci di sini; kunci baru berlaku setelah Booking Fee diverifikasi admin.
+        Buat pesanan dengan snapshot harga, jenis pembelian, dan Booking Fee yang berlaku.
+        Unit belum dikunci di sini: Booking dikunci setelah Booking Fee diverifikasi admin,
+        sedangkan Beli Langsung dikunci setelah pembayaran penuh tervalidasi Midtrans.
         Hanya unit stok MBG (B2C) berstatus ready; unit C2C tetap memakai alur titip-jual.
 
         Satu kendaraan hanya boleh punya satu pesanan aktif. Karena unit masih 'ready' selama
@@ -1808,6 +1819,7 @@ class PesananPembelian(models.Model):
                 harga_promo=produk.harga_promo,
                 persentase_booking_fee=pengaturan.persentase_booking_fee,
                 nominal_booking_fee=pengaturan.hitung_booking_fee(produk.harga),
+                jenis_pembelian=jenis_pembelian,
                 metode_pembayaran=metode_pembayaran,
                 opsi_penyerahan=opsi_penyerahan,
                 alamat_pengantaran=alamat_pengantaran or '',
@@ -1832,6 +1844,18 @@ class PesananPembelian(models.Model):
     def sisa_pembayaran(self):
         """Booking Fee adalah bagian dari harga kendaraan, jadi ikut mengurangi sisa."""
         return max(self.harga_kendaraan - self.total_terverifikasi(), Decimal('0'))
+
+    @property
+    def jenis_pembayaran_midtrans(self):
+        return 'pelunasan' if self.jenis_pembelian == 'beli_langsung' else 'booking_fee'
+
+    @property
+    def nominal_pembayaran_midtrans(self):
+        return (
+            self.harga_kendaraan
+            if self.jenis_pembelian == 'beli_langsung'
+            else self.nominal_booking_fee
+        )
 
     def booking_masih_berlaku(self, sekarang=None):
         sekarang = sekarang or timezone.now()
@@ -2056,7 +2080,21 @@ class PembayaranPesanan(models.Model):
             if self._state.adding:
                 if self.jenis == 'booking_fee' and pesanan.status != 'menunggu_booking_fee':
                     galat['jenis'] = 'Booking Fee hanya dapat dibayar pada pesanan yang menunggu Booking Fee.'
-                elif self.jenis in ('dp', 'pelunasan') and pesanan.status != 'booking_aktif':
+                elif (
+                    self.jenis == 'pelunasan'
+                    and pesanan.jenis_pembelian == 'beli_langsung'
+                    and pesanan.status == 'menunggu_booking_fee'
+                    and self.nominal != pesanan.harga_kendaraan
+                ):
+                    galat['nominal'] = 'Pembelian langsung harus dibayar penuh sesuai harga OTR.'
+                elif self.jenis in ('dp', 'pelunasan') and not (
+                    pesanan.status == 'booking_aktif'
+                    or (
+                        self.jenis == 'pelunasan'
+                        and pesanan.jenis_pembelian == 'beli_langsung'
+                        and pesanan.status == 'menunggu_booking_fee'
+                    )
+                ):
                     galat['jenis'] = 'DP dan pelunasan hanya dapat dibayar setelah Booking Fee diverifikasi dan selama booking aktif.'
             if (
                 self.jenis == 'booking_fee' and self.nominal is not None
@@ -2080,6 +2118,11 @@ class PembayaranPesanan(models.Model):
             self.refresh_from_db()
             if self.status != 'menunggu_verifikasi':
                 raise ValueError('Pembayaran ini sudah diproses.')
+            if (
+                self.jenis == 'pelunasan'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+            ):
+                raise ValueError('Pembayaran beli langsung hanya dapat disahkan oleh validasi Midtrans.')
             if self.jenis == 'booking_fee':
                 if pesanan.status != 'menunggu_booking_fee':
                     raise ValueError('Booking Fee hanya dapat diverifikasi untuk pesanan yang menunggu Booking Fee.')

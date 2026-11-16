@@ -6,6 +6,7 @@ urlpatterns = [
     path('', views.beranda, name='beranda'),
     path('katalog/', views.katalog, name='katalog'),
     path('mobil/<int:id>/', views.detail_produk, name='detail_produk'),
+    path('mobil/<int:id>/status-ketersediaan/', views.status_ketersediaan_unit, name='status_ketersediaan_unit'),
 
     # Autentikasi
     path('login/', views.login_view, name='login'),
@@ -65,6 +66,17 @@ urlpatterns = [
     path('panel/booking/', views.admin_booking, name='admin_booking'),
     path('panel/booking/<int:id>/', views.admin_booking_detail, name='admin_booking_detail'),
     path('panel/booking/<int:id>/status/', views.admin_booking_status, name='admin_booking_status'),
+    path('panel/pesanan-pembelian/', views.admin_pesanan_pembelian, name='admin_pesanan_pembelian'),
+    path(
+        'panel/pesanan-pembelian/pembayaran/<int:pembayaran_id>/verifikasi/',
+        views.admin_verifikasi_pembayaran_pesanan,
+        name='admin_verifikasi_pembayaran_pesanan',
+    ),
+    path(
+        'panel/pesanan-pembelian/<int:pesanan_id>/selesaikan/',
+        views.admin_selesaikan_pesanan_pembelian,
+        name='admin_selesaikan_pesanan_pembelian',
+    ),
     path('panel/profil/', views.profil_admin, name='profil_admin'),
     path('panel/ubah-password/', views.ubah_password_admin, name='ubah_password_admin'),
 

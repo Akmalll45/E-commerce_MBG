@@ -538,8 +538,8 @@
                                     <tr>
                                         <th>Nomor &amp; Kendaraan</th>
                                         <th>Tanggal Pesan</th>
-                                        <th>Harga &amp; Booking Fee</th>
-                                        <th>Metode &amp; Opsi</th>
+                                        <th>Harga &amp; Pembayaran</th>
+                                        <th>Jenis &amp; Opsi</th>
                                         <th>Status</th>
                                         <th class="text-end">Aksi</th>
                                     </tr>
@@ -558,17 +558,20 @@
                                         </td>
                                         <td>
                                             <div class="small fw-bold text-dark">Rp {{ p.harga_kendaraan|intcomma }}</div>
-                                            <small class="text-primary fw-semibold">Fee: Rp {{ p.nominal_booking_fee|intcomma }}</small>
+                                            <small class="{% if p.jenis_pembelian == 'beli_langsung' %}text-success{% else %}text-primary{% endif %} fw-semibold">
+                                                {% if p.jenis_pembelian == 'beli_langsung' %}Bayar penuh: Rp {{ p.harga_kendaraan|intcomma }}{% else %}Booking Fee: Rp {{ p.nominal_booking_fee|intcomma }}{% endif %}
+                                            </small>
                                         </td>
                                         <td>
-                                            <div class="small text-dark">{{ p.get_metode_pembayaran_display }}</div>
+                                            <div class="small text-dark">{{ p.get_jenis_pembelian_display }}</div>
+                                            {% if p.jenis_pembelian != 'beli_langsung' %}<small class="text-muted">{{ p.get_metode_pembayaran_display }}</small>{% endif %}
                                             <small class="text-muted">{{ p.get_opsi_penyerahan_display }}</small>
                                         </td>
                                         <td>
                                             {% if p.status == 'menunggu_booking_fee' %}
                                                 <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu Booking Fee</span>
                                             {% elif p.status == 'booking_aktif' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">Booking Aktif (Terkunci)</span>
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">{% if p.jenis_pembelian == 'beli_langsung' %}Lunas — Menunggu Serah Terima{% else %}Booking Aktif (Terkunci){% endif %}</span>
                                             {% elif p.status == 'selesai' %}
                                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill">Selesai</span>
                                             {% elif p.status == 'dibatalkan' %}

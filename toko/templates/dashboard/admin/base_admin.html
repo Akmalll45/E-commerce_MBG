@@ -125,6 +125,12 @@
                             <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
                         {% endif %}
                     </a>
+                    <a class="admin-side-item {% if 'pesanan_pembelian' in request.resolver_match.url_name or 'pembayaran_pesanan' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_pesanan_pembelian' %}">
+                        <span><i class="fa-solid fa-car-side text-primary"></i> Pesanan Pembelian</span>
+                        {% if pembayaran_pesanan_menunggu_verifikasi > 0 %}
+                            <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
+                        {% endif %}
+                    </a>
                     <button class="admin-side-item admin-side-toggle w-100 border-0 {% if 'titip_jual' in request.resolver_match.url_name %}active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="{% if 'titip_jual' in request.resolver_match.url_name %}true{% else %}false{% endif %}" aria-controls="menuTitipJualC2C">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
                         <i class="fa-solid fa-chevron-down small"></i>

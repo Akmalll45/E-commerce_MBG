@@ -287,6 +287,12 @@
                             <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
                         {% endif %}
                     </a>
+                    <a class="admin-side-item" href="{% url 'admin_pesanan_pembelian' %}">
+                        <span><i class="fa-solid fa-car-side text-primary"></i> Pesanan Pembelian</span>
+                        {% if pembayaran_pesanan_menunggu_verifikasi > 0 %}
+                            <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
+                        {% endif %}
+                    </a>
                     {% if can_view_c2c %}
                     <button class="admin-side-item w-100 border-0" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="false" aria-controls="menuTitipJualC2C" style="background:transparent;">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
@@ -368,6 +374,18 @@
 
                 <!-- 5 KPI Stat Cards (Katalog, Pengguna, Booking, Titip-Jual, Transaksi) -->
                 <div class="row g-3 mb-4">
+                    <div class="col-md-4 col-xl-3">
+                        <a href="{% url 'admin_pesanan_pembelian' %}?status=menunggu_verifikasi" class="text-decoration-none">
+                            <div class="kpi-card">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fa-solid fa-money-check-dollar"></i></div>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger small">Pesanan Online</span>
+                                </div>
+                                <div class="kpi-val">{{ pembayaran_pesanan_menunggu_verifikasi }}</div>
+                                <div class="kpi-sub mt-1">Booking Fee menunggu verifikasi</div>
+                            </div>
+                        </a>
+                    </div>
                     <!-- 1. Katalog Kendaraan -->
                     <div class="col-md-4 col-xl-2">
                         <div class="kpi-card">

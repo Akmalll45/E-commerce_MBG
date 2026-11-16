@@ -147,6 +147,16 @@
                         </a>
                     </div>
                     <dl class="row mb-0 small">
+                        <dt class="col-sm-4 text-secondary">Jenis Pembelian</dt>
+                        <dd class="col-sm-8 fw-bold text-dark mb-2">
+                            {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Beli Langsung — 100% OTR via Midtrans</span>
+                            {% else %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Booking — Booking Fee {{ persentase_booking_fee }}% OTR</span>
+                            {% endif %}
+                        </dd>
+
+                        {% if checkout_data.jenis_pembelian != 'beli_langsung' %}
                         <dt class="col-sm-4 text-secondary">Rencana Bayar</dt>
                         <dd class="col-sm-8 fw-bold text-dark mb-2">
                             {% if checkout_data.metode_pembayaran == 'cash' %}
@@ -159,6 +169,7 @@
                                 </span>
                             {% endif %}
                         </dd>
+                        {% endif %}
 
                         <dt class="col-sm-4 text-secondary">Opsi Penyerahan</dt>
                         <dd class="col-sm-8 fw-bold text-dark mb-2">
@@ -185,8 +196,13 @@
                         <div>
                             <h3 class="h6 fw-bold text-dark font-heading mb-1">Ketentuan Pemesanan Garasi MBG</h3>
                             <ul class="text-secondary small mb-0 ps-3">
-                                <li class="mb-1">Booking Fee bersifat resmi sebagai tanda jadi dan memotong total harga kendaraan.</li>
-                                <li class="mb-1">Unit mobil akan resmi <strong>dikunci</strong> setelah bukti transfer diverifikasi oleh staf admin MBG.</li>
+                                {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
+                                    <li class="mb-1">Pembayaran penuh 100% harga OTR diproses melalui Midtrans dan hanya dianggap berhasil setelah tervalidasi oleh Midtrans.</li>
+                                    <li class="mb-1">Setelah valid, unit langsung dikunci untuk proses administrasi dan serah terima tanpa verifikasi pembayaran manual.</li>
+                                {% else %}
+                                    <li class="mb-1">Booking Fee sebesar {{ persentase_booking_fee }}% OTR bersifat resmi sebagai tanda jadi dan memotong total harga kendaraan.</li>
+                                    <li class="mb-1">Unit mobil akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee diverifikasi oleh staf admin MBG.</li>
+                                {% endif %}
                                 <li>Pencegahan double-booking aktif: pesanan Anda dijamin aman di sistem transaksi database kami.</li>
                             </ul>
                         </div>
@@ -227,9 +243,16 @@
                         </div>
                         {% endif %}
 
+                        {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
+                            <span class="fw-bold text-success">Total pembayaran langsung (100% OTR)</span>
+                            <span class="h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
+                        </div>
+                        <p class="small text-muted mb-0">Status dan penguncian unit akan diperbarui setelah Midtrans memvalidasi transaksi, bukan berdasarkan redirect browser.</p>
+                        {% else %}
                         <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
                             <div>
-                                <span class="fw-bold text-primary small d-block">Booking Fee Wajib</span>
+                                <span class="fw-bold text-primary small d-block">Booking Fee</span>
                                 <small class="text-muted">{{ persentase_booking_fee }}% dari harga</small>
                             </div>
                             <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ nominal_booking_fee|intcomma }}</span>
@@ -239,6 +262,7 @@
                             <span class="text-secondary">Estimasi Sisa Tagihan</span>
                             <span class="fw-bold text-dark">Rp {{ sisa_estimasi|intcomma }}</span>
                         </div>
+                        {% endif %}
                     </div>
 
                     <!-- Form Konfirmasi Final (POST) -->

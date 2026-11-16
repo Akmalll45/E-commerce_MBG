@@ -1649,6 +1649,13 @@ class CheckoutPembelianForm(forms.Form):
             'autocomplete': 'email',
         }),
     )
+    jenis_pembelian = forms.ChoiceField(
+        choices=PesananPembelian.JENIS_PEMBELIAN_CHOICES,
+        label="Jenis Pembelian",
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        initial='booking',
+        required=False,
+    )
     metode_pembayaran = forms.ChoiceField(
         choices=PesananPembelian.METODE_PEMBAYARAN_CHOICES,
         label="Metode Pembayaran Kendaraan",
@@ -1686,6 +1693,9 @@ class CheckoutPembelianForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
+        cleaned_data['jenis_pembelian'] = cleaned_data.get('jenis_pembelian') or 'booking'
+        if cleaned_data.get('jenis_pembelian') == 'beli_langsung':
+            cleaned_data['metode_pembayaran'] = 'cash'
         opsi = cleaned_data.get('opsi_penyerahan')
         alamat = (cleaned_data.get('alamat_pengantaran') or '').strip()
         if opsi == 'towing' and not alamat:

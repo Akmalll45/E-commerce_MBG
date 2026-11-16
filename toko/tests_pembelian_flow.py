@@ -1,11 +1,13 @@
 import itertools
+import re
+from datetime import timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
 
 from toko.models import (
-    Produk, PengaturanPembelian, PesananPembelian, RiwayatPesanan,
+    PembayaranPesanan, Produk, PengaturanPembelian, PesananPembelian, RiwayatPesanan,
 )
 
 _urutan = itertools.count(100)
@@ -70,6 +72,15 @@ class CustomerPurchaseFlowTests(TestCase):
 
         self.client_anon = Client()
 
+    def buat_pesanan_unit(self, pelanggan):
+        return PesananPembelian.buat_dari_produk(
+            produk=self.produk_ready,
+            pelanggan=pelanggan,
+            nama_pelanggan=pelanggan.get_full_name() or pelanggan.username,
+            no_whatsapp=pelanggan.no_whatsapp,
+            metode_pembayaran='cash',
+        )
+
     # ── 1. Tombol Beli Mobil pada Detail Kendaraan ─────────────────
 
     def test_tombol_beli_mobil_tampil_pada_unit_b2c_ready(self):
@@ -83,15 +94,110 @@ class CustomerPurchaseFlowTests(TestCase):
         self.produk_ready.save()
         resp = self.client_auth.get(reverse('detail_produk', args=[self.produk_ready.id]))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'Unit Sedang Di-booking')
-        self.assertNotContains(resp, 'Beli Mobil Sekarang')
+        self.assertContains(resp, 'Unit Sedang Di-booking Pelanggan Lain')
+        html = resp.content.decode()
+        self.assertRegex(html, r'<button[^>]+id="btnBookingUnit"[^>]+disabled')
+        button = re.search(r'<button[^>]+id="btnBookingUnit"[^>]*>.*?</button>', html, re.DOTALL)
+        self.assertIsNotNone(button)
+        self.assertNotIn('Beli Mobil Sekarang', button.group(0))
+        self.assertContains(resp, 'unitBookedModal')
 
-    def test_unit_c2c_tidak_menampilkan_tombol_beli_langsung(self):
+    def test_ketersediaan_real_time_menonaktifkan_booking_dan_menampilkan_modal(self):
+        url_status = reverse('status_ketersediaan_unit', args=[self.produk_ready.id])
+
+        before = self.client_anon.get(url_status)
+        self.assertEqual(before.status_code, 200)
+        self.assertTrue(before.json()['available'])
+        initially_available_page = self.client_anon.get(
+            reverse('detail_produk', args=[self.produk_ready.id])
+        )
+        self.assertContains(initially_available_page, 'unitBookedModal')
+
+        order = self.buat_pesanan_unit(self.pelanggan_lain)
+        response = self.client_anon.get(reverse('detail_produk', args=[self.produk_ready.id]))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertRegex(html, r'<button[^>]+id="btnBookingUnit"[^>]+disabled')
+        self.assertIn('unitBookedModal', html)
+        self.assertIn('Unit Sedang Di-booking Pelanggan Lain', html)
+        self.assertNotIn(order.nomor_pesanan, html)
+        button = re.search(r'<button[^>]+id="btnBookingUnit"[^>]*>.*?</button>', html, re.DOTALL)
+        self.assertIsNotNone(button)
+        self.assertNotIn('Beli Mobil Sekarang', button.group(0))
+
+        after = self.client_anon.get(url_status)
+        self.assertEqual(after.status_code, 200)
+        self.assertFalse(after.json()['available'])
+        self.assertEqual(after.json()['state'], 'booked')
+        self.assertNotIn(order.nomor_pesanan, after.content.decode())
+
+        client_owner = Client()
+        client_owner.login(username='ani_pembeli', password='Password123!')
+        own_response = client_owner.get(url_status)
+        self.assertTrue(own_response.json()['reserved_by_you'])
+        self.assertEqual(
+            own_response.json()['order_url'],
+            reverse('pesanan_detail', args=[order.nomor_pesanan]),
+        )
+
+    def test_ketersediaan_kembali_setelah_pesanan_tanpa_pembayaran_dibatalkan(self):
+        order = self.buat_pesanan_unit(self.pelanggan_lain)
+        order.batalkan_tanpa_pembayaran(self.pelanggan_lain, 'Pelanggan membatalkan.')
+
+        response = self.client_anon.get(
+            reverse('status_ketersediaan_unit', args=[self.produk_ready.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['available'])
+
+    def test_ketersediaan_kembali_setelah_booking_kedaluwarsa(self):
+        order = self.buat_pesanan_unit(self.pelanggan_lain)
+        pembayaran = PembayaranPesanan.objects.create(
+            pesanan=order,
+            jenis='booking_fee',
+            nominal=order.nominal_booking_fee,
+            saluran='qris',
+        )
+        pembayaran.verifikasi(oleh_user=self.staf)
+        order.refresh_from_db()
+        self.assertTrue(order.kedaluwarsakan(
+            sekarang=order.booking_berakhir_pada + timedelta(seconds=1),
+        ))
+
+        response = self.client_anon.get(
+            reverse('status_ketersediaan_unit', args=[self.produk_ready.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['available'])
+
+    def test_ketersediaan_kembali_setelah_pembatalan_refund_disetujui(self):
+        order = self.buat_pesanan_unit(self.pelanggan)
+        pembayaran = PembayaranPesanan.objects.create(
+            pesanan=order,
+            jenis='booking_fee',
+            nominal=order.nominal_booking_fee,
+            saluran='qris',
+        )
+        pembayaran.verifikasi(oleh_user=self.staf)
+        refund = order.ajukan_pembatalan(
+            diajukan_oleh=self.pelanggan,
+            alasan='Pembeli mengajukan pembatalan.',
+        )
+        refund.setujui(oleh_user=self.staf)
+
+        response = self.client_anon.get(
+            reverse('status_ketersediaan_unit', args=[self.produk_ready.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['available'])
+
+    def test_unit_c2c_yang_belum_tayang_tidak_dapat_diakses_publik(self):
         produk_c2c = buat_produk(tipe_penjual='C2C')
         resp = self.client_auth.get(reverse('detail_produk', args=[produk_c2c.id]))
-        self.assertEqual(resp.status_code, 200)
-        self.assertNotContains(resp, 'Beli Mobil Sekarang')
-        self.assertContains(resp, 'Booking Cek Unit (O2O)')
+        self.assertEqual(resp.status_code, 404)
 
     # ── 2. Akses Checkout & Otentikasi ─────────────────────────────
 
@@ -106,7 +212,7 @@ class CustomerPurchaseFlowTests(TestCase):
         url = reverse('checkout_pembelian', args=[c2c.id])
         resp = self.client_auth.get(url)
         self.assertEqual(resp.status_code, 302)
-        self.assertRedirects(resp, reverse('detail_produk', args=[c2c.id]))
+        self.assertEqual(resp.url, reverse('detail_produk', args=[c2c.id]))
 
     def test_checkout_menolak_unit_tidak_ready(self):
         self.produk_ready.status_stok = 'sold'
@@ -114,7 +220,7 @@ class CustomerPurchaseFlowTests(TestCase):
         url = reverse('checkout_pembelian', args=[self.produk_ready.id])
         resp = self.client_auth.get(url)
         self.assertEqual(resp.status_code, 302)
-        self.assertRedirects(resp, reverse('detail_produk', args=[self.produk_ready.id]))
+        self.assertEqual(resp.url, reverse('detail_produk', args=[self.produk_ready.id]))
 
     # ── 3. Formulir & Perhitungan Booking Fee ─────────────────────
 
@@ -129,7 +235,7 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(resp.context['nominal_booking_fee'], Decimal('8000000'))
         self.assertEqual(resp.context['persentase_booking_fee'], Decimal('2.00'))
         self.assertEqual(resp.context['sisa_estimasi'], Decimal('392000000'))
-        self.assertContains(resp, '8,000,000')
+        self.assertIn('8000000', re.sub(r'\D', '', resp.content.decode()))
 
     def test_validasi_checkout_towing_wajib_alamat(self):
         url = reverse('checkout_pembelian', args=[self.produk_ready.id])
@@ -142,7 +248,11 @@ class CustomerPurchaseFlowTests(TestCase):
             'alamat_pengantaran': '',
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertFormError(resp, 'form', 'alamat_pengantaran', 'Alamat pengantaran wajib diisi jika memilih pengantaran towing.')
+        self.assertFormError(
+            resp.context['form'],
+            'alamat_pengantaran',
+            'Alamat pengantaran wajib diisi jika memilih pengantaran towing.',
+        )
 
     # ── 4. Alur Lengkap: Checkout -> Konfirmasi -> Buat Pesanan ───
 
@@ -165,7 +275,7 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(resp_konfirmasi.status_code, 200)
         self.assertContains(resp_konfirmasi, 'Budi Santoso')
         self.assertContains(resp_konfirmasi, 'Honda CR-V 1.5 Turbo Prestige 2022')
-        self.assertContains(resp_konfirmasi, '8,000,000')
+        self.assertIn('8000000', re.sub(r'\D', '', resp_konfirmasi.content.decode()))
         self.assertContains(resp_konfirmasi, 'Ambil di Showroom MBG Makassar')
 
         # Step 3: POST Konfirmasi untuk membuat pesanan
@@ -199,7 +309,53 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(resp_sukses.status_code, 200)
         self.assertContains(resp_sukses, pesanan.nomor_pesanan)
         self.assertContains(resp_sukses, 'Pesanan Pembelian Berhasil Dibuat')
-        self.assertContains(resp_sukses, '8,000,000')
+        self.assertEqual(
+            resp_sukses.context['pesanan'].nominal_pembayaran_midtrans,
+            Decimal('8000000'),
+        )
+
+    def test_checkout_beli_langsung_membuat_pesanan_pembayaran_penuh(self):
+        url_checkout = reverse('checkout_pembelian', args=[self.produk_ready.id])
+        checkout = self.client_auth.get(url_checkout)
+        self.assertContains(checkout, 'Beli Langsung')
+        self.assertContains(checkout, '100% harga OTR')
+
+        response = self.client_auth.post(url_checkout, {
+            'nama_pelanggan': 'Budi Santoso',
+            'no_whatsapp': '081234567890',
+            'email': 'budi@example.test',
+            'jenis_pembelian': 'beli_langsung',
+            'metode_pembayaran': 'kredit',
+            'opsi_penyerahan': 'showroom',
+            'alamat_pengantaran': '',
+        })
+        self.assertRedirects(
+            response,
+            reverse('konfirmasi_pembelian', args=[self.produk_ready.id]),
+        )
+        confirm = self.client_auth.get(
+            reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
+        )
+        self.assertContains(confirm, 'Total pembayaran langsung (100% OTR)')
+        self.assertEqual(
+            confirm.context['nominal_pembelian_langsung'],
+            Decimal('400000000'),
+        )
+
+        created = self.client_auth.post(
+            reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
+        )
+        pesanan = PesananPembelian.objects.get(produk=self.produk_ready)
+        self.assertRedirects(
+            created,
+            reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan]),
+        )
+        self.assertEqual(pesanan.jenis_pembelian, 'beli_langsung')
+        self.assertEqual(pesanan.metode_pembayaran, 'cash')
+        self.assertEqual(pesanan.nominal_pembayaran_midtrans, Decimal('400000000'))
+        self.assertEqual(pesanan.status, 'menunggu_booking_fee')
+        self.produk_ready.refresh_from_db()
+        self.assertEqual(self.produk_ready.status_stok, 'ready')
 
     # ── 5. Hak Akses Pesanan ──────────────────────────────────────
 

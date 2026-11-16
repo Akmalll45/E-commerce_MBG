@@ -22,14 +22,16 @@
                 {% if pesanan.status == 'menunggu_booking_fee' %}
                     <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
                         {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
-                            <i class="fa-solid fa-circle-check me-1"></i> Booking Fee Diterima — Menunggu Verifikasi
+                            <i class="fa-solid fa-circle-check me-1"></i>
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Diterima — Perlu Tindak Lanjut Admin{% else %}Booking Fee Diterima — Menunggu Verifikasi{% endif %}
                         {% else %}
-                            <i class="fa-solid fa-clock me-1"></i> Menunggu Booking Fee
+                            <i class="fa-solid fa-clock me-1"></i>{% if pesanan.jenis_pembelian == 'beli_langsung' %} Menunggu Pembayaran Penuh{% else %} Menunggu Booking Fee{% endif %}
                         {% endif %}
                     </span>
                 {% elif pesanan.status == 'booking_aktif' %}
                     <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
-                        <i class="fa-solid fa-lock me-1"></i> Booking Aktif (Unit Dikunci)
+                        <i class="fa-solid fa-lock me-1"></i>
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — Menunggu Serah Terima{% else %}Booking Aktif (Unit Dikunci){% endif %}
                     </span>
                 {% elif pesanan.status == 'selesai' %}
                     <span class="badge bg-primary px-3 py-2 rounded-pill fw-bold fs-6">
@@ -154,21 +156,21 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 small">
-                        <span class="text-secondary">Booking Fee ({{ pesanan.persentase_booking_fee }}%)</span>
-                        <span class="fw-bold text-primary">Rp {{ pesanan.nominal_booking_fee|intcomma }}</span>
+                        <span class="text-secondary">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Penuh (100% OTR){% else %}Booking Fee ({{ pesanan.persentase_booking_fee }}%){% endif %}</span>
+                        <span class="fw-bold text-primary">Rp {{ pesanan.nominal_pembayaran_midtrans|intcomma }}</span>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 small">
-                        <span class="text-secondary">Status Booking Fee</span>
-                        <span id="bookingFeePaymentState" class="fw-bold {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'ditolak' %}text-danger{% else %}text-secondary{% endif %}">
+                        <span class="text-secondary">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Status Pembayaran Penuh{% else %}Status Booking Fee{% endif %}</span>
+                        <span id="bookingFeePaymentState" class="fw-bold {% if pembayaran_booking_fee.status == 'terverifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'ditolak' %}text-danger{% else %}text-secondary{% endif %}">
                             {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
-                                Diterima — menunggu verifikasi
+                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu validasi pembayaran penuh{% else %}Diterima — menunggu verifikasi admin{% endif %}
                             {% elif pembayaran_booking_fee.status == 'terverifikasi' %}
-                                Terverifikasi
+                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — terverifikasi otomatis{% else %}Terverifikasi{% endif %}
                             {% elif pembayaran_booking_fee.status == 'ditolak' %}
                                 Ditolak — silakan bayar kembali
                             {% else %}
-                                Menunggu pembayaran
+                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu pembayaran penuh{% else %}Menunggu Booking Fee{% endif %}
                             {% endif %}
                         </span>
                     </div>
@@ -190,11 +192,15 @@
                     </div>
                     <div class="alert alert-warning small mb-3 border-warning-subtle">
                         <i class="fa-solid fa-shield-halved me-1 text-primary"></i>
-                        Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> dapat dibayar langsung via Midtrans.
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}
+                            Pembayaran penuh sebesar <strong>Rp {{ pesanan.harga_kendaraan|intcomma }}</strong> diproses melalui Midtrans. Unit terkunci setelah status tervalidasi.
+                        {% else %}
+                            Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> dibayar via Midtrans. Unit terkunci setelah verifikasi admin.
+                        {% endif %}
                     </div>
                     <button id="btnPaySnapDetail" class="btn btn-primary w-100 py-2.5 rounded-pill fw-bold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2" style="background: linear-gradient(135deg, #2563EB, #1D4ED8); border: none;">
                         <i class="fa-solid fa-credit-card"></i>
-                        <span id="btnPaySnapDetailText">Bayar Booking Fee (Midtrans)</span>
+                        <span id="btnPaySnapDetailText">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Bayar Penuh (Midtrans){% else %}Bayar Booking Fee (Midtrans){% endif %}</span>
                     </button>
                     <div id="paymentAlertDetail" class="alert alert-danger small d-none mb-2"></div>
                     <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20konfirmasi%20pembayaran%20Booking%20Fee%20untuk%20pesanan%20nomor%20{{ pesanan.nomor_pesanan }}."
@@ -212,6 +218,17 @@
         </div>
     </div>
 </section>
+{% if pesanan.jenis_pembelian == 'beli_langsung' %}
+<div id="directPurchaseSuccessModalDetail" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style="z-index: 1090;" role="dialog" aria-modal="true" aria-labelledby="directPurchaseSuccessTitleDetail" hidden>
+    <div class="bg-white rounded-4 shadow-lg p-4 text-center" style="max-width: 460px;">
+        <div class="text-success display-4 mb-2"><i class="fa-solid fa-circle-check"></i></div>
+        <h2 id="directPurchaseSuccessTitleDetail" class="h4 fw-bold text-dark">Pembayaran Terverifikasi!</h2>
+        <p class="text-muted">Pembayaran penuh tervalidasi Midtrans dan unit sudah dikunci untuk proses administrasi serta serah terima.</p>
+        <a href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" class="btn btn-success rounded-pill px-4">Lihat Detail Pesanan</a>
+        <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Riwayat Pesanan</a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -225,6 +242,7 @@
         const statusBox = document.getElementById('midtransStatusDetail');
         const orderBadge = document.getElementById('pesananStatusBadge');
         const paymentState = document.getElementById('bookingFeePaymentState');
+        const directPurchaseSuccessModal = document.getElementById('directPurchaseSuccessModalDetail');
 
         if (!btn) return;
 
@@ -253,14 +271,28 @@
         }
 
         function updatePaymentDisplay(data) {
+            if (data.purchase_type === 'beli_langsung' && data.payment_status === 'terverifikasi') {
+                if (paymentState) {
+                    paymentState.className = 'fw-bold text-success';
+                    paymentState.textContent = 'Lunas — terverifikasi otomatis';
+                }
+                btn.disabled = true;
+                btnText.textContent = 'Pembayaran Penuh Terverifikasi';
+                if (directPurchaseSuccessModal) directPurchaseSuccessModal.hidden = false;
+                return;
+            }
             if (data.payment_status === 'menunggu_verifikasi') {
                 if (orderBadge) {
                     orderBadge.className = 'badge bg-success px-3 py-2 rounded-pill fw-bold fs-6';
-                    orderBadge.textContent = 'Booking Fee Diterima — Menunggu Verifikasi';
+                    orderBadge.textContent = data.purchase_type === 'beli_langsung'
+                        ? 'Pembayaran Diterima — Perlu Tindak Lanjut Admin'
+                        : 'Booking Fee Diterima — Menunggu Verifikasi';
                 }
                 if (paymentState) {
                     paymentState.className = 'fw-bold text-success';
-                    paymentState.textContent = 'Diterima — menunggu verifikasi';
+                    paymentState.textContent = data.purchase_type === 'beli_langsung'
+                        ? 'Pembayaran diterima — perlu tindak lanjut admin'
+                        : 'Diterima — menunggu verifikasi';
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Menunggu Verifikasi Booking Fee';
@@ -333,7 +365,7 @@
             try {
                 window.snap.pay(token, {
                     onSuccess: function() {
-                        showStatus('Midtrans melaporkan pembayaran berhasil. Menunggu konfirmasi server dan verifikasi staf MBG.', 'info');
+                        showStatus('Pembayaran dikirim. Server sedang memverifikasi status langsung ke Midtrans.', 'info');
                         pollStatus();
                     },
                     onPending: function() {
@@ -366,6 +398,9 @@
                     if (data.status !== 'success') return;
                     showStatus(data.message, data.payment_status === 'menunggu_verifikasi' ? 'success' : 'info');
                     updatePaymentDisplay(data);
+                    if (data.purchase_type === 'beli_langsung' && data.payment_status === 'terverifikasi') {
+                        return;
+                    }
                     if (data.order_status !== lastOrderStatus) {
                         window.location.reload();
                         return;
@@ -373,7 +408,9 @@
                     lastOrderStatus = data.order_status;
                     if (!data.can_pay) {
                         btn.disabled = true;
-                        btnText.textContent = 'Menunggu Verifikasi Booking Fee';
+                        btnText.textContent = data.purchase_type === 'beli_langsung'
+                            ? 'Menunggu Validasi Pembayaran'
+                            : 'Menunggu Verifikasi Booking Fee';
                     } else if (['expire', 'cancel', 'deny'].indexOf(data.transaction_status) !== -1
                         || data.payment_status === 'ditolak') {
                         activeToken = '';

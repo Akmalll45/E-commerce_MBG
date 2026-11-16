@@ -5,6 +5,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -36,7 +37,7 @@ from .models import (
     TransaksiTitipJual, RiwayatTransaksiTitipJual,
     BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
-    PesananPembelian, PengaturanPembelian, RiwayatPesanan,
+    PesananPembelian, PembayaranPesanan, PengaturanPembelian, RiwayatPesanan,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
@@ -348,14 +349,86 @@ def detail_produk(request, id):
     """
     Menampilkan halaman detail spesifikasi lengkap mobil MBG.
     """
-    produk = get_object_or_404(produk_tayang(), id=id)
+    produk = produk_tayang().filter(id=id).first()
+    if produk is None:
+        # Keep a previously public B2C detail URL informative while its unit is locked.
+        produk = get_object_or_404(
+            Produk.objects.filter(
+                pk=id, tipe_penjual='B2C', status_stok='in_review',
+            )
+        )
     mobil_terkait = produk_tayang().exclude(id=id)[:3]
+    pesanan_aktif = None
+    unit_dapat_dipesan = False
+    pesanan_aktif_milik_pengguna = False
+    unit_dipesan_pelanggan_lain = False
+    unit_memiliki_booking = False
+    if produk.tipe_penjual == 'B2C':
+        pesanan_aktif = PesananPembelian.pesanan_aktif_unit(produk)
+        unit_dapat_dipesan = produk.status_stok == 'ready' and pesanan_aktif is None
+        unit_memiliki_booking = bool(
+            pesanan_aktif or produk.status_stok == 'in_review'
+        )
+        pesanan_aktif_milik_pengguna = bool(
+            pesanan_aktif
+            and request.user.is_authenticated
+            and pesanan_aktif.pelanggan_id == request.user.id
+        )
+        unit_dipesan_pelanggan_lain = bool(
+            not pesanan_aktif_milik_pengguna
+            and (pesanan_aktif or produk.status_stok == 'in_review')
+        )
 
     return render(request, 'detail_mobil.html', {
         'produk': produk,
         'mobil': produk,
         'mobil_terkait': mobil_terkait,
+        'pesanan_aktif': pesanan_aktif,
+        'unit_dapat_dipesan': unit_dapat_dipesan,
+        'pesanan_aktif_milik_pengguna': pesanan_aktif_milik_pengguna,
+        'unit_dipesan_pelanggan_lain': unit_dipesan_pelanggan_lain,
+        'unit_memiliki_booking': unit_memiliki_booking,
+        'url_status_ketersediaan': reverse('status_ketersediaan_unit', args=[produk.id]),
     })
+
+
+@require_GET
+def status_ketersediaan_unit(request, id):
+    """Return only public availability information for a B2C unit."""
+    produk = get_object_or_404(Produk, pk=id, tipe_penjual='B2C')
+    pesanan_aktif = PesananPembelian.pesanan_aktif_unit(produk)
+    pesanan_milik_pengguna = bool(
+        pesanan_aktif
+        and request.user.is_authenticated
+        and pesanan_aktif.pelanggan_id == request.user.id
+    )
+    tersedia = produk.status_stok == 'ready' and pesanan_aktif is None
+
+    if tersedia:
+        state = 'available'
+        pesan = 'Unit tersedia untuk dipesan.'
+    elif pesanan_aktif and pesanan_milik_pengguna:
+        state = 'reserved_by_you'
+        pesan = 'Anda sudah memiliki pesanan aktif untuk unit ini.'
+    elif pesanan_aktif or produk.status_stok == 'in_review':
+        state = 'booked'
+        pesan = 'Unit sedang di-booking pelanggan lain.'
+    else:
+        state = 'unavailable'
+        pesan = 'Unit ini tidak tersedia untuk dipesan.'
+
+    response = {
+        'status': 'success',
+        'state': state,
+        'available': tersedia,
+        'reserved_by_you': pesanan_milik_pengguna,
+        'message': pesan,
+    }
+    if pesanan_milik_pengguna:
+        response['order_url'] = reverse(
+            'pesanan_detail', args=[pesanan_aktif.nomor_pesanan],
+        )
+    return JsonResponse(response)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -994,6 +1067,10 @@ def dashboard_admin(request):
     total_booking = BookingCekUnit.objects.count()
     booking_menunggu_dp = BookingCekUnit.objects.filter(status='menunggu_dp').count()
     booking_terkonfirmasi = BookingCekUnit.objects.filter(status='terkonfirmasi').count()
+    pembayaran_pesanan_menunggu_verifikasi = PembayaranPesanan.objects.filter(
+        jenis='booking_fee',
+        status='menunggu_verifikasi',
+    ).count()
 
     can_view_c2c = (
         request.user.is_superuser
@@ -1032,6 +1109,7 @@ def dashboard_admin(request):
         'total_booking': total_booking,
         'booking_menunggu_dp': booking_menunggu_dp,
         'booking_terkonfirmasi': booking_terkonfirmasi,
+        'pembayaran_pesanan_menunggu_verifikasi': pembayaran_pesanan_menunggu_verifikasi,
         'total_titip_jual': total_titip_jual,
         'titip_jual_pending': titip_jual_pending,
         'titip_jual_disetujui': titip_jual_disetujui,
@@ -2098,6 +2176,79 @@ def admin_booking(request):
 
 
 @staf_required
+def admin_pesanan_pembelian(request):
+    pembayaran_menunggu = PembayaranPesanan.objects.filter(
+        jenis='booking_fee',
+        status='menunggu_verifikasi',
+    ).count()
+    daftar = PesananPembelian.objects.select_related(
+        'pelanggan', 'produk',
+    ).prefetch_related('pembayaran').order_by('-created_at', '-pk')
+
+    filter_status = request.GET.get('status', '').strip()
+    if filter_status == 'menunggu_verifikasi':
+        daftar = daftar.filter(
+            pembayaran__jenis='booking_fee',
+            pembayaran__status='menunggu_verifikasi',
+        ).distinct()
+    elif filter_status == 'beli_langsung':
+        daftar = daftar.filter(jenis_pembelian='beli_langsung')
+    elif filter_status in dict(PesananPembelian.STATUS_CHOICES):
+        daftar = daftar.filter(status=filter_status)
+
+    page_obj = Paginator(daftar, 25).get_page(request.GET.get('page'))
+    return render(request, 'dashboard/admin/pesanan_pembelian_list.html', {
+        'page_obj': page_obj,
+        'pesanan_list': page_obj.object_list,
+        'total_hasil': page_obj.paginator.count,
+        'pembayaran_pesanan_menunggu_verifikasi': pembayaran_menunggu,
+        'filter_status': filter_status,
+        'pilihan_status': PesananPembelian.STATUS_CHOICES,
+    })
+
+
+@staf_required
+@require_POST
+def admin_verifikasi_pembayaran_pesanan(request, pembayaran_id):
+    pembayaran = get_object_or_404(
+        PembayaranPesanan.objects.select_related('pesanan'),
+        pk=pembayaran_id,
+    )
+    if pembayaran.jenis != 'booking_fee':
+        messages.error(request, 'Hanya Booking Fee yang menunggu verifikasi manual admin.')
+    else:
+        try:
+            pembayaran.verifikasi(oleh_user=request.user)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(
+                request,
+                f'Booking Fee pesanan {pembayaran.pesanan.nomor_pesanan} diverifikasi; unit kini dikunci.',
+            )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_selesaikan_pesanan_pembelian(request, pesanan_id):
+    pesanan = get_object_or_404(PesananPembelian, pk=pesanan_id)
+    try:
+        pesanan.selesaikan(
+            oleh_user=request.user,
+            catatan='Administrasi dan serah terima kendaraan diselesaikan.',
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f'Pesanan {pesanan.nomor_pesanan} selesai; kendaraan ditandai terjual.',
+        )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
 def admin_booking_detail(request, id):
     """
     Halaman Detail Lengkap Booking Cek Unit:
@@ -2843,6 +2994,7 @@ def checkout_pembelian(request, id):
                 'email': request.user.email or '',
                 'alamat_pengantaran': request.user.alamat or '',
                 'metode_pembayaran': 'cash',
+                'jenis_pembelian': 'booking',
                 'opsi_penyerahan': 'showroom',
             }
             form = CheckoutPembelianForm(initial=initial_data)
@@ -2858,6 +3010,7 @@ def checkout_pembelian(request, id):
         'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
+        'nominal_pembelian_langsung': produk.harga,
     })
 
 
@@ -2904,6 +3057,7 @@ def konfirmasi_pembelian(request, id):
                     nama_pelanggan=checkout_data['nama_pelanggan'],
                     no_whatsapp=checkout_data['no_whatsapp'],
                     metode_pembayaran=checkout_data['metode_pembayaran'],
+                    jenis_pembelian=checkout_data.get('jenis_pembelian', 'booking'),
                     opsi_penyerahan=checkout_data['opsi_penyerahan'],
                     email=checkout_data.get('email', ''),
                     alamat_pengantaran=checkout_data.get('alamat_pengantaran', ''),
@@ -2914,7 +3068,11 @@ def konfirmasi_pembelian(request, id):
             messages.success(
                 request,
                 f'Pesanan {pesanan.nomor_pesanan} berhasil dibuat! '
-                f'Silakan lakukan pembayaran Booking Fee agar unit dapat diverifikasi dan dikunci.'
+                + (
+                    'Bayar 100% harga OTR melalui Midtrans untuk validasi otomatis dan penguncian unit.'
+                    if pesanan.jenis_pembelian == 'beli_langsung'
+                    else 'Silakan bayar Booking Fee; unit dikunci setelah verifikasi admin.'
+                )
             )
             return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
 
@@ -2934,15 +3092,14 @@ def konfirmasi_pembelian(request, id):
         'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
+        'nominal_pembelian_langsung': produk.harga,
     })
 
 
 @login_required(login_url='login')
 def pesanan_berhasil(request, nomor_pesanan):
     """
-    Halaman konfirmasi pesanan berhasil dibuat (Sprint 2 & 3).
-    Menampilkan nomor pesanan, instruksi pembayaran Booking Fee via Midtrans Snap,
-    dan status awal (menunggu Booking Fee).
+    Halaman konfirmasi pesanan dibuat dan menampilkan tagihan Midtrans sesuai jenis pembelian.
     """
     pesanan = get_object_or_404(
         PesananPembelian.objects.select_related('produk', 'pelanggan'),
@@ -2981,7 +3138,7 @@ def pesanan_detail(request, nomor_pesanan):
         'pesanan': pesanan,
         'produk': pesanan.produk,
         'pembayaran_booking_fee': pesanan.pembayaran.filter(
-            jenis='booking_fee',
+            jenis=pesanan.jenis_pembayaran_midtrans,
         ).order_by('-created_at', '-pk').first(),
         'midtrans_client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
         'midtrans_snap_js_url': getattr(settings, 'MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
@@ -3031,6 +3188,7 @@ def midtrans_snap_token(request, nomor_pesanan):
 @login_required(login_url='login')
 @require_GET
 def midtrans_payment_status(request, nomor_pesanan):
+    """Sinkronkan dan tampilkan status tagihan Midtrans sesuai jenis pembelian."""
     pesanan = get_object_or_404(PesananPembelian, nomor_pesanan=nomor_pesanan)
     if not (
         request.user.is_staff or request.user.is_superuser
@@ -3038,7 +3196,9 @@ def midtrans_payment_status(request, nomor_pesanan):
     ):
         raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
 
-    pembayaran = pesanan.pembayaran.filter(jenis='booking_fee').order_by('-created_at', '-pk').first()
+    pembayaran = pesanan.pembayaran.filter(
+        jenis=pesanan.jenis_pembayaran_midtrans,
+    ).order_by('-created_at', '-pk').first()
     status_sinkronisasi_gagal = False
     status_terminal = ('settlement', 'capture', 'expire', 'cancel', 'deny')
     if (
@@ -3054,13 +3214,18 @@ def midtrans_payment_status(request, nomor_pesanan):
         else:
             pesanan.refresh_from_db()
             pembayaran = pesanan.pembayaran.filter(
-                jenis='booking_fee',
+                jenis=pesanan.jenis_pembayaran_midtrans,
             ).order_by('-created_at', '-pk').first()
 
     status_pembayaran = pembayaran.status if pembayaran else ''
     status_midtrans = pesanan.midtrans_transaction_status
     if status_sinkronisasi_gagal:
         pesan = 'Status pembayaran belum dapat disinkronkan. Halaman akan mencoba kembali.'
+    elif (
+        pesanan.jenis_pembelian == 'beli_langsung'
+        and status_pembayaran == 'terverifikasi'
+    ):
+        pesan = 'Pembelian langsung lunas dan terverifikasi otomatis. Unit dikunci untuk proses administrasi dan serah terima.'
     elif status_pembayaran == 'menunggu_verifikasi':
         pesan = 'Pembayaran diterima Midtrans dan sedang menunggu verifikasi staf MBG.'
     elif status_pembayaran == 'terverifikasi':
@@ -3085,6 +3250,8 @@ def midtrans_payment_status(request, nomor_pesanan):
         'order_status': pesanan.status,
         'transaction_status': status_midtrans,
         'payment_status': status_pembayaran,
+        'purchase_type': pesanan.jenis_pembelian,
+        'amount_due': int(pesanan.nominal_pembayaran_midtrans),
         'message': pesan,
         'status_sync_error': status_sinkronisasi_gagal,
         'can_pay': (

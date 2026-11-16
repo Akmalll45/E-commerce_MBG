@@ -1,0 +1,101 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+
+{% block title %}Pesanan Pembelian Kendaraan{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">Pesanan Pembelian Kendaraan</h1>
+            <p class="text-muted small mb-0">Booking Fee untuk diverifikasi, pembelian langsung tervalidasi, dan tindak lanjut serah terima.</p>
+        </div>
+        <span class="badge bg-danger rounded-pill px-3 py-2">{{ pembayaran_pesanan_menunggu_verifikasi }} Booking Fee menunggu verifikasi</span>
+    </div>
+
+    <div class="content-card">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}">Semua</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_verifikasi' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=menunggu_verifikasi">Menunggu Verifikasi ({{ pembayaran_pesanan_menunggu_verifikasi }})</a>
+            <a class="btn btn-sm {% if filter_status == 'beli_langsung' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=beli_langsung">Beli Langsung</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Pesanan / Pelanggan</th>
+                        <th>Kendaraan</th>
+                        <th>Pembelian</th>
+                        <th>Pembayaran</th>
+                        <th>Status</th>
+                        <th class="text-end">Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pesanan in pesanan_list %}
+                    <tr>
+                        <td>
+                            <a class="fw-bold text-decoration-none" href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" target="_blank" rel="noopener">{{ pesanan.nomor_pesanan }}</a>
+                            <div class="small text-muted">{{ pesanan.nama_pelanggan }}{% if pesanan.pelanggan %} · {{ pesanan.pelanggan.email }}{% endif %}</div>
+                            <div class="small text-muted">{{ pesanan.no_whatsapp }}</div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ pesanan.nama_kendaraan }}</div>
+                            <div class="small text-muted">{{ pesanan.sku_kendaraan }} · {{ pesanan.plat_nomor }}</div>
+                            <div class="small">Rp {{ pesanan.harga_kendaraan|floatformat:0 }}</div>
+                        </td>
+                        <td>
+                            <span class="badge {% if pesanan.jenis_pembelian == 'beli_langsung' %}bg-success{% else %}bg-primary{% endif %}">{{ pesanan.get_jenis_pembelian_display }}</span>
+                            <div class="small text-muted mt-1">{{ pesanan.get_status_display }}</div>
+                        </td>
+                        <td>
+                            {% for pembayaran in pesanan.pembayaran.all %}
+                            <div class="small mb-1">
+                                {{ pembayaran.get_jenis_display }} · Rp {{ pembayaran.nominal|floatformat:0 }}
+                                <span class="badge {% if pembayaran.status == 'terverifikasi' %}bg-success{% elif pembayaran.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ pembayaran.get_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <span class="small text-muted">Belum ada pembayaran tervalidasi</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if pesanan.midtrans_transaction_status %}
+                                <span class="badge bg-light text-dark border">Midtrans: {{ pesanan.midtrans_transaction_status }}</span>
+                            {% else %}
+                                <span class="small text-muted">Belum ada transaksi Midtrans</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            {% for pembayaran in pesanan.pembayaran.all %}
+                                {% if pembayaran.jenis == 'booking_fee' and pembayaran.status == 'menunggu_verifikasi' %}
+                                <form method="post" action="{% url 'admin_verifikasi_pembayaran_pesanan' pembayaran.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-primary rounded-pill px-3" type="submit">Verifikasi Booking Fee</button>
+                                </form>
+                                {% endif %}
+                            {% endfor %}
+                            {% if pesanan.status == 'booking_aktif' and pesanan.sisa_pembayaran == 0 %}
+                            <form method="post" action="{% url 'admin_selesaikan_pesanan_pembelian' pesanan.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success rounded-pill px-3 mt-1" type="submit">Selesaikan Serah Terima</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-5">Belum ada pesanan pembelian untuk ditampilkan.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Navigasi daftar pesanan">
+            <ul class="pagination justify-content-end mb-0">
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Sebelumnya</a></li>{% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Berikutnya</a></li>{% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+{% endblock %}
