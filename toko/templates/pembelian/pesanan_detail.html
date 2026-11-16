@@ -20,8 +20,12 @@
             </div>
             <div>
                 {% if pesanan.status == 'menunggu_booking_fee' %}
-                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
-                        <i class="fa-solid fa-clock me-1"></i> Menunggu Booking Fee
+                    <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
+                        {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                            <i class="fa-solid fa-circle-check me-1"></i> Booking Fee Diterima — Menunggu Verifikasi
+                        {% else %}
+                            <i class="fa-solid fa-clock me-1"></i> Menunggu Booking Fee
+                        {% endif %}
                     </span>
                 {% elif pesanan.status == 'booking_aktif' %}
                     <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
@@ -155,6 +159,21 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 small">
+                        <span class="text-secondary">Status Booking Fee</span>
+                        <span id="bookingFeePaymentState" class="fw-bold {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'ditolak' %}text-danger{% else %}text-secondary{% endif %}">
+                            {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                                Diterima — menunggu verifikasi
+                            {% elif pembayaran_booking_fee.status == 'terverifikasi' %}
+                                Terverifikasi
+                            {% elif pembayaran_booking_fee.status == 'ditolak' %}
+                                Ditolak — silakan bayar kembali
+                            {% else %}
+                                Menunggu pembayaran
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2 small">
                         <span class="text-secondary">Total Terverifikasi</span>
                         <span class="fw-bold text-success">Rp {{ pesanan.total_terverifikasi|intcomma }}</span>
                     </div>
@@ -165,14 +184,23 @@
                     </div>
 
                     {% if pesanan.status == 'menunggu_booking_fee' %}
-                    <div class="alert alert-warning small mb-3 border-warning-subtle">
-                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                        Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> menunggu verifikasi staf MBG.
+                    <div class="d-none">{% csrf_token %}</div>
+                    <div id="midtransStatusDetail" class="alert alert-info small" role="status" aria-live="polite">
+                        Menyiapkan informasi pembayaran...
                     </div>
+                    <div class="alert alert-warning small mb-3 border-warning-subtle">
+                        <i class="fa-solid fa-shield-halved me-1 text-primary"></i>
+                        Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> dapat dibayar langsung via Midtrans.
+                    </div>
+                    <button id="btnPaySnapDetail" class="btn btn-primary w-100 py-2.5 rounded-pill fw-bold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2" style="background: linear-gradient(135deg, #2563EB, #1D4ED8); border: none;">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span id="btnPaySnapDetailText">Bayar Booking Fee (Midtrans)</span>
+                    </button>
+                    <div id="paymentAlertDetail" class="alert alert-danger small d-none mb-2"></div>
                     <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20konfirmasi%20pembayaran%20Booking%20Fee%20untuk%20pesanan%20nomor%20{{ pesanan.nomor_pesanan }}."
-                       target="_blank" class="btn btn-success w-100 py-2.5 rounded-pill fw-bold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2">
+                       target="_blank" class="btn btn-outline-success w-100 py-2 rounded-pill fw-bold mb-2 d-flex align-items-center justify-content-center gap-2">
                         <i class="fa-brands fa-whatsapp fs-5"></i>
-                        <span>Konfirmasi via WhatsApp</span>
+                        <span>Bantuan CS WhatsApp</span>
                     </a>
                     {% endif %}
 
@@ -184,4 +212,212 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{% if pesanan.status == 'menunggu_booking_fee' %}
+<script src="{{ midtrans_snap_js_url }}" data-client-key="{{ midtrans_client_key }}" onerror="window.midtransSnapLoadError = true;"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('btnPaySnapDetail');
+        const btnText = document.getElementById('btnPaySnapDetailText');
+        const alertBox = document.getElementById('paymentAlertDetail');
+        const statusBox = document.getElementById('midtransStatusDetail');
+        const orderBadge = document.getElementById('pesananStatusBadge');
+        const paymentState = document.getElementById('bookingFeePaymentState');
+
+        if (!btn) return;
+
+        const originalText = btnText.innerHTML;
+        const tokenUrl = "{% url 'midtrans_snap_token' pesanan.nomor_pesanan %}";
+        const statusUrl = "{% url 'midtrans_payment_status' pesanan.nomor_pesanan %}";
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let activeToken = "{{ pesanan.midtrans_snap_token|default:''|escapejs }}";
+        let tokenRequest = null;
+        let statusRequestInFlight = false;
+        let lastOrderStatus = 'menunggu_booking_fee';
+
+        function restoreButton() {
+            btn.disabled = false;
+            btnText.innerHTML = originalText;
+        }
+
+        function showError(message) {
+            alertBox.className = 'alert alert-danger small mb-2';
+            alertBox.textContent = message;
+        }
+
+        function showStatus(message, kind) {
+            statusBox.className = 'alert alert-' + (kind || 'info') + ' small';
+            statusBox.textContent = message;
+        }
+
+        function updatePaymentDisplay(data) {
+            if (data.payment_status === 'menunggu_verifikasi') {
+                if (orderBadge) {
+                    orderBadge.className = 'badge bg-success px-3 py-2 rounded-pill fw-bold fs-6';
+                    orderBadge.textContent = 'Booking Fee Diterima — Menunggu Verifikasi';
+                }
+                if (paymentState) {
+                    paymentState.className = 'fw-bold text-success';
+                    paymentState.textContent = 'Diterima — menunggu verifikasi';
+                }
+                btn.disabled = true;
+                btnText.textContent = 'Menunggu Verifikasi Booking Fee';
+            } else if (data.payment_status === 'ditolak') {
+                if (paymentState) {
+                    paymentState.className = 'fw-bold text-danger';
+                    paymentState.textContent = 'Ditolak — silakan bayar kembali';
+                }
+            }
+        }
+
+        function loadSnapToken() {
+            if (activeToken) return Promise.resolve(activeToken);
+            if (tokenRequest) return tokenRequest;
+            if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+                showError('Modul Midtrans Snap gagal dimuat. Pastikan koneksi internet dan konfigurasi Sandbox tersedia.');
+                return Promise.resolve(null);
+            }
+
+            btn.disabled = true;
+            btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Menyiapkan pembayaran...';
+            alertBox.classList.add('d-none');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function() { controller.abort(); }, 35000);
+            tokenRequest = fetch(tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                signal: controller.signal
+            })
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok || data.status !== 'success' || !data.snap_token) {
+                        throw new Error(data.message || 'Gagal membuat sesi pembayaran Midtrans.');
+                    }
+                    return data.snap_token;
+                });
+            })
+            .then(function(token) {
+                activeToken = token;
+                showStatus('Sesi siap. Klik tombol sekali lagi untuk membuka pilihan pembayaran Midtrans.', 'success');
+                return token;
+            })
+            .catch(function(error) {
+                const message = error.name === 'AbortError'
+                    ? 'Pembuatan sesi pembayaran terlalu lama. Periksa koneksi lalu coba lagi.'
+                    : error.message || 'Gagal menghubungi server pembayaran.';
+                showError(message);
+                return null;
+            })
+            .finally(function() {
+                clearTimeout(timeoutId);
+                tokenRequest = null;
+                restoreButton();
+            });
+
+            return tokenRequest;
+        }
+
+        function triggerSnap(token) {
+            if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+                showError('Modul Midtrans Snap gagal dimuat. Periksa koneksi internet Anda.');
+                restoreButton();
+                return;
+            }
+
+            try {
+                window.snap.pay(token, {
+                    onSuccess: function() {
+                        showStatus('Midtrans melaporkan pembayaran berhasil. Menunggu konfirmasi server dan verifikasi staf MBG.', 'info');
+                        pollStatus();
+                    },
+                    onPending: function() {
+                        showStatus('Transaksi dibuat. Selesaikan pembayaran dengan metode yang dipilih di Midtrans.', 'warning');
+                        pollStatus();
+                    },
+                    onError: function() {
+                        showError('Pembayaran gagal diproses oleh gateway.');
+                        restoreButton();
+                    },
+                    onClose: function() {
+                        restoreButton();
+                    }
+                });
+            } catch (error) {
+                showError('Midtrans tidak dapat dibuka: ' + error.message);
+                restoreButton();
+            }
+        }
+
+        function pollStatus() {
+            if (statusRequestInFlight) return;
+            statusRequestInFlight = true;
+            fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Status pembayaran belum dapat diperbarui.');
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.status !== 'success') return;
+                    showStatus(data.message, data.payment_status === 'menunggu_verifikasi' ? 'success' : 'info');
+                    updatePaymentDisplay(data);
+                    if (data.order_status !== lastOrderStatus) {
+                        window.location.reload();
+                        return;
+                    }
+                    lastOrderStatus = data.order_status;
+                    if (!data.can_pay) {
+                        btn.disabled = true;
+                        btnText.textContent = 'Menunggu Verifikasi Booking Fee';
+                    } else if (['expire', 'cancel', 'deny'].indexOf(data.transaction_status) !== -1
+                        || data.payment_status === 'ditolak') {
+                        activeToken = '';
+                        restoreButton();
+                    }
+                })
+                .catch(function() {
+                    showStatus('Status pembayaran belum dapat diperbarui. Akan dicoba kembali otomatis.', 'warning');
+                })
+                .finally(function() {
+                    statusRequestInFlight = false;
+                });
+        }
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            alertBox.classList.add('d-none');
+
+            if (!activeToken) {
+                loadSnapToken().then(function(token) {
+                    if (token) {
+                        alertBox.className = 'alert alert-info small d-none mb-2';
+                        alertBox.textContent = 'Sesi siap. Klik tombol lagi untuk membuka pilihan pembayaran Midtrans.';
+                        alertBox.classList.remove('d-none');
+                    }
+                });
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Membuka Midtrans...';
+            triggerSnap(activeToken);
+        });
+
+        if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+            showError('Modul Midtrans Snap gagal dimuat. Pastikan koneksi internet dan konfigurasi Sandbox tersedia.');
+        } else if (!activeToken) {
+            loadSnapToken();
+        }
+        pollStatus();
+        window.setInterval(function() {
+            if (!document.hidden) pollStatus();
+        }, 10000);
+    });
+</script>
+{% endif %}
 {% endblock %}

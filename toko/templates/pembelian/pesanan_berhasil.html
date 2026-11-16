@@ -136,16 +136,28 @@
                         <span class="h4 fw-bold text-primary font-heading mb-0">Rp {{ pesanan.nominal_booking_fee|intcomma }}</span>
                     </div>
 
-                    <!-- Pembayaran: akan terintegrasi dengan Midtrans (tanpa rekening/transfer manual) -->
+                    <!-- Pembayaran: terintegrasi dengan Midtrans Snap Sandbox -->
                     <div class="alert alert-primary small mb-3" role="status">
-                        <i class="fa-solid fa-lock me-1"></i>
-                        <strong>Pembayaran Online:</strong> Booking Fee akan dibayar melalui Midtrans. Petunjuk pembayaran akan ditampilkan setelah layanan tersedia.
+                        <i class="fa-solid fa-shield-halved me-1 text-primary"></i>
+                        <strong>Pembayaran Online:</strong> Bayar Booking Fee secara aman melalui <strong>Midtrans</strong> (Virtual Account, QRIS, GoPay, Kartu Kredit).
                     </div>
+
+                    {% if pesanan.status == 'menunggu_booking_fee' %}
+                    <div class="d-none">{% csrf_token %}</div>
+                    <div id="midtransStatus" class="alert alert-info small" role="status" aria-live="polite">
+                        Menyiapkan informasi pembayaran...
+                    </div>
+                    <button id="btnPaySnap" class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mb-3" style="background: linear-gradient(135deg, #2563EB, #1D4ED8); border: none;">
+                        <i class="fa-solid fa-credit-card fs-5"></i>
+                        <span id="btnPaySnapText">Bayar Booking Fee Sekarang (Midtrans)</span>
+                    </button>
+                    <div id="paymentAlert" class="alert alert-danger small d-none mb-3"></div>
+                    {% endif %}
 
                     <!-- Info Ketentuan Kunci Unit -->
                     <div class="alert alert-light border small text-secondary mb-0">
                         <i class="fa-solid fa-circle-exclamation text-primary me-1"></i>
-                        <strong>Penting:</strong> Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee dikonfirmasi oleh MBG.
+                        <strong>Penting:</strong> Booking Fee memotong sisa pembayaran mobil Anda (Sisa Pelunasan: <strong>Rp {{ pesanan.sisa_pembayaran|intcomma }}</strong>). Unit kendaraan akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee diverifikasi oleh staf MBG.
                     </div>
                 </div>
             </div>
@@ -202,4 +214,180 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{% if pesanan.status == 'menunggu_booking_fee' %}
+<script src="{{ midtrans_snap_js_url }}" data-client-key="{{ midtrans_client_key }}" onerror="window.midtransSnapLoadError = true;"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('btnPaySnap');
+        const btnText = document.getElementById('btnPaySnapText');
+        const alertBox = document.getElementById('paymentAlert');
+        const statusBox = document.getElementById('midtransStatus');
+
+        if (!btn) return;
+
+        const originalText = btnText.innerHTML;
+        const tokenUrl = "{% url 'midtrans_snap_token' pesanan.nomor_pesanan %}";
+        const statusUrl = "{% url 'midtrans_payment_status' pesanan.nomor_pesanan %}";
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let activeToken = "{{ pesanan.midtrans_snap_token|default:''|escapejs }}";
+        let tokenRequest = null;
+        let lastOrderStatus = 'menunggu_booking_fee';
+
+        function restoreButton() {
+            btn.disabled = false;
+            btnText.innerHTML = originalText;
+        }
+
+        function showError(message) {
+            alertBox.className = 'alert alert-danger small mb-3';
+            alertBox.textContent = message;
+        }
+
+        function showStatus(message, kind) {
+            statusBox.className = 'alert alert-' + (kind || 'info') + ' small';
+            statusBox.textContent = message;
+        }
+
+        function loadSnapToken() {
+            if (activeToken) return Promise.resolve(activeToken);
+            if (tokenRequest) return tokenRequest;
+            if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+                showError('Modul Midtrans Snap gagal dimuat. Pastikan koneksi internet dan konfigurasi Sandbox tersedia.');
+                return Promise.resolve(null);
+            }
+
+            btn.disabled = true;
+            btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Menyiapkan pembayaran...';
+            alertBox.classList.add('d-none');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function() { controller.abort(); }, 35000);
+            tokenRequest = fetch(tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                signal: controller.signal
+            })
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok || data.status !== 'success' || !data.snap_token) {
+                        throw new Error(data.message || 'Gagal membuat sesi pembayaran Midtrans.');
+                    }
+                    return data.snap_token;
+                });
+            })
+            .then(function(token) {
+                activeToken = token;
+                showStatus('Sesi siap. Klik tombol sekali lagi untuk membuka pilihan pembayaran Midtrans.', 'success');
+                return token;
+            })
+            .catch(function(error) {
+                const message = error.name === 'AbortError'
+                    ? 'Pembuatan sesi pembayaran terlalu lama. Periksa koneksi lalu coba lagi.'
+                    : error.message || 'Gagal menghubungi server pembayaran.';
+                showError(message);
+                return null;
+            })
+            .finally(function() {
+                clearTimeout(timeoutId);
+                tokenRequest = null;
+                restoreButton();
+            });
+
+            return tokenRequest;
+        }
+
+        function triggerSnap(token) {
+            if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+                showError('Modul Midtrans Snap gagal dimuat. Periksa koneksi internet Anda.');
+                restoreButton();
+                return;
+            }
+
+            try {
+                window.snap.pay(token, {
+                    onSuccess: function() {
+                        showStatus('Midtrans melaporkan pembayaran berhasil. Menunggu konfirmasi server dan verifikasi staf MBG.', 'info');
+                        pollStatus();
+                    },
+                    onPending: function() {
+                        showStatus('Transaksi dibuat. Selesaikan pembayaran dengan metode yang dipilih di Midtrans.', 'warning');
+                        pollStatus();
+                    },
+                    onError: function() {
+                        showError('Pembayaran gagal diproses oleh gateway.');
+                        restoreButton();
+                    },
+                    onClose: function() {
+                        restoreButton();
+                    }
+                });
+            } catch (error) {
+                showError('Midtrans tidak dapat dibuka: ' + error.message);
+                restoreButton();
+            }
+        }
+
+        function pollStatus() {
+            fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Status pembayaran belum dapat diperbarui.');
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.status !== 'success') return;
+                    showStatus(data.message, data.payment_status === 'menunggu_verifikasi' ? 'success' : 'info');
+                    if (data.order_status !== lastOrderStatus) {
+                        window.location.reload();
+                        return;
+                    }
+                    lastOrderStatus = data.order_status;
+                    if (!data.can_pay) {
+                        btn.disabled = true;
+                        btnText.textContent = 'Menunggu Verifikasi Booking Fee';
+                    } else if (['expire', 'cancel', 'deny'].indexOf(data.transaction_status) !== -1
+                        || data.payment_status === 'ditolak') {
+                        activeToken = '';
+                        restoreButton();
+                    }
+                })
+                .catch(function() {});
+        }
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            alertBox.classList.add('d-none');
+
+            if (!activeToken) {
+                loadSnapToken().then(function(token) {
+                    if (token) {
+                        alertBox.className = 'alert alert-info small mb-3';
+                        alertBox.textContent = 'Sesi siap. Klik tombol lagi untuk membuka pilihan pembayaran Midtrans.';
+                    }
+                });
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Membuka Midtrans...';
+            triggerSnap(activeToken);
+        });
+
+        if (window.midtransSnapLoadError || typeof window.snap === 'undefined') {
+            showError('Modul Midtrans Snap gagal dimuat. Pastikan koneksi internet dan konfigurasi Sandbox tersedia.');
+        } else if (!activeToken) {
+            loadSnapToken();
+        }
+        pollStatus();
+        window.setInterval(function() {
+            if (!document.hidden) pollStatus();
+        }, 5000);
+    });
+</script>
+{% endif %}
 {% endblock %}

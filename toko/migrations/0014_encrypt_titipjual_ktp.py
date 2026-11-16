@@ -53,7 +53,7 @@ def _process_ktp(apps, schema_editor, decrypt=False):
             elif value.startswith('gAAAA'):
                 raise RuntimeError(
                     'KTP ciphertext was found but could not be decrypted. '
-                    'Verify C2C_KTP_ENCRYPTION_KEY before retrying.'
+                    'Verify TITIP_JUAL_KTP_ENCRYPTION_KEY before retrying.'
                 )
             else:
                 updates.append((cipher.encrypt(value.encode('utf-8')).decode('ascii'), pk))

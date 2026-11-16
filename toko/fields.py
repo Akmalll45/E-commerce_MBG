@@ -42,11 +42,20 @@ class EncryptedCharField(models.CharField):
         if value in (None, ''):
             return value
         value = str(value)
+        fernet = get_ktp_fernet()
+
+        # Idempoten: Jangan enkripsi ulang ciphertext Fernet yang sudah valid
+        try:
+            fernet.decrypt(value.encode('ascii'))
+            return value
+        except (InvalidToken, UnicodeDecodeError, UnicodeEncodeError):
+            pass
+
         if self.max_plaintext_length is not None and len(value) > self.max_plaintext_length:
             raise ValidationError(
                 f'Ensure this value has at most {self.max_plaintext_length} characters.'
             )
-        return get_ktp_fernet().encrypt(value.encode('utf-8')).decode('ascii')
+        return fernet.encrypt(value.encode('utf-8')).decode('ascii')
 
     def from_db_value(self, value, expression, connection):
         if value in (None, ''):

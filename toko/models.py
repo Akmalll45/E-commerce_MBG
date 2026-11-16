@@ -1639,6 +1639,26 @@ class PesananPembelian(models.Model):
         null=True, blank=True, verbose_name="Masa Booking Berakhir",
         help_text="Diisi sekali saat Booking Fee diverifikasi (23.59 WITA); tidak dapat diperpanjang.",
     )
+
+    # Midtrans Snap Sandbox (Sprint 3)
+    midtrans_snap_token = models.CharField(
+        max_length=255, blank=True, verbose_name="Midtrans Snap Token",
+        help_text="Token transaksi Snap Midtrans untuk pembayaran Booking Fee.",
+    )
+    midtrans_snap_redirect_url = models.URLField(
+        max_length=500, blank=True, verbose_name="Midtrans Snap Redirect URL",
+    )
+    midtrans_order_id = models.CharField(
+        max_length=100, blank=True, verbose_name="Midtrans Order ID",
+        help_text="Order ID yang dikirim ke Midtrans.",
+    )
+    midtrans_order_id_history = models.JSONField(
+        default=list, blank=True, verbose_name="Riwayat Order ID Midtrans",
+    )
+    midtrans_transaction_status = models.CharField(
+        max_length=20, blank=True, verbose_name="Status Transaksi Midtrans",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1965,6 +1985,9 @@ class PembayaranPesanan(models.Model):
         ('transfer', 'Transfer Bank Manual'),
         ('va', 'Virtual Account'),
         ('qris', 'QRIS'),
+        ('ewallet', 'E-Wallet'),
+        ('kartu', 'Kartu Kredit'),
+        ('ritel', 'Gerai Retail'),
         ('tunai', 'Tunai di Showroom'),
     ]
     STATUS_CHOICES = [

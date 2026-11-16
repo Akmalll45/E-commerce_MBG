@@ -1,0 +1,838 @@
+"""
+Unit & Integration Tests untuk Midtrans Snap Sandbox (Sprint 3)
+Mobil Bekas Garasi (MBG) Makassar.
+
+Cakupan Pengujian:
+1. Pembuatan transaksi Snap dari backend & pencegahan transaksi ganda.
+2. Endpoint backend snap-token dan Get Status (otentikasi, otorisasi, keamanan server key).
+3. Validasi Webhook: signature SHA512, order_id, nominal gross_amount.
+4. Penanganan seluruh status transaksi: pending, settlement, capture, expire, cancel, deny.
+5. Idempotensi webhook/status sync terhadap notifikasi berulang dan notifikasi terlambat.
+6. Aturan Inti MBG: Unit TIDAK dikunci otomatis saat pembayaran sukses;
+   unit hanya dikunci setelah staf admin memverifikasi Booking Fee.
+7. Tidak ada kebocoran MIDTRANS_SERVER_KEY ke frontend / template / response JSON.
+"""
+import base64
+import hashlib
+import io
+import json
+from decimal import Decimal
+from unittest import mock
+from urllib.error import HTTPError, URLError
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+
+from katalog_mbg.settings import _resolve_midtrans_config
+
+from .midtrans_service import (
+    buat_snap_transaksi,
+    hitung_signature,
+    petakan_saluran_midtrans,
+    proses_notifikasi_webhook,
+    proses_status_get_midtrans,
+    verifikasi_signature,
+)
+from .models import (
+    PembayaranPesanan,
+    PengaturanPembelian,
+    PengaturanWebsite,
+    PesananPembelian,
+    Produk,
+)
+
+User = get_user_model()
+
+DUMMY_SERVER_KEY = "SB-Mid-server-TESTKEY123456"
+DUMMY_CLIENT_KEY = "SB-Mid-client-TESTCLIENT789"
+
+
+class MidtransConfigurationTests(TestCase):
+    def test_debug_uses_only_sandbox_keys_and_urls(self):
+        sandbox_server_key = 'sandbox-server-key-from-dashboard'
+        sandbox_client_key = 'sandbox-client-key-from-dashboard'
+        config = _resolve_midtrans_config(True, {
+            'MIDTRANS_IS_PRODUCTION': 'false',
+            'MIDTRANS_SERVER_KEY': 'Mid-server-production-placeholder',
+            'MIDTRANS_CLIENT_KEY': 'Mid-client-production-placeholder',
+            'MIDTRANS_SANDBOX_SERVER_KEY': sandbox_server_key,
+            'MIDTRANS_SANDBOX_CLIENT_KEY': sandbox_client_key,
+        })
+
+        self.assertEqual(config[0], sandbox_server_key)
+        self.assertEqual(config[1], sandbox_client_key)
+        self.assertFalse(config[2])
+        self.assertEqual(
+            config[3], 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+        )
+        self.assertEqual(config[4], 'https://app.sandbox.midtrans.com/snap/snap.js')
+
+    def test_debug_does_not_fall_back_to_production_keys(self):
+        config = _resolve_midtrans_config(True, {
+            'MIDTRANS_IS_PRODUCTION': 'false',
+            'MIDTRANS_SERVER_KEY': 'Mid-server-production-placeholder',
+            'MIDTRANS_CLIENT_KEY': 'Mid-client-production-placeholder',
+        })
+
+        self.assertEqual(config[0], '')
+        self.assertEqual(config[1], '')
+        self.assertFalse(config[2])
+
+    def test_debug_rejects_production_mode(self):
+        with self.assertRaisesMessage(ImproperlyConfigured, 'must be false'):
+            _resolve_midtrans_config(True, {'MIDTRANS_IS_PRODUCTION': 'true'})
+
+    def test_invalid_production_mode_is_rejected(self):
+        with self.assertRaisesMessage(ImproperlyConfigured, 'boolean value'):
+            _resolve_midtrans_config(True, {'MIDTRANS_IS_PRODUCTION': 'sandbox-ish'})
+
+
+@override_settings(
+    MIDTRANS_SERVER_KEY=DUMMY_SERVER_KEY,
+    MIDTRANS_CLIENT_KEY=DUMMY_CLIENT_KEY,
+    MIDTRANS_IS_PRODUCTION=False,
+    MIDTRANS_SNAP_URL="https://app.sandbox.midtrans.com/snap/v1/transactions",
+    MIDTRANS_SNAP_JS_URL="https://app.sandbox.midtrans.com/snap/snap.js",
+)
+class MidtransSnapServiceTests(TestCase):
+    def setUp(self):
+        PengaturanPembelian.objects.all().delete()
+        self.pengaturan_pembelian = PengaturanPembelian.objects.create(
+            persentase_booking_fee=Decimal('2.00'),
+        )
+        self.pembeli = User.objects.create_user(
+            username='pembeli_midtrans',
+            password='Password123!',
+            email='pembeli@example.test',
+            no_whatsapp='081234567890',
+        )
+        self.pembeli_lain = User.objects.create_user(
+            username='pembeli_lain',
+            password='Password123!',
+            email='lain@example.test',
+            no_whatsapp='081299998888',
+        )
+        self.admin = User.objects.create_superuser(
+            username='admin_mbg',
+            password='Password123!',
+            email='admin@mbgmakassar.id',
+            is_staff=True,
+        )
+        self.produk = Produk.objects.create(
+            nama='Honda HR-V E Special Edition 2021',
+            merek='Honda',
+            tahun=2021,
+            jarak_tempuh=28000,
+            transmisi='AT',
+            harga=Decimal('250000000'),
+            tipe_penjual='B2C',
+            status_stok='ready',
+            sku='HRV-2021-001',
+            plat_nomor='DD 1234 XY',
+        )
+        self.pesanan = PesananPembelian.buat_dari_produk(
+            produk=self.produk,
+            pelanggan=self.pembeli,
+            nama_pelanggan='Budi Santoso',
+            no_whatsapp='081234567890',
+            metode_pembayaran='cash',
+            opsi_penyerahan='showroom',
+            email='pembeli@example.test',
+        )
+
+    # ── 1. Pembuatan Transaksi Snap Backend ────────────────────────
+
+    def test_missing_debug_key_names_sandbox_setting(self):
+        with override_settings(DEBUG=True, MIDTRANS_SERVER_KEY=''):
+            with self.assertRaisesMessage(
+                ValueError, 'MIDTRANS_SANDBOX_SERVER_KEY'
+            ):
+                buat_snap_transaksi(self.pesanan)
+
+    @mock.patch('urllib.request.urlopen')
+    def test_buat_snap_transaksi_sukses(self, mock_urlopen):
+        mock_resp = mock.MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            'token': 'snap-token-abc-123',
+            'redirect_url': 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-abc-123',
+        }).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        token, redirect_url, order_id = buat_snap_transaksi(self.pesanan)
+
+        self.assertEqual(token, 'snap-token-abc-123')
+        self.assertTrue(order_id.startswith(f'{self.pesanan.nomor_pesanan}-'))
+        self.assertIn('snap-token-abc-123', redirect_url)
+
+        # Pastikan data tersimpan di model pesanan
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_snap_token, 'snap-token-abc-123')
+        self.assertEqual(self.pesanan.midtrans_order_id, order_id)
+
+        # Verifikasi request yang dikirim ke Midtrans
+        call_args = mock_urlopen.call_args
+        req = call_args[0][0]
+        self.assertEqual(req.full_url, 'https://app.sandbox.midtrans.com/snap/v1/transactions')
+        self.assertEqual(req.method, 'POST')
+
+        # Verifikasi Basic Auth dengan Server Key
+        expected_auth = base64.b64encode(f"{DUMMY_SERVER_KEY}:".encode('utf-8')).decode('utf-8')
+        self.assertEqual(req.headers.get('Authorization'), f"Basic {expected_auth}")
+
+        # Verifikasi payload
+        sent_data = json.loads(req.data.decode('utf-8'))
+        self.assertEqual(sent_data['transaction_details']['order_id'], order_id)
+        self.assertEqual(sent_data['transaction_details']['gross_amount'], int(self.pesanan.nominal_booking_fee))
+        self.assertEqual(sent_data['customer_details']['phone'], self.pesanan.no_whatsapp)
+
+    @mock.patch('urllib.request.urlopen')
+    def test_api_error_does_not_log_or_return_credentials(self, mock_urlopen):
+        mock_urlopen.side_effect = HTTPError(
+            'https://app.sandbox.midtrans.com/snap/v1/transactions',
+            401,
+            'Unauthorized',
+            {},
+            io.BytesIO(DUMMY_SERVER_KEY.encode('utf-8')),
+        )
+
+        with self.assertLogs('toko.midtrans_service', level='ERROR') as logs:
+            with self.assertRaises(ValueError) as error:
+                buat_snap_transaksi(self.pesanan)
+
+        self.assertNotIn(DUMMY_SERVER_KEY, str(error.exception))
+        self.assertNotIn(DUMMY_SERVER_KEY, '\n'.join(logs.output))
+        self.pesanan.refresh_from_db()
+        self.assertTrue(self.pesanan.midtrans_order_id)
+
+    @mock.patch('urllib.request.urlopen')
+    def test_api_retry_reuses_same_attempt_id(self, mock_urlopen):
+        mock_urlopen.side_effect = [
+            HTTPError(
+                'https://app.sandbox.midtrans.com/snap/v1/transactions',
+                502,
+                'Bad Gateway',
+                {},
+                io.BytesIO(b'gateway error'),
+            ),
+            mock.MagicMock(
+                __enter__=mock.Mock(return_value=mock.MagicMock(
+                    read=mock.Mock(return_value=json.dumps({
+                        'token': 'snap-token-retry',
+                        'redirect_url': 'https://app.sandbox.midtrans.com/snap/retry',
+                    }).encode('utf-8'))
+                ))
+            ),
+        ]
+        with self.assertRaises(ValueError):
+            buat_snap_transaksi(self.pesanan)
+        first_order_id = self.pesanan.__class__.objects.get(pk=self.pesanan.pk).midtrans_order_id
+        token, _, next_order_id = buat_snap_transaksi(self.pesanan)
+
+        self.assertEqual(token, 'snap-token-retry')
+        self.assertEqual(next_order_id, first_order_id)
+
+    @mock.patch('urllib.request.urlopen')
+    def test_hindari_transaksi_ganda_token_sudah_ada(self, mock_urlopen):
+        """Jika token sudah tersimpan pada pesanan, kembalikan token lama tanpa memanggil ulang API Midtrans."""
+        self.pesanan.midtrans_snap_token = 'token-lama-reuse'
+        self.pesanan.midtrans_snap_redirect_url = 'https://app.sandbox.midtrans.com/snap/lama'
+        self.pesanan.midtrans_order_id = self.pesanan.nomor_pesanan
+        self.pesanan.save()
+
+        token, redirect_url, order_id = buat_snap_transaksi(self.pesanan)
+
+        self.assertEqual(token, 'token-lama-reuse')
+        self.assertEqual(order_id, self.pesanan.midtrans_order_id)
+        # urlopen tidak boleh dipanggil sama sekali
+        mock_urlopen.assert_not_called()
+
+    def test_tolak_snap_jika_status_bukan_menunggu_booking_fee(self):
+        self.pesanan.status = 'booking_aktif'
+        self.pesanan.save(update_fields=['status'])
+
+        with self.assertRaisesMessage(ValueError, 'tidak dalam status menunggu Booking Fee'):
+            buat_snap_transaksi(self.pesanan)
+
+    def test_tolak_snap_jika_pembayaran_sudah_tercatat(self):
+        PembayaranPesanan.objects.create(
+            pesanan=self.pesanan,
+            jenis='booking_fee',
+            nominal=self.pesanan.nominal_booking_fee,
+            saluran='va',
+            status='menunggu_verifikasi',
+        )
+        with self.assertRaisesMessage(ValueError, 'sedang menunggu verifikasi'):
+            buat_snap_transaksi(self.pesanan)
+
+    # ── 2. Endpoint Backend: midtrans_snap_token ───────────────────
+
+    def test_snap_token_endpoint_memerlukan_login(self):
+        client = Client()
+        url = reverse('midtrans_snap_token', args=[self.pesanan.nomor_pesanan])
+        resp = client.get(url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login/', resp.url)
+
+    def test_snap_token_endpoint_menolak_pengguna_lain(self):
+        client = Client()
+        client.login(username='pembeli_lain', password='Password123!')
+        url = reverse('midtrans_snap_token', args=[self.pesanan.nomor_pesanan])
+        resp = client.post(url)
+        self.assertEqual(resp.status_code, 403)
+
+    @mock.patch('toko.views.buat_snap_transaksi')
+    def test_snap_token_endpoint_sukses_untuk_pemilik_dan_tidak_membocorkan_server_key(self, mock_buat):
+        mock_buat.return_value = ('token-xyz-789', 'https://midtrans.test/redirect', self.pesanan.nomor_pesanan)
+
+        client = Client(enforce_csrf_checks=True)
+        client.login(username='pembeli_midtrans', password='Password123!')
+        client.get(reverse('pesanan_detail', args=[self.pesanan.nomor_pesanan]))
+        csrf_token = client.cookies['csrftoken'].value
+        url = reverse('midtrans_snap_token', args=[self.pesanan.nomor_pesanan])
+        self.assertEqual(client.post(url).status_code, 403)
+        resp = client.post(url, HTTP_X_CSRFTOKEN=csrf_token)
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['snap_token'], 'token-xyz-789')
+        self.assertEqual(data['client_key'], DUMMY_CLIENT_KEY)
+
+        # Pastikan SERVER KEY tidak ada di response body
+        self.assertNotIn(DUMMY_SERVER_KEY, resp.content.decode('utf-8'))
+        self.assertNotIn('server_key', resp.content.decode('utf-8').lower())
+
+    # ── 3. Validasi Webhook & Keamanan Signature ───────────────────
+
+    def _buat_payload_webhook(self, order_id=None, status_code='200', gross_amount=None,
+                              transaction_status='settlement', fraud_status='accept',
+                              payment_type='bank_transfer', transaction_id='trx-midtrans-001'):
+        order_id = order_id or self.pesanan.midtrans_order_id or self.pesanan.nomor_pesanan
+        if not self.pesanan.midtrans_order_id and order_id == self.pesanan.nomor_pesanan:
+            self.pesanan.midtrans_order_id = order_id
+            self.pesanan.save(update_fields=['midtrans_order_id'])
+        gross_amount = gross_amount if gross_amount is not None else f"{int(self.pesanan.nominal_booking_fee)}.00"
+        sig = hitung_signature(order_id, status_code, gross_amount, server_key=DUMMY_SERVER_KEY)
+        return {
+            'order_id': order_id,
+            'status_code': status_code,
+            'gross_amount': gross_amount,
+            'signature_key': sig,
+            'transaction_id': transaction_id,
+            'transaction_status': transaction_status,
+            'fraud_status': fraud_status,
+            'payment_type': payment_type,
+            'transaction_time': '2026-11-16 08:00:00',
+            'settlement_time': '2026-11-16 08:02:00',
+        }
+
+    def test_webhook_menolak_signature_palsu(self):
+        payload = self._buat_payload_webhook()
+        payload['signature_key'] = 'signature_palsu_yang_salah_total'
+
+        client = Client()
+        url = reverse('midtrans_webhook')
+        resp = client.post(url, data=json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json()['error'], 'invalid_signature')
+
+    def test_webhook_menolak_signature_jika_server_key_tidak_dikonfigurasi(self):
+        payload = self._buat_payload_webhook()
+        result = proses_notifikasi_webhook(payload, server_key='')
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error'], 'invalid_signature')
+
+    def test_webhook_menolak_order_id_yang_tidak_ada(self):
+        payload = self._buat_payload_webhook(order_id='PB-MBG-TIDAK-ADA-999')
+
+        client = Client()
+        url = reverse('midtrans_webhook')
+        resp = client.post(url, data=json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.json()['error'], 'order_not_found')
+
+    def test_webhook_menolak_nominal_yang_tidak_sesuai(self):
+        # Tagihan asli 5.000.000, notifikasi manipulasi 1.000.000
+        payload = self._buat_payload_webhook(gross_amount='1000000.00')
+
+        client = Client()
+        url = reverse('midtrans_webhook')
+        resp = client.post(url, data=json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()['error'], 'nominal_mismatch')
+
+    def test_webhook_menolak_nominal_dengan_desimal_yang_tidak_sesuai(self):
+        payload = self._buat_payload_webhook(gross_amount='5000000.99')
+        response = Client().post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'nominal_mismatch')
+
+    def test_webhook_menyimpan_status_pending_untuk_polling(self):
+        payload = self._buat_payload_webhook(
+            transaction_status='pending',
+            transaction_id='TRX-POLL-001',
+        )
+        response = Client().post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_transaction_status, 'pending')
+
+    def test_webhook_json_bukan_object_ditolak(self):
+        response = Client().post(
+            reverse('midtrans_webhook'),
+            data='[]',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    # ── 4. Penanganan Status Transaksi Midtrans & Aturan Inti MBG ──
+
+    def test_webhook_settlement_mencatat_pembayaran_tetapi_belum_mengunci_unit(self):
+        """
+        ATURAN UTAMA MBG:
+        Pembayaran sukses Midtrans (settlement) mencatat PembayaranPesanan berstatus
+        'menunggu_verifikasi'. Unit mobil TETAP 'ready' dan pesanan TETAP 'menunggu_booking_fee'.
+        Unit HANYA dikunci saat staf admin memverifikasi pembayaran.
+        """
+        payload = self._buat_payload_webhook(
+            transaction_status='settlement',
+            payment_type='echannel',
+            transaction_id='TRX-SETTLE-001',
+        )
+
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['status'], 'ok')
+
+        # Cek PembayaranPesanan tercatat
+        pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').first()
+        self.assertIsNotNone(pembayaran)
+        self.assertEqual(pembayaran.nominal, self.pesanan.nominal_booking_fee)
+        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.saluran, 'va')
+        self.assertEqual(pembayaran.nomor_referensi, 'TRX-SETTLE-001')
+
+        # Verifikasi Status Pesanan & Stok Unit TIDAK BERUBAH SEBELUM VERIFIKASI ADMIN
+        self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
+        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
+        self.assertEqual(self.produk.status_stok, 'ready')
+
+        # Sekarang Staf Admin melakukan verifikasi manual di panel admin MBG
+        pembayaran.verifikasi(oleh_user=self.admin, catatan='Verifikasi pembayaran Midtrans oleh staf.')
+
+        # Setelah diverifikasi admin, BARULAH unit dikunci dan pesanan aktif!
+        self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
+        pembayaran.refresh_from_db()
+
+        self.assertEqual(pembayaran.status, 'terverifikasi')
+        self.assertEqual(self.produk.status_stok, 'in_review')  # Unit resmi dikunci!
+        self.assertEqual(self.pesanan.status, 'booking_aktif')   # Pesanan resmi aktif!
+        self.assertIsNotNone(self.pesanan.booking_berakhir_pada)
+
+    def test_webhook_capture_accept_mencatat_pembayaran_menunggu_verifikasi(self):
+        payload = self._buat_payload_webhook(
+            transaction_status='capture',
+            fraud_status='accept',
+            payment_type='credit_card',
+            transaction_id='TRX-CAP-ACCEPT',
+        )
+
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+
+        pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').first()
+        self.assertIsNotNone(pembayaran)
+        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+
+    def test_webhook_capture_challenge_tidak_dihitung_sebagai_pembayaran(self):
+        payload = self._buat_payload_webhook(
+            transaction_status='capture',
+            fraud_status='challenge',
+            payment_type='credit_card',
+            transaction_id='TRX-CAP-CHALLENGE',
+        )
+        response = Client().post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['result']['action'], 'challenge_review_required')
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan).exists())
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_transaction_status, 'challenge')
+
+    def test_webhook_pending_tidak_mencatat_pembayaran_lunas(self):
+        payload = self._buat_payload_webhook(
+            transaction_status='pending',
+            payment_type='qris',
+            transaction_id='TRX-PENDING-001',
+        )
+
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+
+        # Tidak ada pembayaran yang berstatus terverifikasi
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan, status='terverifikasi').exists())
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
+
+    def test_webhook_expire_mereset_token_snap(self):
+        self.pesanan.midtrans_snap_token = 'token-yang-sudah-expired'
+        self.pesanan.midtrans_snap_redirect_url = 'https://snap.test/expire'
+        self.pesanan.save()
+
+        payload = self._buat_payload_webhook(
+            transaction_status='expire',
+            payment_type='bank_transfer',
+            transaction_id='TRX-EXPIRED-001',
+        )
+
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_snap_token, '')
+        self.assertEqual(self.pesanan.midtrans_snap_redirect_url, '')
+        self.assertEqual(self.pesanan.midtrans_transaction_status, 'expire')
+
+    @mock.patch('urllib.request.urlopen')
+    def test_retry_setelah_expire_membuat_order_id_baru_dan_mengabaikan_notifikasi_lama(self, mock_urlopen):
+        old_order_id = self.pesanan.nomor_pesanan
+        self.pesanan.midtrans_order_id = old_order_id
+        self.pesanan.save(update_fields=['midtrans_order_id'])
+        old_settlement = self._buat_payload_webhook(
+            order_id=old_order_id,
+            transaction_status='settlement',
+            transaction_id='TRX-OLD-SETTLEMENT',
+        )
+        expiration = self._buat_payload_webhook(
+            order_id=old_order_id,
+            transaction_status='expire',
+            transaction_id='TRX-OLD-EXPIRE',
+        )
+        stale_pending = self._buat_payload_webhook(
+            order_id=old_order_id,
+            transaction_status='pending',
+            transaction_id='TRX-OLD-PENDING',
+        )
+        client = Client()
+        response = client.post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(expiration),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        response = client.post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(stale_pending),
+            content_type='application/json',
+        )
+        self.assertEqual(response.json()['result']['action'], 'ignored_stale_status')
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_transaction_status, 'expire')
+
+        mock_response = mock.MagicMock()
+        mock_response.read.return_value = json.dumps({
+            'token': 'snap-token-after-expire',
+            'redirect_url': 'https://app.sandbox.midtrans.com/snap/new-attempt',
+        }).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+        _, _, new_order_id = buat_snap_transaksi(self.pesanan)
+        self.assertNotEqual(new_order_id, old_order_id)
+        self.pesanan.refresh_from_db()
+        self.assertIn(old_order_id, self.pesanan.midtrans_order_id_history)
+
+        response = client.post(
+            reverse('midtrans_webhook'),
+            data=json.dumps(old_settlement),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['result']['action'], 'ignored_stale_transaction')
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan).exists())
+
+    def test_webhook_cancel_dan_deny_menolak_pembayaran_pending(self):
+        pembayaran = PembayaranPesanan.objects.create(
+            pesanan=self.pesanan,
+            jenis='booking_fee',
+            nominal=self.pesanan.nominal_booking_fee,
+            saluran='va',
+            nomor_referensi='TRX-CANCEL-001',
+            status='menunggu_verifikasi',
+        )
+
+        payload = self._buat_payload_webhook(
+            transaction_status='cancel',
+            payment_type='bank_transfer',
+            transaction_id='TRX-CANCEL-001',
+        )
+
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+
+        pembayaran.refresh_from_db()
+        self.assertEqual(pembayaran.status, 'ditolak')
+
+    # ── 5. Idempotensi & Notifikasi Terlambat ───────────────────────
+
+    def test_webhook_idempotent_notifikasi_berulang(self):
+        """Memastikan pengiriman notifikasi settlement berkali-kali tidak membuat duplikat PembayaranPesanan."""
+        payload = self._buat_payload_webhook(
+            transaction_status='settlement',
+            transaction_id='TRX-IDEMPOTENT-001',
+        )
+        client = Client()
+
+        # Panggilan pertama
+        resp1 = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp1.json()['result']['action'], 'payment_recorded')
+
+        # Panggilan kedua (notifikasi berulang dari Midtrans)
+        resp2 = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.json()['result']['action'], 'already_recorded')
+
+        # Verifikasi tepat hanya 1 pembayaran di database
+        total_pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').count()
+        self.assertEqual(total_pembayaran, 1)
+
+    def test_settlement_memperbarui_status_midtrans_pada_pembayaran_yang_sudah_menunggu_verifikasi(self):
+        payload = self._buat_payload_webhook(
+            transaction_status='settlement',
+            transaction_id='TRX-PREEXISTING-SETTLEMENT',
+        )
+        self.pesanan.midtrans_transaction_status = 'pending'
+        self.pesanan.save(update_fields=['midtrans_transaction_status'])
+        pembayaran = PembayaranPesanan.objects.create(
+            pesanan=self.pesanan,
+            jenis='booking_fee',
+            nominal=self.pesanan.nominal_booking_fee,
+            saluran='qris',
+            nomor_referensi='TRX-PREEXISTING-SETTLEMENT',
+            status='menunggu_verifikasi',
+        )
+
+        result = proses_notifikasi_webhook(payload)
+
+        self.assertTrue(result['success'])
+        self.pesanan.refresh_from_db()
+        pembayaran.refresh_from_db()
+        self.assertEqual(self.pesanan.midtrans_transaction_status, 'settlement')
+        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(
+            PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').count(),
+            1,
+        )
+
+    def test_webhook_idempotent_jika_sudah_diverifikasi_admin(self):
+        """Jika admin sudah memverifikasi sebelum notifikasi kedua tiba, tidak terjadi galat."""
+        payload = self._buat_payload_webhook(
+            transaction_status='settlement',
+            transaction_id='TRX-IDEMPOTENT-002',
+        )
+        client = Client()
+        client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+
+        pembayaran = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='booking_fee')
+        pembayaran.verifikasi(oleh_user=self.admin)
+
+        # Notifikasi terlambat/berulang
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['result']['action'], 'already_verified')
+
+    def test_webhook_menangani_pesanan_dibatalkan_dengan_aman(self):
+        """Jika pesanan sudah dibatalkan pelanggan saat notifikasi webhook tiba, tidak menimbulkan error tak tertangani."""
+        self.pesanan.batalkan_tanpa_pembayaran(self.pembeli, 'Berubah pikiran')
+
+        payload = self._buat_payload_webhook(
+            transaction_status='settlement',
+            transaction_id='TRX-LATE-001',
+        )
+        client = Client()
+        resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['result']['action'], 'ignored_order_inactive')
+
+    # ── 6. UI & Template Context Keamanan ──────────────────────────
+
+    def test_pesanan_berhasil_menyediakan_client_key_dan_tidak_membocorkan_server_key(self):
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        url = reverse('pesanan_berhasil', args=[self.pesanan.nomor_pesanan])
+        resp = client.get(url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['midtrans_client_key'], DUMMY_CLIENT_KEY)
+        self.assertIn('midtrans_snap_js_url', resp.context)
+
+        # Server key tidak boleh pernah muncul di HTML
+        html = resp.content.decode('utf-8')
+        self.assertNotIn(DUMMY_SERVER_KEY, html)
+        self.assertIn(DUMMY_CLIENT_KEY, html)
+        self.assertIn('btnPaySnap', html)
+        self.assertIn('payment-status', html)
+
+    def test_status_pembayaran_hanya_dapat_diakses_pemilik(self):
+        client = Client()
+        client.login(username='pembeli_lain', password='Password123!')
+        response = client.get(
+            reverse('midtrans_payment_status', args=[self.pesanan.nomor_pesanan])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @mock.patch('toko.views.sinkronkan_status_midtrans')
+    def test_status_pembayaran_menunjukkan_pending_dan_booking_fee_tercatat(self, mock_sync):
+        self.pesanan.midtrans_order_id = self.pesanan.nomor_pesanan
+        self.pesanan.midtrans_transaction_status = 'pending'
+        self.pesanan.save(update_fields=[
+            'midtrans_order_id', 'midtrans_transaction_status',
+        ])
+        mock_sync.return_value = {'success': True, 'action': 'pending_acknowledged'}
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        response = client.get(
+            reverse('midtrans_payment_status', args=[self.pesanan.nomor_pesanan])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['transaction_status'], 'pending')
+        self.assertTrue(response.json()['can_pay'])
+        mock_sync.assert_called_once()
+
+    @mock.patch('urllib.request.urlopen')
+    def test_get_status_settlement_mencatat_qris_tanpa_mengunci_unit(self, mock_urlopen):
+        self.pesanan.midtrans_order_id = self.pesanan.nomor_pesanan
+        self.pesanan.save(update_fields=['midtrans_order_id'])
+        api_response = {
+            'order_id': self.pesanan.midtrans_order_id,
+            'status_code': '200',
+            'gross_amount': f'{int(self.pesanan.nominal_booking_fee)}.00',
+            'transaction_id': 'TRX-GET-STATUS-QRIS',
+            'transaction_status': 'settlement',
+            'payment_type': 'qris',
+            'settlement_time': '2026-11-16 08:02:00',
+        }
+        response_context = mock.MagicMock()
+        response_context.read.return_value = json.dumps(api_response).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = response_context
+
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        response = client.get(
+            reverse('midtrans_payment_status', args=[self.pesanan.nomor_pesanan])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['transaction_status'], 'settlement')
+        self.assertEqual(data['payment_status'], 'menunggu_verifikasi')
+        self.assertFalse(data['can_pay'])
+        self.assertFalse(data['status_sync_error'])
+
+        request = mock_urlopen.call_args.args[0]
+        self.assertEqual(
+            request.full_url,
+            f'https://api.sandbox.midtrans.com/v2/{self.pesanan.midtrans_order_id}/status',
+        )
+        self.assertEqual(request.method, 'GET')
+        expected_auth = base64.b64encode(f'{DUMMY_SERVER_KEY}:'.encode()).decode()
+        self.assertEqual(request.headers.get('Authorization'), f'Basic {expected_auth}')
+
+        pembayaran = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='booking_fee')
+        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.saluran, 'qris')
+        self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
+        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
+        self.assertEqual(self.produk.status_stok, 'ready')
+
+        detail = client.get(reverse('pesanan_detail', args=[self.pesanan.nomor_pesanan]))
+        self.assertContains(detail, 'Booking Fee Diterima')
+        self.assertContains(detail, 'Diterima — menunggu verifikasi')
+
+    @mock.patch('urllib.request.urlopen', side_effect=URLError('network unavailable'))
+    def test_get_status_error_dilaporkan_tanpa_mengubah_status_pesanan(self, mock_urlopen):
+        self.pesanan.midtrans_order_id = self.pesanan.nomor_pesanan
+        self.pesanan.save(update_fields=['midtrans_order_id'])
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+
+        with self.assertLogs('toko.midtrans_service', level='WARNING'):
+            response = client.get(
+                reverse('midtrans_payment_status', args=[self.pesanan.nomor_pesanan])
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['status_sync_error'])
+        self.assertIn('belum dapat disinkronkan', response.json()['message'])
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan).exists())
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
+
+    def test_get_status_menolak_order_id_dan_nominal_yang_tidak_cocok(self):
+        response = {
+            'order_id': self.pesanan.nomor_pesanan,
+            'gross_amount': f'{int(self.pesanan.nominal_booking_fee)}.00',
+            'transaction_status': 'settlement',
+        }
+        self.pesanan.midtrans_order_id = f'{self.pesanan.nomor_pesanan}-CURRENT'
+        self.pesanan.save(update_fields=['midtrans_order_id'])
+
+        result = proses_status_get_midtrans(
+            response, expected_order_id=self.pesanan.midtrans_order_id,
+        )
+        self.assertEqual(result['error'], 'order_id_mismatch')
+
+        response['order_id'] = self.pesanan.midtrans_order_id
+        response['gross_amount'] = '1.00'
+        result = proses_status_get_midtrans(
+            response, expected_order_id=self.pesanan.midtrans_order_id,
+        )
+        self.assertEqual(result['error'], 'nominal_mismatch')
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan).exists())
+
+        response['gross_amount'] = f'{int(self.pesanan.nominal_booking_fee)}.00'
+        response.pop('transaction_status')
+        result = proses_status_get_midtrans(
+            response, expected_order_id=self.pesanan.midtrans_order_id,
+        )
+        self.assertEqual(result['error'], 'invalid_response')
+
+    def test_channel_pembayaran_midtrans_dipetakan_dengan_tepat(self):
+        self.assertEqual(petakan_saluran_midtrans('qris'), 'qris')
+        self.assertEqual(petakan_saluran_midtrans('gopay'), 'ewallet')
+        self.assertEqual(petakan_saluran_midtrans('credit_card'), 'kartu')
+        self.assertEqual(petakan_saluran_midtrans('cstore'), 'ritel')
+
+    def test_snap_token_endpoint_hanya_menerima_post(self):
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        response = client.get(
+            reverse('midtrans_snap_token', args=[self.pesanan.nomor_pesanan])
+        )
+        self.assertEqual(response.status_code, 405)

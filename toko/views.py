@@ -1,12 +1,15 @@
+import json
+import logging
 import os
 import uuid
 from decimal import Decimal, InvalidOperation
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.core.paginator import Paginator
 from django.db import DatabaseError, connection, transaction
 from django.db.models import Count, Exists, OuterRef, Q, Subquery
@@ -14,9 +17,17 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.text import get_valid_filename
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from functools import wraps
 from urllib.parse import urlencode
+
+from .midtrans_service import (
+    MidtransStatusError,
+    buat_snap_transaksi,
+    proses_notifikasi_webhook,
+    sinkronkan_status_midtrans,
+)
 
 from .models import (
     Produk, FotoMobil, TitipJual, FotoTitipJual, DokumenTitipJual,
@@ -39,6 +50,7 @@ from .forms import (
 )
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -2928,8 +2940,9 @@ def konfirmasi_pembelian(request, id):
 @login_required(login_url='login')
 def pesanan_berhasil(request, nomor_pesanan):
     """
-    Halaman konfirmasi pesanan berhasil dibuat (Sprint 2).
-    Menampilkan nomor pesanan, instruksi pembayaran Booking Fee, dan status awal (menunggu Booking Fee).
+    Halaman konfirmasi pesanan berhasil dibuat (Sprint 2 & 3).
+    Menampilkan nomor pesanan, instruksi pembayaran Booking Fee via Midtrans Snap,
+    dan status awal (menunggu Booking Fee).
     """
     pesanan = get_object_or_404(
         PesananPembelian.objects.select_related('produk', 'pelanggan'),
@@ -2943,6 +2956,9 @@ def pesanan_berhasil(request, nomor_pesanan):
     return render(request, 'pembelian/pesanan_berhasil.html', {
         'pesanan': pesanan,
         'produk': pesanan.produk,
+        'midtrans_client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
+        'midtrans_snap_js_url': getattr(settings, 'MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
+        'midtrans_is_production': getattr(settings, 'MIDTRANS_IS_PRODUCTION', False),
     })
 
 
@@ -2964,4 +2980,142 @@ def pesanan_detail(request, nomor_pesanan):
     return render(request, 'pembelian/pesanan_detail.html', {
         'pesanan': pesanan,
         'produk': pesanan.produk,
+        'pembayaran_booking_fee': pesanan.pembayaran.filter(
+            jenis='booking_fee',
+        ).order_by('-created_at', '-pk').first(),
+        'midtrans_client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
+        'midtrans_snap_js_url': getattr(settings, 'MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
+        'midtrans_is_production': getattr(settings, 'MIDTRANS_IS_PRODUCTION', False),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 14. INTEGRASI MIDTRANS SNAP SANDBOX (Sprint 3)
+# ═══════════════════════════════════════════════════════════════════
+
+@login_required(login_url='login')
+@require_POST
+def midtrans_snap_token(request, nomor_pesanan):
+    """
+    Endpoint backend untuk membuat atau mengambil Midtrans Snap Token secara aman.
+    Server Key tidak pernah diekspos ke browser; hanya Client Key dan Snap Token yang dikembalikan.
+    Mencegah transaksi ganda jika pengguna mengulang pembayaran.
+    """
+    pesanan = get_object_or_404(PesananPembelian, nomor_pesanan=nomor_pesanan)
+
+    # Batasi akses hanya pemilik pesanan atau staf MBG
+    if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
+        raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
+
+    try:
+        token, redirect_url, order_id = buat_snap_transaksi(pesanan)
+        return JsonResponse({
+            'status': 'success',
+            'snap_token': token,
+            'redirect_url': redirect_url,
+            'order_id': order_id,
+            'client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
+        })
+    except ValueError as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=400)
+    except DatabaseError:
+        raise
+    except Exception as exc:
+        logger.error('Unexpected Snap-token error [%s]', type(exc).__name__)
+        return JsonResponse(
+            {'status': 'error', 'message': 'Terjadi kesalahan saat menyiapkan pembayaran.'},
+            status=500,
+        )
+
+
+@login_required(login_url='login')
+@require_GET
+def midtrans_payment_status(request, nomor_pesanan):
+    pesanan = get_object_or_404(PesananPembelian, nomor_pesanan=nomor_pesanan)
+    if not (
+        request.user.is_staff or request.user.is_superuser
+        or pesanan.pelanggan_id == request.user.id
+    ):
+        raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
+
+    pembayaran = pesanan.pembayaran.filter(jenis='booking_fee').order_by('-created_at', '-pk').first()
+    status_sinkronisasi_gagal = False
+    status_terminal = ('settlement', 'capture', 'expire', 'cancel', 'deny')
+    if (
+        pesanan.status == 'menunggu_booking_fee'
+        and pesanan.midtrans_order_id
+        and pesanan.midtrans_transaction_status not in status_terminal
+        and (not pembayaran or pembayaran.status == 'ditolak')
+    ):
+        try:
+            sinkronkan_status_midtrans(pesanan)
+        except MidtransStatusError:
+            status_sinkronisasi_gagal = True
+        else:
+            pesanan.refresh_from_db()
+            pembayaran = pesanan.pembayaran.filter(
+                jenis='booking_fee',
+            ).order_by('-created_at', '-pk').first()
+
+    status_pembayaran = pembayaran.status if pembayaran else ''
+    status_midtrans = pesanan.midtrans_transaction_status
+    if status_sinkronisasi_gagal:
+        pesan = 'Status pembayaran belum dapat disinkronkan. Halaman akan mencoba kembali.'
+    elif status_pembayaran == 'menunggu_verifikasi':
+        pesan = 'Pembayaran diterima Midtrans dan sedang menunggu verifikasi staf MBG.'
+    elif status_pembayaran == 'terverifikasi':
+        pesan = 'Booking Fee telah diverifikasi. Unit kendaraan sudah dikunci.'
+    elif status_midtrans == 'pending':
+        pesan = 'Menunggu pembayaran pada metode yang Anda pilih di Midtrans.'
+    elif status_midtrans == 'challenge':
+        pesan = 'Transaksi sedang ditinjau Midtrans. Status akan diperbarui otomatis.'
+    elif status_midtrans in ('expire', 'cancel', 'deny'):
+        pesan = 'Transaksi berakhir tanpa pembayaran. Silakan mulai pembayaran kembali.'
+    elif status_pembayaran == 'ditolak':
+        pesan = 'Transaksi tidak berhasil. Anda dapat mencoba pembayaran kembali.'
+    elif pesanan.midtrans_snap_token:
+        pesan = 'Sesi pembayaran siap. Selesaikan pembayaran di jendela Midtrans.'
+    elif pesanan.status == 'booking_aktif':
+        pesan = 'Booking Fee telah diverifikasi dan unit kendaraan sudah dikunci.'
+    else:
+        pesan = 'Belum ada pembayaran yang dikonfirmasi Midtrans.'
+
+    return JsonResponse({
+        'status': 'success',
+        'order_status': pesanan.status,
+        'transaction_status': status_midtrans,
+        'payment_status': status_pembayaran,
+        'message': pesan,
+        'status_sync_error': status_sinkronisasi_gagal,
+        'can_pay': (
+            pesanan.status == 'menunggu_booking_fee'
+            and status_pembayaran not in ('menunggu_verifikasi', 'terverifikasi')
+        ),
+    })
+
+
+@csrf_exempt
+@require_POST
+def midtrans_webhook(request):
+    """
+    Webhook HTTP POST dari Midtrans untuk notifikasi status pembayaran.
+    Memvalidasi signature SHA512, order ID, dan nominal pembayaran secara idempotent.
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({'status': 'error', 'message': 'Webhook body must be a JSON object.'}, status=400)
+
+    hasil = proses_notifikasi_webhook(payload)
+    if hasil.get('success'):
+        return JsonResponse({'status': 'ok', 'result': hasil}, status=200)
+
+    status_code = 400
+    if hasil.get('error') == 'invalid_signature':
+        status_code = 403
+    elif hasil.get('error') == 'order_not_found':
+        status_code = 404
+
+    return JsonResponse(hasil, status=status_code)

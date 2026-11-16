@@ -18,6 +18,21 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Muat .env cloud terlebih dahulu, lalu konfigurasi lokal yang terpisah.
+for _env_path in (BASE_DIR / '.env', BASE_DIR / '.env.local'):
+    if _env_path.is_file():
+        with open(_env_path, 'r', encoding='utf-8') as _env_file:
+            for _line in _env_file:
+                _line = _line.strip()
+                if not _line or _line.startswith('#') or '=' not in _line:
+                    continue
+                _key, _val = _line.split('=', 1)
+                _key = _key.strip()
+                _val = _val.strip()
+                if len(_val) >= 2 and ((_val[0] == '"' and _val[-1] == '"') or (_val[0] == "'" and _val[-1] == "'")):
+                    _val = _val[1:-1]
+                os.environ.setdefault(_key, _val)
+
 
 _deployment_hosts = [
     os.environ.get(name, '').strip()
@@ -146,14 +161,24 @@ WSGI_APPLICATION = 'katalog_mbg.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+_database_profile = os.environ.get('DJANGO_DATABASE_PROFILE', 'cloud').strip().lower()
+if _database_profile == 'local':
+    _database_prefix = 'LOCAL_DB_'
+elif _database_profile == 'cloud':
+    _database_prefix = 'DB_'
+else:
+    raise ImproperlyConfigured(
+        'DJANGO_DATABASE_PROFILE must be either "local" or "cloud".'
+    )
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', ''),
-        'USER': os.environ.get('DB_USER', ''),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '3308'),
+        'NAME': os.environ.get(f'{_database_prefix}NAME', ''),
+        'USER': os.environ.get(f'{_database_prefix}USER', ''),
+        'PASSWORD': os.environ.get(f'{_database_prefix}PASSWORD', ''),
+        'HOST': os.environ.get(f'{_database_prefix}HOST', ''),
+        'PORT': os.environ.get(f'{_database_prefix}PORT', '4000' if _database_profile == 'cloud' else '3308'),
         'OPTIONS': {
             'charset': 'utf8mb4',
         },
@@ -161,8 +186,9 @@ DATABASES = {
 }
 if not DEBUG:
     missing_database_settings = [
-        name for name in ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST')
-        if not os.environ.get(name)
+        f'{_database_prefix}{name}'
+        for name in ('NAME', 'USER', 'PASSWORD', 'HOST')
+        if not os.environ.get(f'{_database_prefix}{name}')
     ]
     if missing_database_settings:
         raise ImproperlyConfigured(
@@ -173,6 +199,7 @@ if not DEBUG:
 # Konfigurasi ini tidak mengubah koneksi MySQL lokal Docker.
 # TLS hanya digunakan untuk database cloud.
 # MySQL Docker lokal tidak membutuhkan konfigurasi TLS ini.
+# MySQL Docker lokal tidak membutuhkan TLS.
 if DATABASES['default']['HOST'] not in (
     '127.0.0.1',
     'localhost',
@@ -182,6 +209,7 @@ if DATABASES['default']['HOST'] not in (
         'ssl_ca': certifi.where(),
         'ssl_verify_cert': True,
         'ssl_verify_identity': True,
+        'bind_address': '0.0.0.0',
     })
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -285,4 +313,45 @@ if _deployment_hosts and os.environ.get('DJANGO_TRUST_X_FORWARDED_PROTO', 'true'
 ):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Midtrans Snap Payment Gateway (Sprint 3)
+def _resolve_midtrans_config(debug, environment):
+    production_value = environment.get('MIDTRANS_IS_PRODUCTION', 'False').strip().lower()
+    if production_value not in ('true', '1', 'yes', 'on', 'false', '0', 'no', 'off'):
+        raise ImproperlyConfigured('MIDTRANS_IS_PRODUCTION must be a boolean value.')
+    production_requested = production_value in ('true', '1', 'yes', 'on')
+    if debug and production_requested:
+        raise ImproperlyConfigured(
+            'MIDTRANS_IS_PRODUCTION must be false while DEBUG=True.'
+        )
 
+    is_production = production_requested and not debug
+    if debug:
+        # Never fall back to generic key variables that may hold production credentials.
+        server_key = environment.get('MIDTRANS_SANDBOX_SERVER_KEY', '').strip()
+        client_key = environment.get('MIDTRANS_SANDBOX_CLIENT_KEY', '').strip()
+    else:
+        server_key = environment.get('MIDTRANS_SERVER_KEY', '').strip()
+        client_key = environment.get('MIDTRANS_CLIENT_KEY', '').strip()
+
+    if bool(server_key) != bool(client_key):
+        raise ImproperlyConfigured(
+            'Configure both Midtrans Server Key and Client Key for the selected environment.'
+        )
+
+    api_base = 'https://app.midtrans.com' if is_production else 'https://app.sandbox.midtrans.com'
+    return (
+        server_key,
+        client_key,
+        is_production,
+        f'{api_base}/snap/v1/transactions',
+        f'{api_base}/snap/snap.js',
+    )
+
+
+(
+    MIDTRANS_SERVER_KEY,
+    MIDTRANS_CLIENT_KEY,
+    MIDTRANS_IS_PRODUCTION,
+    MIDTRANS_SNAP_URL,
+    MIDTRANS_SNAP_JS_URL,
+) = _resolve_midtrans_config(DEBUG, os.environ)

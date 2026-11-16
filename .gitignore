@@ -2,6 +2,7 @@
 __pycache__/
 db.sqlite3
 .env
+.env.local
 media/
 private_media/
 scratch_*.py

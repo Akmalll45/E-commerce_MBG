@@ -116,4 +116,9 @@ urlpatterns = [
     path('pembelian/<int:id>/konfirmasi/', views.konfirmasi_pembelian, name='konfirmasi_pembelian'),
     path('pembelian/pesanan/<str:nomor_pesanan>/berhasil/', views.pesanan_berhasil, name='pesanan_berhasil'),
     path('pembelian/pesanan/<str:nomor_pesanan>/', views.pesanan_detail, name='pesanan_detail'),
+
+    # Midtrans Snap Sandbox (Sprint 3)
+    path('pembelian/pesanan/<str:nomor_pesanan>/snap-token/', views.midtrans_snap_token, name='midtrans_snap_token'),
+    path('pembelian/pesanan/<str:nomor_pesanan>/payment-status/', views.midtrans_payment_status, name='midtrans_payment_status'),
+    path('pembelian/webhook/midtrans/', views.midtrans_webhook, name='midtrans_webhook'),
 ]

@@ -7,6 +7,87 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def salin_catatan_kondisi_ke_tambahan(apps, schema_editor):
+    """
+    Memindahkan data lama kolom catatan_kondisi ke catatan_tambahan
+    pada model TitipJual secara aman dan idempoten sebelum kolom catatan_kondisi dihapus.
+    Menjaga 2 data lama:
+    - ID 1: 'Pajak mati dan kualitas ban bagian luarnya sudah tipis'
+    - ID 2: 'Data simulasi untuk pengujian, kondisi kendaraan dan dokumen belum diverifikasi.'
+    """
+    TitipJual = apps.get_model('toko', 'TitipJual')
+    connection = schema_editor.connection
+    table_name = TitipJual._meta.db_table
+    quoted_table = connection.ops.quote_name(table_name)
+    quoted_pk = connection.ops.quote_name(TitipJual._meta.pk.column)
+
+    with connection.cursor() as cursor:
+        columns = [c.name for c in connection.introspection.get_table_description(cursor, table_name)]
+
+    if 'catatan_kondisi' not in columns or 'catatan_tambahan' not in columns:
+        return
+
+    quoted_kondisi = connection.ops.quote_name('catatan_kondisi')
+    quoted_tambahan = connection.ops.quote_name('catatan_tambahan')
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {quoted_pk}, {quoted_kondisi}, {quoted_tambahan} "
+            f"FROM {quoted_table} "
+            f"WHERE {quoted_kondisi} IS NOT NULL AND {quoted_kondisi} <> ''"
+        )
+        rows = cursor.fetchall()
+
+    updates = []
+    for pk, kondisi, tambahan in rows:
+        kondisi_str = str(kondisi).strip() if kondisi else ''
+        tambahan_str = str(tambahan).strip() if tambahan else ''
+        if not kondisi_str:
+            continue
+        if not tambahan_str:
+            baru = kondisi_str
+        elif kondisi_str in tambahan_str:
+            continue
+        else:
+            baru = f"{tambahan_str}\n\n[Catatan Kondisi Sebelumnya]:\n{kondisi_str}"
+        updates.append((baru, pk))
+
+    if updates:
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                f"UPDATE {quoted_table} SET {quoted_tambahan} = %s WHERE {quoted_pk} = %s",
+                updates,
+            )
+
+
+def kembalikan_catatan_kondisi(apps, schema_editor):
+    """
+    Rollback data migration: mengembalikan nilai dari catatan_tambahan ke catatan_kondisi
+    jika kolom catatan_kondisi dipulihkan saat rollback.
+    """
+    TitipJual = apps.get_model('toko', 'TitipJual')
+    connection = schema_editor.connection
+    table_name = TitipJual._meta.db_table
+    quoted_table = connection.ops.quote_name(table_name)
+    quoted_pk = connection.ops.quote_name(TitipJual._meta.pk.column)
+
+    with connection.cursor() as cursor:
+        columns = [c.name for c in connection.introspection.get_table_description(cursor, table_name)]
+
+    if 'catatan_kondisi' not in columns or 'catatan_tambahan' not in columns:
+        return
+
+    quoted_kondisi = connection.ops.quote_name('catatan_kondisi')
+    quoted_tambahan = connection.ops.quote_name('catatan_tambahan')
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {quoted_table} SET {quoted_kondisi} = {quoted_tambahan} "
+            f"WHERE ({quoted_kondisi} IS NULL OR {quoted_kondisi} = '') "
+            f"AND {quoted_tambahan} IS NOT NULL AND {quoted_tambahan} <> ''"
+        )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -87,6 +168,12 @@ class Migration(migrations.Migration):
             name='titipjual',
             options={'ordering': ['-created_at'], 'verbose_name': 'Pengajuan Titip-Jual (C2C)', 'verbose_name_plural': 'Pengajuan Titip-Jual (C2C)'},
         ),
+        migrations.AddField(
+            model_name='titipjual',
+            name='catatan_tambahan',
+            field=models.TextField(blank=True, verbose_name='Catatan Tambahan'),
+        ),
+        migrations.RunPython(salin_catatan_kondisi_ke_tambahan, kembalikan_catatan_kondisi),
         migrations.RemoveField(
             model_name='titipjual',
             name='catatan_kondisi',
@@ -115,11 +202,6 @@ class Migration(migrations.Migration):
             model_name='titipjual',
             name='catatan_admin',
             field=models.TextField(blank=True, help_text='Hanya terlihat oleh admin MBG', verbose_name='Catatan Internal Admin'),
-        ),
-        migrations.AddField(
-            model_name='titipjual',
-            name='catatan_tambahan',
-            field=models.TextField(blank=True, verbose_name='Catatan Tambahan'),
         ),
         migrations.AddField(
             model_name='titipjual',
