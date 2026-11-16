@@ -504,7 +504,8 @@
             transition: transform 0.25s var(--transition-snappy), box-shadow 0.25s ease, background 0.25s ease;
         }
         #formBookingUnit { margin: 0; }
-        .btn-cta-beli:disabled {
+        .btn-cta-beli:disabled,
+        .btn-cta-booking:disabled {
             cursor: not-allowed;
             opacity: 0.62;
             transform: none;
@@ -1040,7 +1041,7 @@
                                 <i class="fa-solid fa-tag me-1"></i> Subsidi DP Khusus: Rp {{ produk.harga_promo|intcomma }}
                             </div>
                         {% endif %}
-                        <small class="text-muted d-block">*Harga transparan tanpa mark-up tersembunyi. Cash &amp; Kredit tersedia.</small>
+                        <small class="text-muted d-block">*Harga transparan tanpa mark-up tersembunyi. Beli Langsung menggunakan Cash; Booking tersedia dengan rencana Cash atau pengajuan Kredit.</small>
                     </div>
 
                     <hr class="my-3 border-secondary-subtle">
@@ -1053,6 +1054,7 @@
                                       id="formBookingUnit"
                                       data-checkout-url="{% url 'checkout_pembelian' produk.id %}"
                                       data-availability-url="{{ url_status_ketersediaan }}">
+                                    <input type="hidden" name="jenis_pembelian" value="beli_langsung">
                                     <button type="submit" id="btnBookingUnit" class="btn-cta-beli">
                                         <i class="fa-solid fa-cart-shopping"></i>
                                         <span>Beli Mobil Sekarang</span>
@@ -1073,6 +1075,7 @@
                                       id="formBookingUnit"
                                       data-checkout-url="{% url 'checkout_pembelian' produk.id %}"
                                       data-availability-url="{{ url_status_ketersediaan }}">
+                                    <input type="hidden" name="jenis_pembelian" value="beli_langsung">
                                     <button type="submit" id="btnBookingUnit" class="btn-cta-beli" disabled>
                                         <i class="fa-solid fa-lock"></i>
                                         <span>
@@ -1085,10 +1088,30 @@
                                     </button>
                                 </form>
                             {% endif %}
+                            {% if not pesanan_aktif_milik_pengguna %}
+                                <form method="get" action="{% url 'checkout_pembelian' produk.id %}"
+                                      id="formBookingFee"
+                                      data-checkout-url="{% url 'checkout_pembelian' produk.id %}">
+                                    <input type="hidden" name="jenis_pembelian" value="booking">
+                                    <button type="submit" id="btnBookingFee" class="btn-cta-booking"
+                                            {% if not unit_dapat_dipesan %}disabled{% endif %}>
+                                        <i class="fa-solid fa-calendar-check"></i>
+                                        <span>
+                                            {% if unit_dapat_dipesan %}
+                                                Booking Kendaraan (Booking Fee)
+                                            {% elif unit_dipesan_pelanggan_lain %}
+                                                Unit Sedang Di-booking
+                                            {% else %}
+                                                Unit Tidak Tersedia
+                                            {% endif %}
+                                        </span>
+                                    </button>
+                                </form>
+                            {% endif %}
                             <div id="unitAvailabilityMessage" class="small text-warning-emphasis text-center"
                                  role="status" aria-live="polite">
                                 {% if unit_dipesan_pelanggan_lain %}
-                                    Unit ini sedang di-booking pelanggan lain. Pemesanan langsung dinonaktifkan.
+                                    Unit ini sedang dalam proses pemesanan pelanggan lain. Pembelian dan booking dinonaktifkan.
                                 {% endif %}
                             </div>
                             <div class="modal fade" id="unitBookedModal" tabindex="-1"
@@ -1120,7 +1143,7 @@
                            target="_blank"
                            class="btn-cta-booking">
                             <i class="fa-solid fa-calendar-check"></i>
-                            <span>Booking Cek Unit (O2O)</span>
+                            <span>Jadwalkan Cek Unit (O2O)</span>
                         </a>
 
                         <!-- CTA 2: Tanya CS WhatsApp -->
@@ -1311,12 +1334,15 @@
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('formBookingUnit');
             const button = document.getElementById('btnBookingUnit');
+            const bookingForm = document.getElementById('formBookingFee');
+            const bookingButton = document.getElementById('btnBookingFee');
             const message = document.getElementById('unitAvailabilityMessage');
             const modalElement = document.getElementById('unitBookedModal');
             const stockBadge = document.getElementById('unitStockBadge');
             if (!form || !button) return;
 
             const checkoutUrl = form.dataset.checkoutUrl;
+            const bookingCheckoutUrl = bookingForm ? bookingForm.dataset.checkoutUrl : null;
             const availabilityUrl = form.dataset.availabilityUrl;
             let submissionChecked = false;
             let modalShown = false;
@@ -1328,7 +1354,7 @@
                 if (window.bootstrap && window.bootstrap.Modal) {
                     window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
                 } else {
-                    window.alert('Unit sedang di-booking pelanggan lain. Pemesanan langsung dinonaktifkan.');
+                    window.alert('Unit sedang dalam proses pemesanan pelanggan lain. Pembelian dan booking dinonaktifkan.');
                 }
             }
 
@@ -1355,6 +1381,11 @@
                     form.action = checkoutUrl;
                     button.disabled = false;
                     button.innerHTML = '<i class="fa-solid fa-cart-shopping"></i><span>Beli Mobil Sekarang</span>';
+                    if (bookingForm && bookingButton) {
+                        bookingForm.action = bookingCheckoutUrl;
+                        bookingButton.disabled = false;
+                        bookingButton.innerHTML = '<i class="fa-solid fa-calendar-check"></i><span>Booking Kendaraan (Booking Fee)</span>';
+                    }
                     if (message) message.textContent = '';
                     return;
                 }
@@ -1363,6 +1394,11 @@
                     form.action = data.order_url;
                     button.disabled = false;
                     button.innerHTML = '<i class="fa-solid fa-receipt"></i><span>Lihat Pesanan Saya</span>';
+                    if (bookingForm && bookingButton) {
+                        bookingForm.action = data.order_url;
+                        bookingButton.disabled = false;
+                        bookingButton.innerHTML = '<i class="fa-solid fa-receipt"></i><span>Lihat Pesanan Saya</span>';
+                    }
                     if (message) message.textContent = data.message;
                     return;
                 }
@@ -1370,6 +1406,11 @@
                 form.action = checkoutUrl;
                 button.disabled = true;
                 button.innerHTML = '<i class="fa-solid fa-lock"></i><span>Unit Sedang Di-booking</span>';
+                if (bookingForm && bookingButton) {
+                    bookingForm.action = bookingCheckoutUrl;
+                    bookingButton.disabled = true;
+                    bookingButton.innerHTML = '<i class="fa-solid fa-lock"></i><span>Unit Sedang Di-booking</span>';
+                }
                 if (message) message.textContent = data.message || 'Unit tidak tersedia untuk dipesan.';
                 if (data.state === 'booked') showBookedModal();
             }

@@ -10,6 +10,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
+from decimal import Decimal
 
 from .models import (
     Produk, TitipJual, SerahTerimaUnit, ChecklistInspeksiC2C,
@@ -1616,7 +1617,7 @@ class PengaturanWebsiteForm(forms.ModelForm):
 class CheckoutPembelianForm(forms.Form):
     """
     Formulir checkout pembelian mobil oleh pelanggan terautentikasi (Sprint 2).
-    Mengumpulkan identitas pemesan, pilihan pembayaran (cash/kredit), dan penyerahan unit.
+    Mengumpulkan identitas pemesan, rencana pembayaran booking, dan penyerahan unit.
     """
     nama_pelanggan = forms.CharField(
         max_length=120,
@@ -1649,16 +1650,15 @@ class CheckoutPembelianForm(forms.Form):
             'autocomplete': 'email',
         }),
     )
-    jenis_pembelian = forms.ChoiceField(
-        choices=PesananPembelian.JENIS_PEMBELIAN_CHOICES,
-        label="Jenis Pembelian",
+    saluran_pembayaran = forms.ChoiceField(
+        choices=PesananPembelian.SALURAN_PEMBAYARAN_CHOICES,
+        label="Kanal Pembayaran",
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
-        initial='booking',
-        required=False,
+        initial='midtrans',
     )
     metode_pembayaran = forms.ChoiceField(
         choices=PesananPembelian.METODE_PEMBAYARAN_CHOICES,
-        label="Metode Pembayaran Kendaraan",
+        label="Rencana Pembelian",
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
         initial='cash',
     )
@@ -1679,6 +1679,10 @@ class CheckoutPembelianForm(forms.Form):
         }),
     )
 
+    def __init__(self, *args, jenis_pembelian='booking', **kwargs):
+        self.jenis_pembelian = jenis_pembelian
+        super().__init__(*args, **kwargs)
+
     def clean_nama_pelanggan(self):
         nama = ' '.join((self.cleaned_data.get('nama_pelanggan') or '').split())
         if not nama:
@@ -1693,11 +1697,184 @@ class CheckoutPembelianForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
-        cleaned_data['jenis_pembelian'] = cleaned_data.get('jenis_pembelian') or 'booking'
-        if cleaned_data.get('jenis_pembelian') == 'beli_langsung':
-            cleaned_data['metode_pembayaran'] = 'cash'
+        cleaned_data['jenis_pembelian'] = self.jenis_pembelian
+        if (
+            self.jenis_pembelian == 'beli_langsung'
+            and cleaned_data.get('metode_pembayaran') == 'kredit'
+        ):
+            cleaned_data['saluran_pembayaran'] = 'transfer'
         opsi = cleaned_data.get('opsi_penyerahan')
         alamat = (cleaned_data.get('alamat_pengantaran') or '').strip()
         if opsi == 'towing' and not alamat:
             self.add_error('alamat_pengantaran', "Alamat pengantaran wajib diisi jika memilih pengantaran towing.")
         return cleaned_data
+
+
+class KanalPembayaranPembelianForm(forms.Form):
+    saluran_pembayaran = forms.ChoiceField(
+        choices=PesananPembelian.SALURAN_PEMBAYARAN_CHOICES,
+        label='Kanal Pembayaran',
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+    )
+
+
+class KonfirmasiTransferPesananForm(forms.Form):
+    nomor_referensi = forms.CharField(
+        max_length=100,
+        min_length=3,
+        label='Nomor referensi transfer',
+        help_text='Masukkan nomor referensi yang tercantum pada bukti transfer.',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'maxlength': '100',
+            'autocomplete': 'off',
+            'required': True,
+        }),
+    )
+
+    def clean_nomor_referensi(self):
+        referensi = ' '.join((self.cleaned_data.get('nomor_referensi') or '').split())
+        if not referensi:
+            raise ValidationError('Nomor referensi transfer wajib diisi.')
+        return referensi
+
+
+class PembayaranManualPesananForm(forms.Form):
+    jenis = forms.ChoiceField(
+        choices=(),
+        label='Jenis pembayaran',
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+    nominal = forms.DecimalField(
+        max_digits=12,
+        min_value=Decimal('1'),
+        decimal_places=0,
+        label='Nominal (Rp)',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control form-control-sm',
+            'min': '1',
+            'step': '1',
+        }),
+    )
+    saluran = forms.ChoiceField(
+        choices=[
+            ('transfer', 'Transfer Bank Manual'),
+            ('tunai', 'Tunai di Showroom'),
+        ],
+        label='Kanal manual',
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+    nomor_referensi = forms.CharField(
+        required=False,
+        max_length=100,
+        label='Nomor referensi',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'maxlength': '100',
+        }),
+    )
+    catatan = forms.CharField(
+        required=False,
+        label='Catatan',
+        widget=forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+    )
+
+    def __init__(self, *args, pesanan, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pesanan = pesanan
+        choices = []
+        if pesanan.status == 'menunggu_booking_fee' and pesanan.jenis_pembelian == 'booking':
+            choices.append(('booking_fee', 'Booking Fee'))
+        if (
+            pesanan.status == 'menunggu_dp_kredit'
+            and pesanan.jenis_pembelian == 'beli_langsung'
+            and pesanan.metode_pembayaran == 'kredit'
+            and not pesanan.pembayaran.filter(
+                jenis='dp',
+                status__in=('menunggu_verifikasi', 'terverifikasi'),
+            ).exists()
+        ):
+            choices.append(('dp', 'Uang Muka Kredit (DP 20%)'))
+        if pesanan.booking_masih_berlaku() and pesanan.sisa_pembayaran() > 0:
+            choices.extend([
+                ('dp', 'Uang Muka (DP)'),
+                ('pelunasan', 'Pelunasan'),
+            ])
+        if (
+            pesanan.status == 'kredit_aktif'
+            and pesanan.jenis_pembelian == 'beli_langsung'
+            and pesanan.metode_pembayaran == 'kredit'
+            and pesanan.sisa_pembayaran() > 0
+            and not pesanan.pembayaran.filter(
+                jenis='angsuran',
+                status='menunggu_verifikasi',
+            ).exists()
+        ):
+            choices.append(('angsuran', 'Angsuran Kredit'))
+        self.fields['jenis'].choices = choices
+        self.saldo = pesanan.sisa_pembayaran()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        jenis = cleaned_data.get('jenis')
+        nominal = cleaned_data.get('nominal')
+        saluran = cleaned_data.get('saluran')
+        nomor_referensi = (cleaned_data.get('nomor_referensi') or '').strip()
+        pesanan = self.pesanan
+
+        if saluran == 'transfer' and not nomor_referensi:
+            self.add_error('nomor_referensi', 'Nomor referensi transfer wajib diisi.')
+        cleaned_data['nomor_referensi'] = nomor_referensi
+
+        if jenis == 'booking_fee':
+            if pesanan.status != 'menunggu_booking_fee' or pesanan.jenis_pembelian != 'booking':
+                self.add_error('jenis', 'Booking Fee hanya dapat dicatat untuk pesanan Booking yang menunggu pembayaran.')
+            if nominal is not None and nominal != pesanan.nominal_booking_fee:
+                self.add_error('nominal', 'Nominal harus sama dengan Booking Fee pada pesanan.')
+        elif jenis in ('dp', 'pelunasan'):
+            pembayaran_dp_kredit = (
+                jenis == 'dp'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+                and pesanan.metode_pembayaran == 'kredit'
+                and pesanan.status == 'menunggu_dp_kredit'
+            )
+            if not pembayaran_dp_kredit and not pesanan.booking_masih_berlaku():
+                self.add_error('jenis', 'DP dan pelunasan hanya dapat dicatat selama masa booking aktif.')
+            if nominal is not None and nominal > self.saldo:
+                self.add_error('nominal', 'Nominal melebihi sisa pembayaran kendaraan.')
+            if jenis == 'pelunasan' and nominal is not None and nominal != self.saldo:
+                self.add_error('nominal', 'Nominal pelunasan harus sama dengan sisa pembayaran.')
+            if pembayaran_dp_kredit and nominal is not None and nominal != pesanan.nominal_dp_kredit:
+                self.add_error('nominal', 'DP kredit harus sama dengan 20% harga kendaraan.')
+        elif jenis == 'angsuran':
+            if not (
+                pesanan.status == 'kredit_aktif'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+                and pesanan.metode_pembayaran == 'kredit'
+            ):
+                self.add_error('jenis', 'Angsuran hanya dapat dicatat untuk kredit aktif.')
+            elif nominal is not None and nominal != pesanan.nominal_angsuran_kredit_berikutnya():
+                self.add_error(
+                    'nominal',
+                    'Angsuran harus 5% harga OTR atau sisa pokok untuk angsuran terakhir.',
+                )
+        return cleaned_data
+
+
+class PermintaanPembatalanPesananForm(forms.Form):
+    alasan = forms.CharField(
+        label='Alasan pembatalan/refund',
+        min_length=3,
+        max_length=2000,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'maxlength': '2000',
+        }),
+    )
+
+    def clean_alasan(self):
+        alasan = ' '.join((self.cleaned_data.get('alasan') or '').split())
+        if not alasan:
+            raise ValidationError('Alasan pembatalan wajib diisi.')
+        return alasan

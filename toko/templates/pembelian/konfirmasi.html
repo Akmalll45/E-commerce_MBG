@@ -81,7 +81,7 @@
             <ol class="breadcrumb mb-2 small">
                 <li class="breadcrumb-item"><a href="{% url 'beranda' %}" class="text-decoration-none">Beranda</a></li>
                 <li class="breadcrumb-item"><a href="{% url 'katalog' %}" class="text-decoration-none">Katalog Mobil</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'checkout_pembelian' produk.id %}" class="text-decoration-none">Checkout</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'checkout_pembelian' produk.id %}?jenis_pembelian={{ checkout_data.jenis_pembelian }}" class="text-decoration-none">Checkout</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Konfirmasi Pesanan</li>
             </ol>
         </nav>
@@ -105,7 +105,7 @@
             <div class="step-divider"></div>
             <div class="step-item">
                 <div class="step-number">3</div>
-                <span>Pesanan Selesai</span>
+                <span>Konfirmasi Pembayaran</span>
             </div>
         </div>
 
@@ -119,7 +119,7 @@
                             <i class="fa-solid fa-user-check text-primary fs-5"></i>
                             <h2 class="h6 fw-bold text-dark mb-0 font-heading">Identitas Pemesan</h2>
                         </div>
-                        <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                        <a href="{% url 'checkout_pembelian' produk.id %}?jenis_pembelian={{ checkout_data.jenis_pembelian }}" class="btn btn-sm btn-outline-secondary rounded-pill">
                             <i class="fa-solid fa-pen-to-square me-1"></i> Ubah
                         </a>
                     </div>
@@ -140,9 +140,9 @@
                     <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                         <div class="d-flex align-items-center gap-2">
                             <i class="fa-solid fa-handshake text-primary fs-5"></i>
-                            <h2 class="h6 fw-bold text-dark mb-0 font-heading">Pilihan Pembelian &amp; Penyerahan</h2>
+                            <h2 class="h6 fw-bold text-dark mb-0 font-heading">Jenis Pembelian &amp; Penyerahan</h2>
                         </div>
-                        <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                        <a href="{% url 'checkout_pembelian' produk.id %}?jenis_pembelian={{ checkout_data.jenis_pembelian }}" class="btn btn-sm btn-outline-secondary rounded-pill">
                             <i class="fa-solid fa-pen-to-square me-1"></i> Ubah
                         </a>
                     </div>
@@ -150,24 +150,47 @@
                         <dt class="col-sm-4 text-secondary">Jenis Pembelian</dt>
                         <dd class="col-sm-8 fw-bold text-dark mb-2">
                             {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Beli Langsung — 100% OTR via Midtrans</span>
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Beli Langsung</span>
                             {% else %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Booking — Booking Fee {{ persentase_booking_fee }}% OTR</span>
                             {% endif %}
                         </dd>
 
-                        {% if checkout_data.jenis_pembelian != 'beli_langsung' %}
-                        <dt class="col-sm-4 text-secondary">Rencana Bayar</dt>
+                        <dt class="col-sm-4 text-secondary">Rencana Pembayaran</dt>
                         <dd class="col-sm-8 fw-bold text-dark mb-2">
                             {% if checkout_data.metode_pembayaran == 'cash' %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">
-                                    <i class="fa-solid fa-money-bill-wave me-1"></i> Cash / Tunai
+                                    <i class="fa-solid fa-money-bill-wave me-1"></i> Cash
                                 </span>
                             {% else %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">
-                                    <i class="fa-solid fa-handshake me-1"></i> Kredit / Pembiayaan
+                                    <i class="fa-solid fa-handshake me-1"></i> Kredit
                                 </span>
                             {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4 text-secondary">Kanal Pembayaran</dt>
+                        <dd class="col-sm-8 fw-bold text-dark mb-2">
+                            {% if checkout_data.jenis_pembelian == 'beli_langsung' and checkout_data.metode_pembayaran == 'kredit' %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Transfer Bank Manual setelah persetujuan admin</span>
+                            {% elif checkout_data.saluran_pembayaran == 'transfer' %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Transfer Bank — verifikasi admin</span>
+                            {% else %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Midtrans</span>
+                            {% endif %}
+                        </dd>
+                        {% if rincian_kredit %}
+                        <dt class="col-sm-4 text-secondary">Simulasi Kredit</dt>
+                        <dd class="col-sm-8 text-dark mb-2">
+                            DP 20%: <strong>Rp {{ rincian_kredit.nominal_dp|intcomma }}</strong>
+                            {% if checkout_data.jenis_pembelian == 'booking' %}
+                                (sisa DP setelah Booking Fee: Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }})
+                            {% else %}
+                                (dibayar setelah pengajuan disetujui admin)
+                            {% endif %};
+                            angsuran pokok 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun</strong>
+                            selama {{ rincian_kredit.tenor_tahun }} tahun (angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}).
+                            Simulasi tanpa bunga tambahan; belum ada integrasi leasing.
                         </dd>
                         {% endif %}
 
@@ -197,11 +220,26 @@
                             <h3 class="h6 fw-bold text-dark font-heading mb-1">Ketentuan Pemesanan Garasi MBG</h3>
                             <ul class="text-secondary small mb-0 ps-3">
                                 {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
-                                    <li class="mb-1">Pembayaran penuh 100% harga OTR diproses melalui Midtrans dan hanya dianggap berhasil setelah tervalidasi oleh Midtrans.</li>
-                                    <li class="mb-1">Setelah valid, unit langsung dikunci untuk proses administrasi dan serah terima tanpa verifikasi pembayaran manual.</li>
+                                    {% if checkout_data.metode_pembayaran == 'kredit' %}
+                                        <li class="mb-1">Pengajuan kredit ditinjau admin terlebih dahulu. Tidak ada pembayaran saat pengajuan.</li>
+                                        <li class="mb-1">Setelah disetujui, DP 20% dibayar melalui transfer bank manual dan diverifikasi admin. Unit baru dikunci setelah DP diverifikasi.</li>
+                                        <li class="mb-1">Angsuran tahunan 5% dari harga OTR dicatat admin; belum ada integrasi leasing atau penagihan otomatis.</li>
+                                    {% elif checkout_data.saluran_pembayaran == 'midtrans' %}
+                                        <li class="mb-1">Pembayaran penuh 100% harga OTR diproses melalui Midtrans dan otomatis disahkan setelah notifikasi Midtrans tervalidasi.</li>
+                                        <li class="mb-1">Setelah pembayaran sah, unit dikunci untuk proses administrasi dan serah terima tanpa verifikasi manual.</li>
+                                    {% else %}
+                                        <li class="mb-1">Pembayaran penuh 100% harga OTR dilakukan melalui transfer bank. Admin memeriksa nomor referensi sebelum pembayaran disahkan dan unit dikunci.</li>
+                                    {% endif %}
                                 {% else %}
                                     <li class="mb-1">Booking Fee sebesar {{ persentase_booking_fee }}% OTR bersifat resmi sebagai tanda jadi dan memotong total harga kendaraan.</li>
-                                    <li class="mb-1">Unit mobil akan resmi <strong>dikunci</strong> setelah pembayaran Booking Fee diverifikasi oleh staf admin MBG.</li>
+                                    {% if checkout_data.saluran_pembayaran == 'midtrans' %}
+                                        <li class="mb-1">Booking Fee yang berhasil dibayar melalui Midtrans tetap menunggu verifikasi admin sebelum unit dikunci.</li>
+                                    {% else %}
+                                        <li class="mb-1">Admin memeriksa konfirmasi transfer Booking Fee sebelum pembayaran disahkan dan unit dikunci.</li>
+                                    {% endif %}
+                                {% endif %}
+                                {% if checkout_data.jenis_pembelian != 'beli_langsung' and checkout_data.metode_pembayaran == 'kredit' %}
+                                    <li class="mb-1">Pengajuan kredit belum terintegrasi dengan bank/leasing. Tim MBG akan meninjau dan menghubungi Anda terkait status serta langkah selanjutnya.</li>
                                 {% endif %}
                                 <li>Pencegahan double-booking aktif: pesanan Anda dijamin aman di sistem transaksi database kami.</li>
                             </ul>
@@ -244,11 +282,32 @@
                         {% endif %}
 
                         {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
+                        {% if checkout_data.metode_pembayaran == 'kredit' %}
                         <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
-                            <span class="fw-bold text-success">Total pembayaran langsung (100% OTR)</span>
+                            <span class="fw-bold text-primary">DP setelah disetujui admin (20%)</span>
+                            <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ rincian_kredit.nominal_dp|intcomma }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 small">
+                            <span class="text-secondary">Angsuran pokok per tahun (5% OTR)</span>
+                            <span class="fw-bold text-dark">Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}</span>
+                        </div>
+                        <div class="alert alert-info small mb-0">
+                            Tidak ada pembayaran sekarang. Pengajuan harus disetujui admin; DP dibayar setelah persetujuan.
+                            Simulasi {{ rincian_kredit.tenor_tahun }} tahun tanpa bunga tambahan.
+                        </div>
+                        {% else %}
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
+                            <span class="fw-bold text-success">Total pembayaran (100% OTR)</span>
                             <span class="h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
                         </div>
-                        <p class="small text-muted mb-0">Status dan penguncian unit akan diperbarui setelah Midtrans memvalidasi transaksi, bukan berdasarkan redirect browser.</p>
+                        <p class="small text-muted mb-0">
+                            {% if checkout_data.saluran_pembayaran == 'midtrans' %}
+                                Status diperbarui setelah notifikasi Midtrans tervalidasi, bukan berdasarkan redirect browser.
+                            {% else %}
+                                Transfer bank menunggu pemeriksaan admin sebelum pesanan dianggap lunas.
+                            {% endif %}
+                        </p>
+                        {% endif %}
                         {% else %}
                         <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
                             <div>
@@ -270,11 +329,15 @@
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success w-100 py-3 fs-6 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 mb-2" style="border-radius: 12px; background: linear-gradient(135deg, #10B981, #059669); border: none;">
                             <i class="fa-solid fa-check-double fs-5"></i>
-                            <span>Konfirmasi &amp; Buat Pesanan</span>
+                            {% if checkout_data.jenis_pembelian == 'beli_langsung' and checkout_data.metode_pembayaran == 'kredit' %}
+                                <span>Ajukan Kredit &amp; Konfirmasi Pesanan</span>
+                            {% else %}
+                                <span>Konfirmasi Pesanan &amp; Lanjutkan Pembayaran</span>
+                            {% endif %}
                         </button>
                     </form>
 
-                    <a href="{% url 'checkout_pembelian' produk.id %}" class="btn btn-outline-secondary w-100 py-2 small rounded-pill">
+                    <a href="{% url 'checkout_pembelian' produk.id %}?jenis_pembelian={{ checkout_data.jenis_pembelian }}" class="btn btn-outline-secondary w-100 py-2 small rounded-pill">
                         <i class="fa-solid fa-arrow-left me-1"></i> Kembali Ubah Data
                     </a>
                 </div>

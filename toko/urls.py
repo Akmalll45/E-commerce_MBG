@@ -73,9 +73,44 @@ urlpatterns = [
         name='admin_verifikasi_pembayaran_pesanan',
     ),
     path(
+        'panel/pesanan-pembelian/<int:pesanan_id>/pembayaran/catat/',
+        views.admin_catat_pembayaran_pesanan,
+        name='admin_catat_pembayaran_pesanan',
+    ),
+    path(
+        'panel/pesanan-pembelian/pembayaran/<int:pembayaran_id>/tolak/',
+        views.admin_tolak_pembayaran_pesanan,
+        name='admin_tolak_pembayaran_pesanan',
+    ),
+    path(
+        'panel/pesanan-pembelian/refund/<int:refund_id>/setujui/',
+        views.admin_setujui_refund_pesanan,
+        name='admin_setujui_refund_pesanan',
+    ),
+    path(
+        'panel/pesanan-pembelian/refund/<int:refund_id>/tolak/',
+        views.admin_tolak_refund_pesanan,
+        name='admin_tolak_refund_pesanan',
+    ),
+    path(
+        'panel/pesanan-pembelian/refund/<int:refund_id>/catat-pengembalian/',
+        views.admin_catat_pengembalian_refund,
+        name='admin_catat_pengembalian_refund',
+    ),
+    path(
         'panel/pesanan-pembelian/<int:pesanan_id>/selesaikan/',
         views.admin_selesaikan_pesanan_pembelian,
         name='admin_selesaikan_pesanan_pembelian',
+    ),
+    path(
+        'panel/pesanan-pembelian/<int:pesanan_id>/tinjau-kredit/',
+        views.admin_tinjau_pengajuan_kredit,
+        name='admin_tinjau_pengajuan_kredit',
+    ),
+    path(
+        'panel/pesanan-pembelian/<int:pesanan_id>/batalkan/',
+        views.admin_batalkan_pesanan_pembelian,
+        name='admin_batalkan_pesanan_pembelian',
     ),
     path('panel/profil/', views.profil_admin, name='profil_admin'),
     path('panel/ubah-password/', views.ubah_password_admin, name='ubah_password_admin'),
@@ -128,6 +163,11 @@ urlpatterns = [
     path('pembelian/<int:id>/konfirmasi/', views.konfirmasi_pembelian, name='konfirmasi_pembelian'),
     path('pembelian/pesanan/<str:nomor_pesanan>/berhasil/', views.pesanan_berhasil, name='pesanan_berhasil'),
     path('pembelian/pesanan/<str:nomor_pesanan>/', views.pesanan_detail, name='pesanan_detail'),
+    path(
+        'pembelian/pesanan/<str:nomor_pesanan>/konfirmasi-transfer/',
+        views.konfirmasi_transfer_pesanan,
+        name='konfirmasi_transfer_pesanan',
+    ),
 
     # Midtrans Snap Sandbox (Sprint 3)
     path('pembelian/pesanan/<str:nomor_pesanan>/snap-token/', views.midtrans_snap_token, name='midtrans_snap_token'),

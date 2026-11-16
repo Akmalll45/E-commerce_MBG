@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -38,6 +38,7 @@ from .models import (
     BookingCekUnit, Transaksi,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
     PesananPembelian, PembayaranPesanan, PengaturanPembelian, RiwayatPesanan,
+    RefundPesanan, PERSENTASE_DP_KREDIT, PERSENTASE_ANGSURAN_KREDIT_TAHUNAN,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
@@ -47,7 +48,9 @@ from .forms import (
     SelesaikanPenjualanC2CForm, validasi_foto_mobil,
     validasi_dokumen_titip_jual,
     KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm, PengaturanWebsiteForm,
-    CheckoutPembelianForm,
+    CheckoutPembelianForm, PembayaranManualPesananForm,
+    KanalPembayaranPembelianForm, KonfirmasiTransferPesananForm,
+    PermintaanPembatalanPesananForm,
 )
 
 User = get_user_model()
@@ -412,7 +415,7 @@ def status_ketersediaan_unit(request, id):
         pesan = 'Anda sudah memiliki pesanan aktif untuk unit ini.'
     elif pesanan_aktif or produk.status_stok == 'in_review':
         state = 'booked'
-        pesan = 'Unit sedang di-booking pelanggan lain.'
+        pesan = 'Unit sedang dalam proses pemesanan oleh pelanggan lain.'
     else:
         state = 'unavailable'
         pesan = 'Unit ini tidak tersedia untuk dipesan.'
@@ -537,16 +540,27 @@ def dashboard_user(request):
         user_transaksi = Transaksi.objects.none()
 
     user_titip_jual = TitipJual.objects.filter(pengguna=user).order_by('-created_at')
-    user_pesanan_pembelian = PesananPembelian.objects.filter(pelanggan=user).select_related('produk').order_by('-created_at')
+    user_pesanan_pembelian = (
+        PesananPembelian.objects.filter(pelanggan=user)
+        .select_related('produk')
+        .prefetch_related('pembayaran')
+        .order_by('-created_at', '-pk')
+    )
+    user_booking_pembelian = user_pesanan_pembelian.filter(jenis_pembelian='booking')
+    user_pembelian_langsung = user_pesanan_pembelian.filter(jenis_pembelian='beli_langsung')
     context = {
         'user': user,
         'user_bookings': user_bookings,
         'user_titip_jual': user_titip_jual,
         'user_transaksi': user_transaksi,
         'user_pesanan_pembelian': user_pesanan_pembelian,
+        'user_booking_pembelian': user_booking_pembelian,
+        'user_pembelian_langsung': user_pembelian_langsung,
         'total_booking': user_bookings.count(),
         'total_titip_jual': user_titip_jual.count(),
         'total_pesanan_pembelian': user_pesanan_pembelian.count(),
+        'total_booking_pembelian': user_booking_pembelian.count(),
+        'total_pembelian_langsung': user_pembelian_langsung.count(),
         'titip_jual_dalam_proses': user_titip_jual.filter(
             status__in=['pending', 'revisi', 'dijadwalkan', 'inspeksi', 'negosiasi']
         ).count(),
@@ -1068,7 +1082,6 @@ def dashboard_admin(request):
     booking_menunggu_dp = BookingCekUnit.objects.filter(status='menunggu_dp').count()
     booking_terkonfirmasi = BookingCekUnit.objects.filter(status='terkonfirmasi').count()
     pembayaran_pesanan_menunggu_verifikasi = PembayaranPesanan.objects.filter(
-        jenis='booking_fee',
         status='menunggu_verifikasi',
     ).count()
 
@@ -2178,17 +2191,15 @@ def admin_booking(request):
 @staf_required
 def admin_pesanan_pembelian(request):
     pembayaran_menunggu = PembayaranPesanan.objects.filter(
-        jenis='booking_fee',
         status='menunggu_verifikasi',
     ).count()
     daftar = PesananPembelian.objects.select_related(
         'pelanggan', 'produk',
-    ).prefetch_related('pembayaran').order_by('-created_at', '-pk')
+    ).prefetch_related('pembayaran', 'refund').order_by('-created_at', '-pk')
 
     filter_status = request.GET.get('status', '').strip()
     if filter_status == 'menunggu_verifikasi':
         daftar = daftar.filter(
-            pembayaran__jenis='booking_fee',
             pembayaran__status='menunggu_verifikasi',
         ).distinct()
     elif filter_status == 'beli_langsung':
@@ -2197,6 +2208,18 @@ def admin_pesanan_pembelian(request):
         daftar = daftar.filter(status=filter_status)
 
     page_obj = Paginator(daftar, 25).get_page(request.GET.get('page'))
+    for pesanan in page_obj.object_list:
+        pesanan.form_pembayaran_manual = PembayaranManualPesananForm(pesanan=pesanan)
+        pembayaran = list(pesanan.pembayaran.all())
+        refund_terbuka = any(
+            refund.status in RefundPesanan.STATUS_TERBUKA
+            for refund in pesanan.refund.all()
+        )
+        pesanan.dapat_dibatalkan_admin = (
+            pesanan.status in PesananPembelian.STATUS_DAPAT_DIBATALKAN
+            and not refund_terbuka
+            and not any(item.status == 'menunggu_verifikasi' for item in pembayaran)
+        )
     return render(request, 'dashboard/admin/pesanan_pembelian_list.html', {
         'page_obj': page_obj,
         'pesanan_list': page_obj.object_list,
@@ -2209,13 +2232,79 @@ def admin_pesanan_pembelian(request):
 
 @staf_required
 @require_POST
+def admin_tinjau_pengajuan_kredit(request, pesanan_id):
+    pesanan = get_object_or_404(PesananPembelian, pk=pesanan_id)
+    disetujui = request.POST.get('aksi') == 'setujui'
+    if request.POST.get('aksi') not in ('setujui', 'tolak'):
+        messages.error(request, 'Tindakan peninjauan pengajuan kredit tidak valid.')
+        return redirect('admin_pesanan_pembelian')
+    try:
+        pesanan.tinjau_pengajuan_kredit(
+            oleh_user=request.user,
+            disetujui=disetujui,
+            alasan=request.POST.get('alasan', ''),
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            (
+                f'Pengajuan kredit pesanan {pesanan.nomor_pesanan} disetujui. '
+                f'Pelanggan dapat mengirim DP 20% sebesar Rp {pesanan.nominal_dp_kredit:,.0f}.'
+                if disetujui
+                else f'Pengajuan kredit pesanan {pesanan.nomor_pesanan} ditolak dan unit tersedia kembali.'
+            ),
+        )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_catat_pembayaran_pesanan(request, pesanan_id):
+    with transaction.atomic():
+        pesanan = get_object_or_404(PesananPembelian, pk=pesanan_id)
+        PesananPembelian._kunci(pesanan.pk)
+        pesanan.refresh_from_db()
+        form = PembayaranManualPesananForm(request.POST, pesanan=pesanan)
+        if not form.is_valid():
+            messages.error(request, 'Pembayaran manual tidak dapat dicatat: ' + '; '.join(
+                f'{field}: {", ".join(errors)}' for field, errors in form.errors.items()
+            ))
+            return redirect('admin_pesanan_pembelian')
+
+        pembayaran = PembayaranPesanan(
+            pesanan=pesanan,
+            jenis=form.cleaned_data['jenis'],
+            nominal=form.cleaned_data['nominal'],
+            saluran=form.cleaned_data['saluran'],
+            nomor_referensi=form.cleaned_data['nomor_referensi'],
+            catatan_verifikasi=form.cleaned_data['catatan'],
+            tanggal_bayar=timezone.now(),
+            status='menunggu_verifikasi',
+        )
+        try:
+            pembayaran.full_clean()
+            pembayaran.save()
+        except ValidationError as exc:
+            messages.error(request, f'Pembayaran manual tidak dapat dicatat: {exc}')
+            return redirect('admin_pesanan_pembelian')
+    messages.success(
+        request,
+        f'{pembayaran.get_jenis_display()} Rp {pembayaran.nominal:,.0f} tercatat dan menunggu verifikasi admin.',
+    )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
 def admin_verifikasi_pembayaran_pesanan(request, pembayaran_id):
     pembayaran = get_object_or_404(
         PembayaranPesanan.objects.select_related('pesanan'),
         pk=pembayaran_id,
     )
-    if pembayaran.jenis != 'booking_fee':
-        messages.error(request, 'Hanya Booking Fee yang menunggu verifikasi manual admin.')
+    if pembayaran.jenis != 'booking_fee' and pembayaran.saluran not in ('transfer', 'tunai'):
+        messages.error(request, 'Pembayaran selain Booking Fee hanya dapat diverifikasi sebagai kanal manual.')
     else:
         try:
             pembayaran.verifikasi(oleh_user=request.user)
@@ -2224,8 +2313,76 @@ def admin_verifikasi_pembayaran_pesanan(request, pembayaran_id):
         else:
             messages.success(
                 request,
-                f'Booking Fee pesanan {pembayaran.pesanan.nomor_pesanan} diverifikasi; unit kini dikunci.',
+                f'{pembayaran.get_jenis_display()} pesanan {pembayaran.pesanan.nomor_pesanan} diverifikasi.',
             )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_tolak_pembayaran_pesanan(request, pembayaran_id):
+    pembayaran = get_object_or_404(PembayaranPesanan, pk=pembayaran_id)
+    try:
+        pembayaran.tolak(
+            oleh_user=request.user,
+            catatan=request.POST.get('catatan', ''),
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Pembayaran ditolak dan alasan penolakan telah dicatat.')
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_setujui_refund_pesanan(request, refund_id):
+    refund = get_object_or_404(RefundPesanan.objects.select_related('pesanan'), pk=refund_id)
+    try:
+        refund.setujui(
+            oleh_user=request.user,
+            catatan=request.POST.get('catatan', ''),
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f'Pembatalan pesanan {refund.pesanan.nomor_pesanan} disetujui. Pengembalian dana masih perlu dicatat setelah dilakukan.',
+        )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_tolak_refund_pesanan(request, refund_id):
+    refund = get_object_or_404(RefundPesanan, pk=refund_id)
+    try:
+        refund.tolak(
+            oleh_user=request.user,
+            catatan=request.POST.get('catatan', ''),
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Permintaan refund ditolak dan alasannya telah dicatat.')
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_catat_pengembalian_refund(request, refund_id):
+    refund = get_object_or_404(RefundPesanan, pk=refund_id)
+    try:
+        refund.catat_pengembalian(
+            oleh_user=request.user,
+            nomor_referensi=request.POST.get('nomor_referensi', ''),
+            catatan=request.POST.get('catatan', ''),
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Pengembalian dana dicatat pada riwayat refund.')
     return redirect('admin_pesanan_pembelian')
 
 
@@ -2245,6 +2402,41 @@ def admin_selesaikan_pesanan_pembelian(request, pesanan_id):
             request,
             f'Pesanan {pesanan.nomor_pesanan} selesai; kendaraan ditandai terjual.',
         )
+    return redirect('admin_pesanan_pembelian')
+
+
+@staf_required
+@require_POST
+def admin_batalkan_pesanan_pembelian(request, pesanan_id):
+    pesanan = get_object_or_404(PesananPembelian, pk=pesanan_id)
+    alasan = (request.POST.get('alasan') or '').strip()
+    if not alasan:
+        messages.error(request, 'Alasan pembatalan wajib dicatat.')
+        return redirect('admin_pesanan_pembelian')
+
+    if pesanan.pembayaran.filter(status='menunggu_verifikasi').exists():
+        messages.error(
+            request,
+            'Pesanan belum dapat dibatalkan karena ada pembayaran yang menunggu verifikasi.',
+        )
+        return redirect('admin_pesanan_pembelian')
+
+    try:
+        if pesanan.total_terverifikasi() > 0:
+            refund = pesanan.ajukan_pembatalan(request.user, alasan)
+            messages.success(
+                request,
+                f'Permintaan pembatalan {pesanan.nomor_pesanan} dicatat. '
+                f'Setujui refund Rp {refund.nominal_diajukan:,.0f} untuk membuka unit.',
+            )
+        else:
+            pesanan.batalkan_tanpa_pembayaran(request.user, alasan)
+            messages.success(
+                request,
+                f'Pesanan {pesanan.nomor_pesanan} dibatalkan dan unit kembali tersedia.',
+            )
+    except ValueError as exc:
+        messages.error(request, str(exc))
     return redirect('admin_pesanan_pembelian')
 
 
@@ -2941,6 +3133,63 @@ def _alihkan_jika_ada_pesanan_aktif(request, produk):
     return redirect('detail_produk', id=produk.id)
 
 
+def _rincian_simulasi_kredit(harga, booking_fee):
+    harga = Decimal(harga)
+    booking_fee = Decimal(booking_fee)
+    dp_awal = (harga * PERSENTASE_DP_KREDIT / Decimal('100')).quantize(
+        Decimal('1'), rounding=ROUND_HALF_UP,
+    )
+    nominal_angsuran = (
+        harga * PERSENTASE_ANGSURAN_KREDIT_TAHUNAN / Decimal('100')
+    ).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    booking_fee_untuk_dp = min(booking_fee, dp_awal)
+    saldo_setelah_dp = max(harga - max(dp_awal, booking_fee), Decimal('0'))
+    tenor_tahun = (
+        int((saldo_setelah_dp / nominal_angsuran).to_integral_value(rounding=ROUND_CEILING))
+        if saldo_setelah_dp and nominal_angsuran
+        else 0
+    )
+    angsuran_terakhir = (
+        saldo_setelah_dp - nominal_angsuran * (tenor_tahun - 1)
+        if tenor_tahun
+        else Decimal('0')
+    )
+    return {
+        'persentase_dp': PERSENTASE_DP_KREDIT,
+        'nominal_dp': dp_awal,
+        'nominal_dp_tambahan': max(dp_awal - booking_fee_untuk_dp, Decimal('0')),
+        'persentase_angsuran_tahunan': PERSENTASE_ANGSURAN_KREDIT_TAHUNAN,
+        'nominal_angsuran_tahunan': nominal_angsuran,
+        'saldo_setelah_dp': saldo_setelah_dp,
+        'tenor_tahun': tenor_tahun,
+        'nominal_angsuran_terakhir': angsuran_terakhir,
+    }
+
+
+def _jenis_pembayaran_transfer_tersedia(pesanan):
+    if pesanan.saluran_pembayaran != 'transfer':
+        return None
+    if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit':
+        if pesanan.status == 'menunggu_dp_kredit':
+            return 'dp'
+        if pesanan.status == 'kredit_aktif' and pesanan.sisa_pembayaran() > 0:
+            return 'angsuran'
+        return None
+    if pesanan.status == 'menunggu_booking_fee':
+        return pesanan.jenis_pembayaran_midtrans
+    return None
+
+
+def _pembayaran_menghalangi_konfirmasi(pesanan, jenis, kunci=False):
+    status = ('menunggu_verifikasi',) if jenis == 'angsuran' else (
+        'menunggu_verifikasi', 'terverifikasi',
+    )
+    pembayaran = pesanan.pembayaran.filter(jenis=jenis, status__in=status)
+    if kunci:
+        pembayaran = pembayaran.select_for_update()
+    return pembayaran.exists()
+
+
 @login_required(login_url='login')
 def checkout_pembelian(request, id):
     """
@@ -2950,6 +3199,10 @@ def checkout_pembelian(request, id):
     serta perhitungan Booking Fee dari PengaturanPembelian.
     """
     produk = get_object_or_404(Produk, pk=id)
+    jenis_pembelian = request.GET.get('jenis_pembelian', 'booking')
+    if jenis_pembelian not in dict(PesananPembelian.JENIS_PEMBELIAN_CHOICES):
+        messages.error(request, 'Jenis pemesanan tidak valid. Silakan pilih kembali dari halaman kendaraan.')
+        return redirect('detail_produk', id=produk.id)
 
     # Validasi kelayakan unit untuk dibeli
     if produk.tipe_penjual != 'B2C':
@@ -2958,7 +3211,7 @@ def checkout_pembelian(request, id):
 
     if produk.status_stok != 'ready':
         if produk.status_stok == 'in_review':
-            pesan = 'Kendaraan ini sedang dalam proses booking oleh pelanggan lain.'
+            pesan = 'Kendaraan ini sedang dalam proses pemesanan oleh pelanggan lain.'
         elif produk.status_stok == 'sold':
             pesan = 'Kendaraan ini sudah terjual (sold out).'
         else:
@@ -2977,7 +3230,7 @@ def checkout_pembelian(request, id):
     session_key = f'checkout_{produk.id}'
 
     if request.method == 'POST':
-        form = CheckoutPembelianForm(request.POST)
+        form = CheckoutPembelianForm(request.POST, jenis_pembelian=jenis_pembelian)
         if form.is_valid():
             # Simpan data checkout yang tervalidasi ke session untuk konfirmasi
             request.session[session_key] = form.cleaned_data
@@ -2986,7 +3239,10 @@ def checkout_pembelian(request, id):
         # Pre-fill data pemesan dari session sebelumnya atau profil akun pengguna
         stored_data = request.session.get(session_key)
         if stored_data:
-            form = CheckoutPembelianForm(initial=stored_data)
+            form = CheckoutPembelianForm(
+                initial=stored_data,
+                jenis_pembelian=jenis_pembelian,
+            )
         else:
             initial_data = {
                 'nama_pelanggan': request.user.get_full_name() or request.user.username,
@@ -2994,12 +3250,18 @@ def checkout_pembelian(request, id):
                 'email': request.user.email or '',
                 'alamat_pengantaran': request.user.alamat or '',
                 'metode_pembayaran': 'cash',
-                'jenis_pembelian': 'booking',
                 'opsi_penyerahan': 'showroom',
             }
-            form = CheckoutPembelianForm(initial=initial_data)
+            form = CheckoutPembelianForm(
+                initial=initial_data,
+                jenis_pembelian=jenis_pembelian,
+            )
 
     sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
+    rincian_kredit = _rincian_simulasi_kredit(
+        produk.harga,
+        nominal_booking_fee if jenis_pembelian == 'booking' else Decimal('0'),
+    )
 
     # Jangan memakai key 'pengaturan' di sini: itu milik context processor `pengaturan_situs`
     # (PengaturanWebsite: WhatsApp, alamat, dll. untuk navbar/footer) dan akan tertimpa.
@@ -3011,6 +3273,8 @@ def checkout_pembelian(request, id):
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
         'nominal_pembelian_langsung': produk.harga,
+        'jenis_pembelian': jenis_pembelian,
+        'rincian_kredit': rincian_kredit,
     })
 
 
@@ -3041,8 +3305,20 @@ def konfirmasi_pembelian(request, id):
     pengaturan_pembelian = PengaturanPembelian.ambil()
     nominal_booking_fee = pengaturan_pembelian.hitung_booking_fee(produk.harga)
     sisa_estimasi = max(produk.harga - nominal_booking_fee, Decimal('0'))
+    rincian_kredit = _rincian_simulasi_kredit(
+        produk.harga,
+        nominal_booking_fee
+        if checkout_data.get('jenis_pembelian') == 'booking'
+        else Decimal('0'),
+    ) if checkout_data.get('metode_pembayaran') == 'kredit' else None
+    form_kanal = KanalPembayaranPembelianForm({
+        'saluran_pembayaran': checkout_data.get('saluran_pembayaran', 'midtrans'),
+    })
 
     if request.method == 'POST':
+        if not form_kanal.is_valid():
+            messages.error(request, 'Kanal pembayaran tidak valid. Silakan pilih kembali di checkout.')
+            return redirect('checkout_pembelian', id=produk.id)
         # Pencegahan double booking dan race conditions dengan transaksi database + row-level lock
         try:
             with transaction.atomic():
@@ -3058,6 +3334,12 @@ def konfirmasi_pembelian(request, id):
                     no_whatsapp=checkout_data['no_whatsapp'],
                     metode_pembayaran=checkout_data['metode_pembayaran'],
                     jenis_pembelian=checkout_data.get('jenis_pembelian', 'booking'),
+                    saluran_pembayaran=(
+                        'transfer'
+                        if checkout_data.get('jenis_pembelian') == 'beli_langsung'
+                        and checkout_data.get('metode_pembayaran') == 'kredit'
+                        else form_kanal.cleaned_data['saluran_pembayaran']
+                    ),
                     opsi_penyerahan=checkout_data['opsi_penyerahan'],
                     email=checkout_data.get('email', ''),
                     alamat_pengantaran=checkout_data.get('alamat_pengantaran', ''),
@@ -3069,9 +3351,18 @@ def konfirmasi_pembelian(request, id):
                 request,
                 f'Pesanan {pesanan.nomor_pesanan} berhasil dibuat! '
                 + (
-                    'Bayar 100% harga OTR melalui Midtrans untuk validasi otomatis dan penguncian unit.'
-                    if pesanan.jenis_pembelian == 'beli_langsung'
-                    else 'Silakan bayar Booking Fee; unit dikunci setelah verifikasi admin.'
+                    'Pengajuan Kredit menunggu peninjauan admin. DP baru dibayar setelah pengajuan disetujui.'
+                    if pesanan.metode_pembayaran == 'kredit'
+                    and pesanan.jenis_pembelian == 'beli_langsung'
+                    else (
+                        'Silakan transfer sesuai instruksi resmi dan kirim konfirmasi untuk diperiksa admin.'
+                        if pesanan.saluran_pembayaran == 'transfer'
+                        else (
+                            'Bayar 100% harga OTR melalui Midtrans untuk validasi otomatis dan penguncian unit.'
+                            if pesanan.jenis_pembelian == 'beli_langsung'
+                            else 'Silakan bayar Booking Fee; unit dikunci setelah verifikasi admin.'
+                        )
+                    )
                 )
             )
             return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
@@ -3093,6 +3384,8 @@ def konfirmasi_pembelian(request, id):
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
         'nominal_pembelian_langsung': produk.harga,
+        'rincian_kredit': rincian_kredit,
+        'form_kanal': form_kanal,
     })
 
 
@@ -3110,12 +3403,37 @@ def pesanan_berhasil(request, nomor_pesanan):
     if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
         raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
 
+    pembayaran_awal = pesanan.pembayaran.filter(
+        jenis=pesanan.jenis_pembayaran_midtrans,
+    ).order_by('-created_at', '-pk').first()
+    jenis_transfer = _jenis_pembayaran_transfer_tersedia(pesanan)
+    dapat_konfirmasi_transfer = (
+        pesanan.pelanggan_id == request.user.id
+        and jenis_transfer is not None
+        and not _pembayaran_menghalangi_konfirmasi(pesanan, jenis_transfer)
+    )
     return render(request, 'pembelian/pesanan_berhasil.html', {
         'pesanan': pesanan,
         'produk': pesanan.produk,
+        'pembayaran_booking_fee': pembayaran_awal,
+        'form_konfirmasi_transfer': (
+            KonfirmasiTransferPesananForm() if dapat_konfirmasi_transfer else None
+        ),
+        'jenis_pembayaran_transfer': jenis_transfer,
+        'nominal_pembayaran_transfer': pesanan.nominal_pembayaran_berikutnya,
         'midtrans_client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
         'midtrans_snap_js_url': getattr(settings, 'MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
         'midtrans_is_production': getattr(settings, 'MIDTRANS_IS_PRODUCTION', False),
+        'rincian_kredit': (
+            _rincian_simulasi_kredit(pesanan.harga_kendaraan, pesanan.nominal_booking_fee)
+            if pesanan.metode_pembayaran == 'kredit'
+            and pesanan.jenis_pembelian == 'booking'
+            else (
+                _rincian_simulasi_kredit(pesanan.harga_kendaraan, Decimal('0'))
+                if pesanan.metode_pembayaran == 'kredit'
+                else None
+            )
+        ),
     })
 
 
@@ -3134,16 +3452,107 @@ def pesanan_detail(request, nomor_pesanan):
     if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
         raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
 
+    if request.method == 'POST':
+        form_pembatalan = PermintaanPembatalanPesananForm(request.POST)
+        if form_pembatalan.is_valid():
+            try:
+                if pesanan.total_terverifikasi() > 0:
+                    pesanan.ajukan_pembatalan(request.user, form_pembatalan.cleaned_data['alasan'])
+                    messages.success(request, 'Permintaan pembatalan dan refund telah dikirim kepada admin.')
+                else:
+                    pesanan.batalkan_tanpa_pembayaran(
+                        request.user,
+                        form_pembatalan.cleaned_data['alasan'],
+                    )
+                    messages.success(request, 'Pesanan dibatalkan karena belum ada pembayaran terverifikasi.')
+                return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
+            except ValueError as exc:
+                form_pembatalan.add_error(None, str(exc))
+    else:
+        form_pembatalan = PermintaanPembatalanPesananForm()
+
+    pembayaran_awal = pesanan.pembayaran.filter(
+        jenis=pesanan.jenis_pembayaran_midtrans,
+    ).order_by('-created_at', '-pk').first()
+    jenis_transfer = _jenis_pembayaran_transfer_tersedia(pesanan)
+    dapat_konfirmasi_transfer = (
+        pesanan.pelanggan_id == request.user.id
+        and jenis_transfer is not None
+        and not _pembayaran_menghalangi_konfirmasi(pesanan, jenis_transfer)
+    )
     return render(request, 'pembelian/pesanan_detail.html', {
         'pesanan': pesanan,
         'produk': pesanan.produk,
-        'pembayaran_booking_fee': pesanan.pembayaran.filter(
-            jenis=pesanan.jenis_pembayaran_midtrans,
-        ).order_by('-created_at', '-pk').first(),
+        'pembayaran_booking_fee': pembayaran_awal,
+        'form_konfirmasi_transfer': (
+            KonfirmasiTransferPesananForm() if dapat_konfirmasi_transfer else None
+        ),
+        'jenis_pembayaran_transfer': jenis_transfer,
+        'nominal_pembayaran_transfer': pesanan.nominal_pembayaran_berikutnya,
         'midtrans_client_key': getattr(settings, 'MIDTRANS_CLIENT_KEY', ''),
         'midtrans_snap_js_url': getattr(settings, 'MIDTRANS_SNAP_JS_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
         'midtrans_is_production': getattr(settings, 'MIDTRANS_IS_PRODUCTION', False),
+        'rincian_kredit': (
+            _rincian_simulasi_kredit(pesanan.harga_kendaraan, pesanan.nominal_booking_fee)
+            if pesanan.metode_pembayaran == 'kredit' and pesanan.jenis_pembelian == 'booking'
+            else (
+                _rincian_simulasi_kredit(pesanan.harga_kendaraan, Decimal('0'))
+                if pesanan.metode_pembayaran == 'kredit'
+                else None
+            )
+        ),
+        'form_pembatalan': form_pembatalan,
+        'refund_list': pesanan.refund.all(),
+        'dapat_mengajukan_pembatalan': (
+            pesanan.status in PesananPembelian.STATUS_DAPAT_DIBATALKAN
+            and not pesanan.refund.filter(status__in=RefundPesanan.STATUS_TERBUKA).exists()
+        ),
     })
+
+
+@login_required(login_url='login')
+@require_POST
+def konfirmasi_transfer_pesanan(request, nomor_pesanan):
+    """Catat konfirmasi transfer pelanggan dengan nominal yang dihitung dari pesanan."""
+    pesanan = get_object_or_404(PesananPembelian, nomor_pesanan=nomor_pesanan)
+    if pesanan.pelanggan_id != request.user.id:
+        raise PermissionDenied("Hanya pemilik pesanan yang dapat mengonfirmasi transfer.")
+
+    form = KonfirmasiTransferPesananForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Nomor referensi transfer wajib diisi dengan benar.')
+        return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
+
+    try:
+        with transaction.atomic():
+            _, pesanan = PesananPembelian._kunci(pesanan.pk)
+            if pesanan.saluran_pembayaran != 'transfer':
+                raise ValueError('Pesanan ini menggunakan Midtrans, bukan transfer bank manual.')
+            jenis_pembayaran = _jenis_pembayaran_transfer_tersedia(pesanan)
+            if jenis_pembayaran is None:
+                raise ValueError('Pesanan ini tidak sedang menunggu pembayaran transfer.')
+            if _pembayaran_menghalangi_konfirmasi(pesanan, jenis_pembayaran, kunci=True):
+                raise ValueError('Konfirmasi pembayaran untuk pesanan ini sudah tercatat.')
+
+            pembayaran = PembayaranPesanan(
+                pesanan=pesanan,
+                jenis=jenis_pembayaran,
+                nominal=pesanan.nominal_pembayaran_berikutnya,
+                saluran='transfer',
+                nomor_referensi=form.cleaned_data['nomor_referensi'],
+                tanggal_bayar=timezone.now(),
+                status='menunggu_verifikasi',
+            )
+            pembayaran.full_clean()
+            pembayaran.save()
+    except (ValueError, ValidationError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            'Konfirmasi transfer tercatat. Pembayaran akan ditinjau admin sebelum unit dikunci.',
+        )
+    return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -3163,6 +3572,12 @@ def midtrans_snap_token(request, nomor_pesanan):
     # Batasi akses hanya pemilik pesanan atau staf MBG
     if not (request.user.is_staff or request.user.is_superuser or pesanan.pelanggan_id == request.user.id):
         raise PermissionDenied("Anda tidak memiliki akses ke pesanan ini.")
+
+    if pesanan.saluran_pembayaran != 'midtrans':
+        return JsonResponse(
+            {'status': 'error', 'message': 'Pesanan ini menggunakan transfer bank manual.'},
+            status=400,
+        )
 
     try:
         token, redirect_url, order_id = buat_snap_transaksi(pesanan)

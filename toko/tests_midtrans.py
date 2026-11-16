@@ -304,6 +304,39 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     @mock.patch('toko.views.buat_snap_transaksi')
+    def test_snap_token_endpoint_menolak_pesanan_transfer_bank(self, mock_buat):
+        produk = Produk.objects.create(
+            nama='Toyota Yaris 2022',
+            merek='Toyota',
+            tahun=2022,
+            jarak_tempuh=18000,
+            transmisi='AT',
+            harga=Decimal('220000000'),
+            tipe_penjual='B2C',
+            status_stok='ready',
+            sku='YARIS-2022-002',
+            plat_nomor='DD 4321 YZ',
+        )
+        pesanan_transfer = PesananPembelian.buat_dari_produk(
+            produk=produk,
+            pelanggan=self.pembeli,
+            nama_pelanggan='Budi Santoso',
+            no_whatsapp='081234567890',
+            metode_pembayaran='cash',
+            saluran_pembayaran='transfer',
+        )
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+
+        response = client.post(
+            reverse('midtrans_snap_token', args=[pesanan_transfer.nomor_pesanan]),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['status'], 'error')
+        mock_buat.assert_not_called()
+
+    @mock.patch('toko.views.buat_snap_transaksi')
     def test_snap_token_endpoint_sukses_untuk_pemilik_dan_tidak_membocorkan_server_key(self, mock_buat):
         mock_buat.return_value = ('token-xyz-789', 'https://midtrans.test/redirect', self.pesanan.nomor_pesanan)
 
@@ -466,6 +499,12 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
         self.assertEqual(pembayaran.saluran, 'va')
         self.assertEqual(pembayaran.nomor_referensi, 'TRX-SETTLE-001')
+        customer = Client()
+        customer.login(username='pembeli_midtrans', password='Password123!')
+        success_page = customer.get(
+            reverse('pesanan_berhasil', args=[self.pesanan.nomor_pesanan])
+        )
+        self.assertContains(success_page, 'Booking Fee diterima — menunggu verifikasi admin')
 
         # Verifikasi Status Pesanan & Stok Unit TIDAK BERUBAH SEBELUM VERIFIKASI ADMIN
         self.pesanan.refresh_from_db()
@@ -541,6 +580,10 @@ class MidtransSnapServiceTests(TestCase):
         self.produk.refresh_from_db()
         self.assertEqual(pesanan.status, 'selesai')
         self.assertEqual(self.produk.status_stok, 'sold')
+        success_page = customer.get(
+            reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan])
+        )
+        self.assertContains(success_page, 'Pembelian Selesai')
 
     def test_webhook_capture_accept_mencatat_pembayaran_menunggu_verifikasi(self):
         payload = self._buat_payload_webhook(
@@ -921,12 +964,12 @@ class MidtransSnapServiceTests(TestCase):
         admin.login(username='admin_mbg', password='Password123!')
         dashboard = admin.get(reverse('dashboard_admin'))
         self.assertContains(dashboard, 'Pesanan Pembelian')
-        self.assertContains(dashboard, 'Booking Fee menunggu verifikasi')
+        self.assertContains(dashboard, 'Pembayaran menunggu verifikasi')
         page = admin.get(reverse('admin_pesanan_pembelian'))
         self.assertContains(page, self.pesanan.nomor_pesanan)
         self.assertContains(page, 'Budi Santoso')
         self.assertContains(page, self.produk.nama)
-        self.assertContains(page, '1 Booking Fee menunggu verifikasi')
+        self.assertContains(page, '1 Pembayaran menunggu verifikasi')
         payment = PembayaranPesanan.objects.get(pesanan=self.pesanan)
         response = admin.post(
             reverse('admin_verifikasi_pembayaran_pesanan', args=[payment.pk])
@@ -992,6 +1035,114 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(petakan_saluran_midtrans('gopay'), 'ewallet')
         self.assertEqual(petakan_saluran_midtrans('credit_card'), 'kartu')
         self.assertEqual(petakan_saluran_midtrans('cstore'), 'ritel')
+        self.assertEqual(petakan_saluran_midtrans('future_payment_type'), 'lainnya')
+
+    def test_checkout_menjelaskan_kredit_tanpa_mengklaim_integrasi_leasing(self):
+        self.pesanan.batalkan_tanpa_pembayaran(
+            self.pembeli,
+            'Melepas unit sebelum memeriksa informasi checkout.',
+        )
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        response = client.get(reverse('checkout_pembelian', args=[self.produk.pk]))
+        self.assertContains(response, 'Belum tersedia integrasi bank atau leasing')
+
+    def test_admin_mencatat_dan_memverifikasi_dp_dan_pelunasan(self):
+        booking = PembayaranPesanan.objects.create(
+            pesanan=self.pesanan,
+            jenis='booking_fee',
+            nominal=self.pesanan.nominal_booking_fee,
+            saluran='va',
+            nomor_referensi='TRX-BOOKING-MANUAL-FLOW',
+        )
+        booking.verifikasi(self.admin)
+
+        admin = Client()
+        admin.login(username='admin_mbg', password='Password123!')
+        record_url = reverse('admin_catat_pembayaran_pesanan', args=[self.pesanan.pk])
+        response = admin.post(record_url, {
+            'jenis': 'dp',
+            'nominal': '50000000',
+            'saluran': 'transfer',
+            'nomor_referensi': 'TRF-DP-001',
+            'catatan': 'DP manual',
+        })
+        self.assertEqual(response.status_code, 302)
+        dp = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='dp')
+        self.assertEqual(dp.status, 'menunggu_verifikasi')
+        self.assertIsNotNone(dp.tanggal_bayar)
+
+        admin.post(reverse('admin_verifikasi_pembayaran_pesanan', args=[dp.pk]))
+        dp.refresh_from_db()
+        self.assertEqual(dp.catatan_verifikasi, 'DP manual')
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.sisa_pembayaran(), Decimal('195000000'))
+
+        admin.post(record_url, {
+            'jenis': 'pelunasan',
+            'nominal': '195000000',
+            'saluran': 'tunai',
+            'nomor_referensi': '',
+            'catatan': 'Pelunasan di showroom',
+        })
+        pelunasan = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='pelunasan')
+        self.assertEqual(pelunasan.saluran, 'tunai')
+        admin.post(reverse('admin_verifikasi_pembayaran_pesanan', args=[pelunasan.pk]))
+        self.pesanan.refresh_from_db()
+        self.assertEqual(self.pesanan.sisa_pembayaran(), Decimal('0'))
+
+    def test_pelanggan_tidak_dapat_mencatat_pembayaran_manual_melalui_panel(self):
+        client = Client()
+        client.login(username='pembeli_midtrans', password='Password123!')
+        response = client.post(
+            reverse('admin_catat_pembayaran_pesanan', args=[self.pesanan.pk]),
+            {
+                'jenis': 'booking_fee',
+                'nominal': str(self.pesanan.nominal_booking_fee),
+                'saluran': 'tunai',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=self.pesanan).exists())
+
+    def test_pelanggan_mengajukan_refund_admin_memproses_dan_mencatat_pengembalian(self):
+        pembayaran = PembayaranPesanan.objects.create(
+            pesanan=self.pesanan,
+            jenis='booking_fee',
+            nominal=self.pesanan.nominal_booking_fee,
+            saluran='va',
+            nomor_referensi='TRX-REFUND-001',
+        )
+        pembayaran.verifikasi(self.admin)
+
+        customer = Client()
+        customer.login(username='pembeli_midtrans', password='Password123!')
+        response = customer.post(
+            reverse('pesanan_detail', args=[self.pesanan.nomor_pesanan]),
+            {'alasan': 'Perubahan rencana pembelian'},
+        )
+        self.assertEqual(response.status_code, 302)
+        refund = self.pesanan.refund.get()
+        self.assertEqual(refund.pembayaran, pembayaran)
+        self.assertEqual(refund.status, 'diajukan')
+
+        admin = Client()
+        admin.login(username='admin_mbg', password='Password123!')
+        admin.post(reverse('admin_setujui_refund_pesanan', args=[refund.pk]))
+        refund.refresh_from_db()
+        self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
+        self.assertEqual(refund.status, 'disetujui')
+        self.assertEqual(self.pesanan.status, 'dibatalkan')
+        self.assertEqual(self.produk.status_stok, 'ready')
+
+        admin.post(
+            reverse('admin_catat_pengembalian_refund', args=[refund.pk]),
+            {'nomor_referensi': 'REFUND-001', 'catatan': 'Dana dikembalikan'},
+        )
+        refund.refresh_from_db()
+        self.assertEqual(refund.status, 'dikembalikan')
+        self.assertEqual(refund.nomor_referensi_pengembalian, 'REFUND-001')
 
     def test_snap_token_endpoint_hanya_menerima_post(self):
         client = Client()

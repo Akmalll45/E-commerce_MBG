@@ -87,7 +87,10 @@ class CustomerPurchaseFlowTests(TestCase):
         resp = self.client_auth.get(reverse('detail_produk', args=[self.produk_ready.id]))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Beli Mobil Sekarang')
+        self.assertContains(resp, 'Booking Kendaraan (Booking Fee)')
         self.assertContains(resp, reverse('checkout_pembelian', args=[self.produk_ready.id]))
+        self.assertContains(resp, 'name="jenis_pembelian" value="beli_langsung"')
+        self.assertContains(resp, 'name="jenis_pembelian" value="booking"')
 
     def test_tombol_beli_menunjukkan_status_saat_unit_in_review(self):
         self.produk_ready.status_stok = 'in_review'
@@ -264,6 +267,7 @@ class CustomerPurchaseFlowTests(TestCase):
             'no_whatsapp': '0812-3456-7890',
             'email': 'budi@example.test',
             'metode_pembayaran': 'cash',
+            'saluran_pembayaran': 'transfer',
             'opsi_penyerahan': 'showroom',
             'alamat_pengantaran': '',
         })
@@ -315,17 +319,27 @@ class CustomerPurchaseFlowTests(TestCase):
         )
 
     def test_checkout_beli_langsung_membuat_pesanan_pembayaran_penuh(self):
-        url_checkout = reverse('checkout_pembelian', args=[self.produk_ready.id])
+        url_checkout = (
+            f"{reverse('checkout_pembelian', args=[self.produk_ready.id])}"
+            "?jenis_pembelian=beli_langsung"
+        )
         checkout = self.client_auth.get(url_checkout)
         self.assertContains(checkout, 'Beli Langsung')
-        self.assertContains(checkout, '100% harga OTR')
+        self.assertContains(checkout, '100%')
+        self.assertRegex(
+            checkout.content.decode(),
+            r'id="kreditPlanInfo"[^>]*class="[^"]*\bd-none\b',
+        )
+        self.assertContains(checkout, 'directCashSummary')
+        self.assertNotContains(checkout, 'Pilih Jenis Pembelian')
 
         response = self.client_auth.post(url_checkout, {
             'nama_pelanggan': 'Budi Santoso',
             'no_whatsapp': '081234567890',
             'email': 'budi@example.test',
-            'jenis_pembelian': 'beli_langsung',
-            'metode_pembayaran': 'kredit',
+            'jenis_pembelian': 'booking',
+            'metode_pembayaran': 'cash',
+            'saluran_pembayaran': 'transfer',
             'opsi_penyerahan': 'showroom',
             'alamat_pengantaran': '',
         })
@@ -336,7 +350,7 @@ class CustomerPurchaseFlowTests(TestCase):
         confirm = self.client_auth.get(
             reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
         )
-        self.assertContains(confirm, 'Total pembayaran langsung (100% OTR)')
+        self.assertContains(confirm, 'Total pembayaran (100% OTR)')
         self.assertEqual(
             confirm.context['nominal_pembelian_langsung'],
             Decimal('400000000'),
@@ -357,6 +371,172 @@ class CustomerPurchaseFlowTests(TestCase):
         self.produk_ready.refresh_from_db()
         self.assertEqual(self.produk_ready.status_stok, 'ready')
 
+    def test_beli_langsung_kredit_menunggu_admin_lalu_dp_dan_angsuran_diverifikasi(self):
+        url_checkout = (
+            f"{reverse('checkout_pembelian', args=[self.produk_ready.id])}"
+            "?jenis_pembelian=beli_langsung"
+        )
+        checkout = self.client_auth.get(url_checkout)
+        self.assertEqual(checkout.status_code, 200)
+        self.assertContains(checkout, 'name="metode_pembayaran"')
+        self.assertContains(checkout, 'directCreditSummary')
+        self.assertEqual(
+            checkout.context['rincian_kredit']['nominal_dp'],
+            Decimal('80000000'),
+        )
+
+        self.client_auth.post(url_checkout, {
+            'nama_pelanggan': 'Budi Santoso',
+            'no_whatsapp': '081234567890',
+            'email': 'budi@example.test',
+            'metode_pembayaran': 'kredit',
+            'saluran_pembayaran': 'midtrans',
+            'opsi_penyerahan': 'showroom',
+        })
+        confirmation = self.client_auth.get(
+            reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
+        )
+        self.assertContains(confirmation, 'Tidak ada pembayaran sekarang')
+        self.assertContains(confirmation, 'DP setelah disetujui admin (20%)')
+        self.assertNotContains(confirmation, 'Total pembayaran (100% OTR)')
+
+        created = self.client_auth.post(
+            reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
+        )
+        pesanan = PesananPembelian.objects.get(produk=self.produk_ready)
+        self.assertRedirects(created, reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan]))
+        self.assertEqual(pesanan.metode_pembayaran, 'kredit')
+        self.assertEqual(pesanan.saluran_pembayaran, 'transfer')
+        self.assertEqual(pesanan.status, 'menunggu_kredit')
+        self.assertFalse(pesanan.pembayaran.exists())
+        snap = self.client_auth.post(
+            reverse('midtrans_snap_token', args=[pesanan.nomor_pesanan]),
+        )
+        self.assertEqual(snap.status_code, 400)
+        self.assertEqual(snap.json()['status'], 'error')
+
+        self.produk_ready.refresh_from_db()
+        self.assertEqual(self.produk_ready.status_stok, 'ready')
+
+        forbidden_review = self.client_auth.post(
+            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+            {'aksi': 'setujui'},
+        )
+        self.assertIn(forbidden_review.status_code, (302, 403))
+        pesanan.refresh_from_db()
+        self.assertEqual(pesanan.status, 'menunggu_kredit')
+
+        premature_payment = self.client_auth.post(
+            reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
+            {'nomor_referensi': 'TRF-EARLY'},
+        )
+        self.assertRedirects(
+            premature_payment,
+            reverse('pesanan_detail', args=[pesanan.nomor_pesanan]),
+        )
+        self.assertFalse(pesanan.pembayaran.exists())
+
+        client_admin = Client()
+        client_admin.login(username='staf_mbg', password='Password123!')
+        approved = client_admin.post(
+            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+            {'aksi': 'setujui'},
+        )
+        self.assertRedirects(approved, reverse('admin_pesanan_pembelian'))
+        pesanan.refresh_from_db()
+        self.assertEqual(pesanan.status, 'menunggu_dp_kredit')
+        self.produk_ready.refresh_from_db()
+        self.assertEqual(self.produk_ready.status_stok, 'ready')
+
+        self.client_auth.post(
+            reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
+            {'nomor_referensi': 'TRF-DP-80M'},
+        )
+        dp = PembayaranPesanan.objects.get(pesanan=pesanan)
+        self.assertEqual(dp.jenis, 'dp')
+        self.assertEqual(dp.nominal, Decimal('80000000'))
+        self.assertEqual(dp.status, 'menunggu_verifikasi')
+        dp.verifikasi(self.staf)
+        pesanan.refresh_from_db()
+        self.produk_ready.refresh_from_db()
+        self.assertEqual(pesanan.status, 'kredit_aktif')
+        self.assertEqual(pesanan.sisa_pembayaran(), Decimal('320000000'))
+        self.assertEqual(self.produk_ready.status_stok, 'in_review')
+
+        detail_kredit_aktif = self.client_auth.get(
+            reverse('pesanan_detail', args=[pesanan.nomor_pesanan])
+        )
+        self.assertContains(detail_kredit_aktif, 'Angsuran tahunan berikutnya')
+        self.assertContains(detail_kredit_aktif, 'Saya sudah transfer angsuran')
+        self.assertEqual(
+            detail_kredit_aktif.context['nominal_pembayaran_transfer'],
+            Decimal('20000000'),
+        )
+        self.assertContains(detail_kredit_aktif, '20.000.000')
+
+        installment_recorded = self.client_auth.post(
+            reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
+            {'nomor_referensi': 'TRF-ANGSURAN-1'},
+        )
+        self.assertRedirects(
+            installment_recorded,
+            reverse('pesanan_detail', args=[pesanan.nomor_pesanan]),
+        )
+        installment = PembayaranPesanan.objects.get(pesanan=pesanan, jenis='angsuran')
+        self.assertEqual(installment.status, 'menunggu_verifikasi')
+        self.client_auth.post(
+            reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
+            {'nomor_referensi': 'TRF-ANGSURAN-DUPLIKAT'},
+        )
+        self.assertEqual(
+            PembayaranPesanan.objects.filter(pesanan=pesanan, jenis='angsuran').count(),
+            1,
+        )
+        installment.verifikasi(self.staf)
+        self.assertEqual(pesanan.sisa_pembayaran(), Decimal('300000000'))
+
+    def test_admin_dapat_menolak_pengajuan_kredit_tanpa_mengunci_unit(self):
+        pesanan = PesananPembelian.buat_dari_produk(
+            produk=self.produk_ready,
+            pelanggan=self.pelanggan,
+            nama_pelanggan='Budi Santoso',
+            no_whatsapp=self.pelanggan.no_whatsapp,
+            metode_pembayaran='kredit',
+            jenis_pembelian='beli_langsung',
+            saluran_pembayaran='transfer',
+        )
+        client_admin = Client()
+        client_admin.login(username='staf_mbg', password='Password123!')
+
+        response = client_admin.post(
+            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+            {'aksi': 'tolak', 'alasan': 'Dokumen belum lengkap'},
+        )
+
+        self.assertRedirects(response, reverse('admin_pesanan_pembelian'))
+        pesanan.refresh_from_db()
+        self.produk_ready.refresh_from_db()
+        self.assertEqual(pesanan.status, 'dibatalkan')
+        self.assertEqual(self.produk_ready.status_stok, 'ready')
+        self.assertEqual(pesanan.riwayat.latest('created_at').catatan, 'Dokumen belum lengkap')
+
+    def test_booking_checkout_jenisnya_ditentukan_url_bukan_input_post(self):
+        url_checkout = (
+            f"{reverse('checkout_pembelian', args=[self.produk_ready.id])}"
+            "?jenis_pembelian=booking"
+        )
+        self.client_auth.post(url_checkout, {
+            'nama_pelanggan': 'Budi Santoso',
+            'no_whatsapp': '081234567890',
+            'jenis_pembelian': 'beli_langsung',
+            'saluran_pembayaran': 'transfer',
+            'metode_pembayaran': 'cash',
+            'opsi_penyerahan': 'showroom',
+        })
+        self.client_auth.post(reverse('konfirmasi_pembelian', args=[self.produk_ready.id]))
+        pesanan = PesananPembelian.objects.get(produk=self.produk_ready)
+        self.assertEqual(pesanan.jenis_pembelian, 'booking')
+
     # ── 5. Hak Akses Pesanan ──────────────────────────────────────
 
     def test_pengguna_lain_tidak_bisa_mengakses_pesanan_orang_lain(self):
@@ -366,6 +546,7 @@ class CustomerPurchaseFlowTests(TestCase):
             'nama_pelanggan': 'Budi Santoso',
             'no_whatsapp': '0812-3456-7890',
             'metode_pembayaran': 'cash',
+            'saluran_pembayaran': 'transfer',
             'opsi_penyerahan': 'showroom',
         })
         self.client_auth.post(reverse('konfirmasi_pembelian', args=[self.produk_ready.id]))
@@ -394,6 +575,7 @@ class CustomerPurchaseFlowTests(TestCase):
             'nama_pelanggan': 'Budi Santoso',
             'no_whatsapp': '0812-3456-7890',
             'metode_pembayaran': 'cash',
+            'saluran_pembayaran': 'transfer',
             'opsi_penyerahan': 'showroom',
         })
 
@@ -415,13 +597,43 @@ class CustomerPurchaseFlowTests(TestCase):
             'nama_pelanggan': 'Budi Santoso',
             'no_whatsapp': '0812-3456-7890',
             'metode_pembayaran': 'kredit',
+            'saluran_pembayaran': 'transfer',
             'opsi_penyerahan': 'showroom',
         })
         self.client_auth.post(reverse('konfirmasi_pembelian', args=[self.produk_ready.id]))
         pesanan = PesananPembelian.objects.get(produk=self.produk_ready)
+        PembayaranPesanan.objects.create(
+            pesanan=pesanan,
+            jenis='booking_fee',
+            nominal=pesanan.nominal_booking_fee,
+            saluran='transfer',
+        )
+        pesanan_langsung = PesananPembelian.buat_dari_produk(
+            produk=buat_produk(),
+            pelanggan=self.pelanggan,
+            nama_pelanggan=self.pelanggan.get_full_name(),
+            no_whatsapp=self.pelanggan.no_whatsapp,
+            metode_pembayaran='cash',
+            jenis_pembelian='beli_langsung',
+            saluran_pembayaran='transfer',
+        )
+        pesanan_pelanggan_lain = PesananPembelian.buat_dari_produk(
+            produk=buat_produk(),
+            pelanggan=self.pelanggan_lain,
+            nama_pelanggan=self.pelanggan_lain.get_full_name(),
+            no_whatsapp=self.pelanggan_lain.no_whatsapp,
+            metode_pembayaran='cash',
+        )
 
         resp_dash = self.client_auth.get(reverse('dashboard_user'))
         self.assertEqual(resp_dash.status_code, 200)
         self.assertContains(resp_dash, pesanan.nomor_pesanan)
-        self.assertContains(resp_dash, 'Pesanan Pembelian Mobil')
+        self.assertContains(resp_dash, pesanan_langsung.nomor_pesanan)
+        self.assertNotContains(resp_dash, pesanan_pelanggan_lain.nomor_pesanan)
+        self.assertContains(resp_dash, 'Booking Kendaraan')
+        self.assertContains(resp_dash, 'Pembelian Langsung')
+        self.assertContains(resp_dash, 'Riwayat Booking, Pembelian &amp; Pembayaran')
+        self.assertContains(resp_dash, 'Menunggu Verifikasi')
         self.assertContains(resp_dash, reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
+        self.assertTrue(resp_dash.context['user_booking_pembelian'].filter(pk=pesanan.pk).exists())
+        self.assertTrue(resp_dash.context['user_pembelian_langsung'].filter(pk=pesanan_langsung.pk).exists())

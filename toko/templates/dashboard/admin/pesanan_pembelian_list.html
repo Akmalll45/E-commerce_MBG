@@ -6,15 +6,15 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <div>
             <h1 class="h3 fw-bold text-dark mb-1">Pesanan Pembelian Kendaraan</h1>
-            <p class="text-muted small mb-0">Booking Fee untuk diverifikasi, pembelian langsung tervalidasi, dan tindak lanjut serah terima.</p>
+            <p class="text-muted small mb-0">Transaksi kendaraan, verifikasi pembayaran manual, masa booking, dan tindak lanjut refund.</p>
         </div>
-        <span class="badge bg-danger rounded-pill px-3 py-2">{{ pembayaran_pesanan_menunggu_verifikasi }} Booking Fee menunggu verifikasi</span>
+        <span class="badge bg-danger rounded-pill px-3 py-2">{{ pembayaran_pesanan_menunggu_verifikasi }} Pembayaran menunggu verifikasi</span>
     </div>
 
     <div class="content-card">
         <div class="d-flex flex-wrap gap-2 mb-3">
             <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}">Semua</a>
-            <a class="btn btn-sm {% if filter_status == 'menunggu_verifikasi' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=menunggu_verifikasi">Menunggu Verifikasi ({{ pembayaran_pesanan_menunggu_verifikasi }})</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_verifikasi' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=menunggu_verifikasi">Pembayaran Menunggu Verifikasi ({{ pembayaran_pesanan_menunggu_verifikasi }})</a>
             <a class="btn btn-sm {% if filter_status == 'beli_langsung' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=beli_langsung">Beli Langsung</a>
         </div>
 
@@ -45,17 +45,37 @@
                         </td>
                         <td>
                             <span class="badge {% if pesanan.jenis_pembelian == 'beli_langsung' %}bg-success{% else %}bg-primary{% endif %}">{{ pesanan.get_jenis_pembelian_display }}</span>
-                            <div class="small text-muted mt-1">{{ pesanan.get_status_display }}</div>
+                            <div class="small text-muted mt-1">Metode: {{ pesanan.get_metode_pembayaran_display }}</div>
+                            <div class="small text-muted mt-1">Kanal: {{ pesanan.get_saluran_pembayaran_display }}</div>
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}
+                            <div class="small text-muted mt-1">DP 20%: Rp {{ pesanan.nominal_dp_kredit|floatformat:0 }}</div>
+                            <div class="small text-muted">Angsuran tahunan 5% OTR: Rp {{ pesanan.nominal_angsuran_kredit_tahunan|floatformat:0 }}</div>
+                            {% endif %}
+                            <div class="small text-muted mt-1">
+                                {% if pesanan.status == 'menunggu_kredit' %}
+                                    Menunggu peninjauan pengajuan kredit
+                                {% elif pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' and pesanan.status == 'menunggu_dp_kredit' %}
+                                    Kredit disetujui — menunggu DP
+                                {% elif pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'cash' and pesanan.status == 'menunggu_booking_fee' %}
+                                    Menunggu Pembayaran Penuh
+                                {% else %}
+                                    {{ pesanan.get_status_display }}
+                                {% endif %}
+                            </div>
+                            {% if pesanan.booking_berakhir_pada %}<div class="small text-muted">Booking hingga {{ pesanan.booking_berakhir_pada|date:"d M Y, H:i" }} WITA</div>{% endif %}
                         </td>
                         <td>
                             {% for pembayaran in pesanan.pembayaran.all %}
                             <div class="small mb-1">
                                 {{ pembayaran.get_jenis_display }} · Rp {{ pembayaran.nominal|floatformat:0 }}
+                                · {{ pembayaran.get_saluran_display }}
                                 <span class="badge {% if pembayaran.status == 'terverifikasi' %}bg-success{% elif pembayaran.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ pembayaran.get_status_display }}</span>
+                                {% if pembayaran.nomor_referensi %}<div class="text-muted">Ref: {{ pembayaran.nomor_referensi }}</div>{% endif %}
                             </div>
                             {% empty %}
-                            <span class="small text-muted">Belum ada pembayaran tervalidasi</span>
+                            <span class="small text-muted">Belum ada pembayaran tercatat</span>
                             {% endfor %}
+                            <div class="small fw-semibold mt-2">Terverifikasi: Rp {{ pesanan.total_terverifikasi|floatformat:0 }} · Sisa: Rp {{ pesanan.sisa_pembayaran|floatformat:0 }}</div>
                         </td>
                         <td>
                             {% if pesanan.midtrans_transaction_status %}
@@ -65,19 +85,91 @@
                             {% endif %}
                         </td>
                         <td class="text-end pe-3">
+                            {% if pesanan.status == 'menunggu_kredit' %}
+                            <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
+                            </form>
+                            <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mt-1">
+                                {% csrf_token %}
+                                <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" type="submit" name="aksi" value="tolak">Tolak Pengajuan</button>
+                            </form>
+                            {% endif %}
                             {% for pembayaran in pesanan.pembayaran.all %}
-                                {% if pembayaran.jenis == 'booking_fee' and pembayaran.status == 'menunggu_verifikasi' %}
+                                {% if pembayaran.status == 'menunggu_verifikasi' %}
                                 <form method="post" action="{% url 'admin_verifikasi_pembayaran_pesanan' pembayaran.id %}">
                                     {% csrf_token %}
-                                    <button class="btn btn-sm btn-primary rounded-pill px-3" type="submit">Verifikasi Booking Fee</button>
+                                    <button class="btn btn-sm btn-primary rounded-pill px-3" type="submit">Verifikasi {{ pembayaran.get_jenis_display }}</button>
+                                </form>
+                                <form method="post" action="{% url 'admin_tolak_pembayaran_pesanan' pembayaran.id %}" class="mt-1">
+                                    {% csrf_token %}
+                                    <input class="form-control form-control-sm mb-1" name="catatan" placeholder="Alasan penolakan" required>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" type="submit">Tolak Pembayaran</button>
                                 </form>
                                 {% endif %}
                             {% endfor %}
-                            {% if pesanan.status == 'booking_aktif' and pesanan.sisa_pembayaran == 0 %}
+                            {% if pesanan.form_pembayaran_manual.jenis.field.choices %}
+                            <details class="text-start mt-2">
+                                <summary class="small fw-semibold">Catat pembayaran manual</summary>
+                                <form method="post" action="{% url 'admin_catat_pembayaran_pesanan' pesanan.id %}" class="mt-2">
+                                    {% csrf_token %}
+                                    <label class="form-label small mb-1">Jenis</label>{{ pesanan.form_pembayaran_manual.jenis }}
+                                    <label class="form-label small mb-1 mt-1">Nominal (Rp)</label>{{ pesanan.form_pembayaran_manual.nominal }}
+                                    <label class="form-label small mb-1 mt-1">Kanal</label>{{ pesanan.form_pembayaran_manual.saluran }}
+                                    <label class="form-label small mb-1 mt-1">Referensi transfer (wajib untuk transfer)</label>{{ pesanan.form_pembayaran_manual.nomor_referensi }}
+                                    <label class="form-label small mb-1 mt-1">Catatan</label>{{ pesanan.form_pembayaran_manual.catatan }}
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill mt-2" type="submit">Simpan Menunggu Verifikasi</button>
+                                </form>
+                            </details>
+                            {% endif %}
+                            {% for refund in pesanan.refund.all %}
+                            <div class="border rounded-3 p-2 mt-2 text-start small">
+                                <strong>Refund: {{ refund.get_status_display }}</strong>
+                                <div>Rp {{ refund.nominal_diajukan|floatformat:0 }}</div>
+                                <div class="text-muted">{{ refund.alasan }}</div>
+                                {% if refund.status == 'diajukan' %}
+                                <form method="post" action="{% url 'admin_setujui_refund_pesanan' refund.id %}" class="mt-1">
+                                    {% csrf_token %}
+                                    <input class="form-control form-control-sm mb-1" name="catatan" placeholder="Catatan persetujuan">
+                                    <button class="btn btn-sm btn-success rounded-pill" type="submit">Setujui &amp; Batalkan Pesanan</button>
+                                </form>
+                                <form method="post" action="{% url 'admin_tolak_refund_pesanan' refund.id %}" class="mt-1">
+                                    {% csrf_token %}
+                                    <input class="form-control form-control-sm mb-1" name="catatan" placeholder="Alasan penolakan" required>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Tolak Refund</button>
+                                </form>
+                                {% elif refund.status == 'disetujui' %}
+                                <form method="post" action="{% url 'admin_catat_pengembalian_refund' refund.id %}" class="mt-1">
+                                    {% csrf_token %}
+                                    <input class="form-control form-control-sm mb-1" name="nomor_referensi" placeholder="Referensi pengembalian" required>
+                                    <input class="form-control form-control-sm mb-1" name="catatan" placeholder="Catatan pengembalian">
+                                    <button class="btn btn-sm btn-primary rounded-pill" type="submit">Catat Dana Dikembalikan</button>
+                                </form>
+                                {% elif refund.nomor_referensi_pengembalian %}
+                                <div class="text-muted">Ref pengembalian: {{ refund.nomor_referensi_pengembalian }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if pesanan.status == 'booking_aktif' or pesanan.status == 'kredit_aktif' %}
+                            {% if pesanan.sisa_pembayaran == 0 %}
                             <form method="post" action="{% url 'admin_selesaikan_pesanan_pembelian' pesanan.id %}">
                                 {% csrf_token %}
                                 <button class="btn btn-sm btn-success rounded-pill px-3 mt-1" type="submit">Selesaikan Serah Terima</button>
                             </form>
+                            {% endif %}
+                            {% endif %}
+                            {% if pesanan.dapat_dibatalkan_admin %}
+                            <details class="text-start mt-2">
+                                <summary class="small fw-semibold text-danger">Batalkan / Buka Unit</summary>
+                                <form method="post" action="{% url 'admin_batalkan_pesanan_pembelian' pesanan.id %}" class="mt-2">
+                                    {% csrf_token %}
+                                    <label class="form-label small mb-1">Alasan pembatalan</label>
+                                    <input class="form-control form-control-sm mb-1" name="alasan" required>
+                                    <small class="d-block text-muted mb-2">Pembayaran terverifikasi akan masuk proses refund; unit dibuka setelah refund disetujui.</small>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill" type="submit">Proses Pembatalan</button>
+                                </form>
+                            </details>
                             {% endif %}
                         </td>
                     </tr>

@@ -18,6 +18,8 @@ import uuid
 RINGKASAN_INSPEKSI_DEFAULT_LEGACY = (
     "100% Bebas Banjir & Bebas Bekas Tabrak Struktural."
 )
+PERSENTASE_DP_KREDIT = Decimal('20')
+PERSENTASE_ANGSURAN_KREDIT_TAHUNAN = Decimal('5')
 
 
 def validasi_link_tombol(nilai):
@@ -1561,29 +1563,45 @@ class PesananPembelian(models.Model):
         ('cash', 'Cash'),
         ('kredit', 'Kredit'),
     ]
+    SALURAN_PEMBAYARAN_CHOICES = [
+        ('transfer', 'Transfer Bank Manual'),
+        ('midtrans', 'Midtrans'),
+    ]
     OPSI_PENYERAHAN_CHOICES = [
         ('showroom', 'Ambil di Showroom MBG Makassar'),
         ('towing', 'Diantar via Truk Towing ke Rumah'),
     ]
     STATUS_CHOICES = [
         ('menunggu_booking_fee', 'Menunggu Booking Fee'),
+        ('menunggu_kredit', 'Pengajuan Kredit Menunggu Peninjauan'),
+        ('menunggu_dp_kredit', 'Kredit Disetujui — Menunggu DP'),
         ('booking_aktif', 'Booking Aktif (Unit Dikunci)'),
+        ('kredit_aktif', 'Kredit Aktif (Unit Dikunci)'),
         ('selesai', 'Selesai'),
         ('dibatalkan', 'Dibatalkan'),
         ('kedaluwarsa', 'Masa Booking Berakhir'),
     ]
     TRANSISI_DIIZINKAN = {
         'menunggu_booking_fee': ['booking_aktif', 'dibatalkan'],
+        'menunggu_kredit': ['menunggu_dp_kredit', 'dibatalkan'],
+        'menunggu_dp_kredit': ['kredit_aktif', 'dibatalkan'],
         'booking_aktif': ['selesai', 'dibatalkan', 'kedaluwarsa'],
+        'kredit_aktif': ['selesai', 'dibatalkan'],
         'kedaluwarsa': ['dibatalkan'],
         'selesai': [],
         'dibatalkan': [],
     }
     # Pembatalan/refund hanya boleh diajukan sebelum transaksi selesai.
-    STATUS_DAPAT_DIBATALKAN = ('menunggu_booking_fee', 'booking_aktif', 'kedaluwarsa')
-    # Pesanan "aktif" = masih memegang unit. Satu kendaraan hanya boleh punya satu pesanan
-    # aktif. 'kedaluwarsa' tidak termasuk karena kunci unitnya sudah dilepas.
-    STATUS_AKTIF = ('menunggu_booking_fee', 'booking_aktif')
+    STATUS_DAPAT_DIBATALKAN = (
+        'menunggu_booking_fee', 'menunggu_kredit', 'menunggu_dp_kredit', 'booking_aktif',
+        'kredit_aktif', 'kedaluwarsa',
+    )
+    # Pesanan aktif mencegah pengajuan ganda; stok baru dikunci setelah pembayaran yang
+    # relevan diverifikasi. 'kedaluwarsa' tidak termasuk karena kunci unitnya sudah dilepas.
+    STATUS_AKTIF = (
+        'menunggu_booking_fee', 'menunggu_kredit', 'menunggu_dp_kredit',
+        'booking_aktif', 'kredit_aktif',
+    )
 
     nomor_pesanan = models.CharField(
         max_length=30, unique=True, blank=True, verbose_name="Nomor Pesanan",
@@ -1630,6 +1648,10 @@ class PesananPembelian(models.Model):
     metode_pembayaran = models.CharField(
         max_length=10, choices=METODE_PEMBAYARAN_CHOICES, verbose_name="Metode Pembayaran",
     )
+    saluran_pembayaran = models.CharField(
+        max_length=10, choices=SALURAN_PEMBAYARAN_CHOICES, default='midtrans',
+        verbose_name="Kanal Pembayaran",
+    )
     opsi_penyerahan = models.CharField(
         max_length=10, choices=OPSI_PENYERAHAN_CHOICES, default='showroom',
         verbose_name="Pilihan Penyerahan",
@@ -1673,7 +1695,7 @@ class PesananPembelian(models.Model):
     # Field yang dibekukan setelah pesanan dibuat (booking_berakhir_pada: boleh diisi sekali).
     FIELD_SNAPSHOT_TERKUNCI = (
         'produk_id', 'harga_kendaraan', 'persentase_booking_fee', 'nominal_booking_fee',
-        'jenis_pembelian',
+        'jenis_pembelian', 'metode_pembayaran', 'saluran_pembayaran',
     )
 
     class Meta:
@@ -1709,6 +1731,14 @@ class PesananPembelian(models.Model):
         galat = {}
         if self.opsi_penyerahan == 'towing' and not (self.alamat_pengantaran or '').strip():
             galat['alamat_pengantaran'] = 'Alamat pengantaran wajib diisi jika memilih towing.'
+        if (
+            self.jenis_pembelian == 'beli_langsung'
+            and self.metode_pembayaran == 'kredit'
+            and self.saluran_pembayaran != 'transfer'
+        ):
+            galat['saluran_pembayaran'] = (
+                'Pengajuan kredit menggunakan transfer bank manual setelah disetujui admin.'
+            )
         if (
             self.harga_kendaraan is not None and self.nominal_booking_fee is not None
             and self.nominal_booking_fee > self.harga_kendaraan
@@ -1761,7 +1791,7 @@ class PesananPembelian(models.Model):
     @classmethod
     def pesanan_aktif_unit(cls, produk, kunci=False):
         """
-        Pesanan aktif (menunggu Booking Fee atau booking aktif) milik `produk`, atau None.
+        Pesanan aktif milik `produk` yang menahan pengajuan ganda, atau None.
 
         kunci=True memakai SELECT ... FOR UPDATE dan hanya boleh dipanggil di dalam atomic()
         setelah baris Produk dikunci. Pembacaan terkunci selalu melihat data terbaru yang sudah
@@ -1777,12 +1807,12 @@ class PesananPembelian(models.Model):
     def buat_dari_produk(
         cls, produk, pelanggan, nama_pelanggan, no_whatsapp, metode_pembayaran,
         opsi_penyerahan='showroom', email='', alamat_pengantaran='',
-        jenis_pembelian='booking',
+        jenis_pembelian='booking', saluran_pembayaran='midtrans',
     ):
         """
         Buat pesanan dengan snapshot harga, jenis pembelian, dan Booking Fee yang berlaku.
         Unit belum dikunci di sini: Booking dikunci setelah Booking Fee diverifikasi admin,
-        sedangkan Beli Langsung dikunci setelah pembayaran penuh tervalidasi Midtrans.
+        Cash setelah pembayaran penuh tervalidasi, dan Kredit setelah DP diverifikasi admin.
         Hanya unit stok MBG (B2C) berstatus ready; unit C2C tetap memakai alur titip-jual.
 
         Satu kendaraan hanya boleh punya satu pesanan aktif. Karena unit masih 'ready' selama
@@ -1821,9 +1851,12 @@ class PesananPembelian(models.Model):
                 nominal_booking_fee=pengaturan.hitung_booking_fee(produk.harga),
                 jenis_pembelian=jenis_pembelian,
                 metode_pembayaran=metode_pembayaran,
+                saluran_pembayaran=saluran_pembayaran,
                 opsi_penyerahan=opsi_penyerahan,
                 alamat_pengantaran=alamat_pengantaran or '',
             )
+            if jenis_pembelian == 'beli_langsung' and metode_pembayaran == 'kredit':
+                pesanan.status = 'menunggu_kredit'
             pesanan.full_clean()
             pesanan.save()
             RiwayatPesanan.objects.create(
@@ -1835,27 +1868,64 @@ class PesananPembelian(models.Model):
     # ── Ringkasan pembayaran ──────────────────────────────────────
 
     def total_terverifikasi(self):
-        """Total pembayaran (Booking Fee + DP + pelunasan) yang sudah diverifikasi admin."""
+        """Total Booking Fee, DP, angsuran, dan pelunasan yang sudah diverifikasi admin."""
         total = self.pembayaran.filter(status='terverifikasi').aggregate(
             total=models.Sum('nominal'),
         )['total']
         return total or Decimal('0')
 
     def sisa_pembayaran(self):
-        """Booking Fee adalah bagian dari harga kendaraan, jadi ikut mengurangi sisa."""
+        """Semua pembayaran terverifikasi, termasuk Booking Fee dan angsuran, mengurangi sisa."""
         return max(self.harga_kendaraan - self.total_terverifikasi(), Decimal('0'))
 
     @property
     def jenis_pembayaran_midtrans(self):
-        return 'pelunasan' if self.jenis_pembelian == 'beli_langsung' else 'booking_fee'
+        if self.jenis_pembelian == 'beli_langsung':
+            return 'dp' if self.metode_pembayaran == 'kredit' else 'pelunasan'
+        return 'booking_fee'
+
+    @property
+    def jenis_pembayaran_berikutnya(self):
+        if (
+            self.jenis_pembelian == 'beli_langsung'
+            and self.metode_pembayaran == 'kredit'
+            and self.status == 'kredit_aktif'
+        ):
+            return 'angsuran'
+        return self.jenis_pembayaran_midtrans
 
     @property
     def nominal_pembayaran_midtrans(self):
         return (
-            self.harga_kendaraan
+            (
+                self.nominal_dp_kredit
+                if self.metode_pembayaran == 'kredit'
+                else self.harga_kendaraan
+            )
             if self.jenis_pembelian == 'beli_langsung'
             else self.nominal_booking_fee
         )
+
+    @property
+    def nominal_pembayaran_berikutnya(self):
+        if self.jenis_pembayaran_berikutnya == 'angsuran':
+            return self.nominal_angsuran_kredit_berikutnya()
+        return self.nominal_pembayaran_midtrans
+
+    @property
+    def nominal_dp_kredit(self):
+        return (
+            self.harga_kendaraan * PERSENTASE_DP_KREDIT / Decimal('100')
+        ).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+    @property
+    def nominal_angsuran_kredit_tahunan(self):
+        return (
+            self.harga_kendaraan * PERSENTASE_ANGSURAN_KREDIT_TAHUNAN / Decimal('100')
+        ).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+    def nominal_angsuran_kredit_berikutnya(self):
+        return min(self.nominal_angsuran_kredit_tahunan, self.sisa_pembayaran())
 
     def booking_masih_berlaku(self, sekarang=None):
         sekarang = sekarang or timezone.now()
@@ -1939,8 +2009,8 @@ class PesananPembelian(models.Model):
         _pastikan_staf(oleh_user)
         with transaction.atomic():
             produk, pesanan = self._kunci(self.pk)
-            if pesanan.status != 'booking_aktif':
-                raise ValueError('Hanya pesanan dengan booking aktif yang dapat diselesaikan.')
+            if pesanan.status not in ('booking_aktif', 'kredit_aktif'):
+                raise ValueError('Hanya pesanan dengan booking atau kredit aktif yang dapat diselesaikan.')
             if pesanan.sisa_pembayaran() > 0:
                 raise ValueError('Pembayaran kendaraan belum lunas.')
             if produk.status_stok != 'in_review':
@@ -1961,7 +2031,9 @@ class PesananPembelian(models.Model):
         self._pastikan_pemilik_atau_staf(oleh_user)
         with transaction.atomic():
             produk, pesanan = self._kunci(self.pk)
-            if pesanan.status != 'menunggu_booking_fee':
+            if pesanan.status not in (
+                'menunggu_booking_fee', 'menunggu_kredit', 'menunggu_dp_kredit',
+            ):
                 raise ValueError(
                     'Pembatalan langsung hanya untuk pesanan yang belum ada pembayaran terverifikasi; '
                     'gunakan pengajuan pembatalan dan refund.'
@@ -1991,18 +2063,44 @@ class PesananPembelian(models.Model):
                     'Belum ada pembayaran terverifikasi yang dapat di-refund; '
                     'gunakan pembatalan tanpa pembayaran.'
                 )
+            pembayaran = pesanan.pembayaran.filter(
+                status='terverifikasi',
+            ).order_by('-created_at', '-pk')
+            pembayaran_tunggal = pembayaran.first() if pembayaran.count() == 1 else None
             refund = RefundPesanan.objects.create(
                 pesanan=pesanan, alasan=alasan, nominal_diajukan=nominal,
-                diajukan_oleh=diajukan_oleh,
+                pembayaran=pembayaran_tunggal, diajukan_oleh=diajukan_oleh,
             )
         self.refresh_from_db()
         return refund
+
+    def tinjau_pengajuan_kredit(self, oleh_user, disetujui, alasan=''):
+        _pastikan_staf(oleh_user)
+        if self.jenis_pembelian != 'beli_langsung' or self.metode_pembayaran != 'kredit':
+            raise ValueError('Tindakan ini hanya berlaku untuk pengajuan Kredit Beli Langsung.')
+        with transaction.atomic():
+            produk, pesanan = self._kunci(self.pk)
+            if pesanan.status != 'menunggu_kredit':
+                raise ValueError('Pengajuan kredit ini sudah ditinjau atau tidak lagi menunggu review.')
+            if disetujui:
+                if produk.status_stok != 'ready':
+                    raise ValueError('Kendaraan tidak tersedia; pengajuan kredit tidak dapat disetujui.')
+                pesanan._pindah_status(
+                    'menunggu_dp_kredit', oleh_user,
+                    'Pengajuan kredit disetujui. Pelanggan dapat membayar DP 20% melalui transfer bank.',
+                )
+            else:
+                alasan = _alasan_wajib(alasan, 'Alasan penolakan pengajuan kredit wajib dicatat.')
+                pesanan._pindah_status('dibatalkan', oleh_user, alasan)
+        self.refresh_from_db()
+        return self
 
 
 class PembayaranPesanan(models.Model):
     JENIS_CHOICES = [
         ('booking_fee', 'Booking Fee'),
         ('dp', 'Uang Muka (DP)'),
+        ('angsuran', 'Angsuran Kredit'),
         ('pelunasan', 'Pelunasan'),
     ]
     SALURAN_CHOICES = [
@@ -2013,6 +2111,7 @@ class PembayaranPesanan(models.Model):
         ('kartu', 'Kartu Kredit'),
         ('ritel', 'Gerai Retail'),
         ('tunai', 'Tunai di Showroom'),
+        ('lainnya', 'Metode Online Lainnya'),
     ]
     STATUS_CHOICES = [
         ('menunggu_verifikasi', 'Menunggu Verifikasi'),
@@ -2081,6 +2180,40 @@ class PembayaranPesanan(models.Model):
                 if self.jenis == 'booking_fee' and pesanan.status != 'menunggu_booking_fee':
                     galat['jenis'] = 'Booking Fee hanya dapat dibayar pada pesanan yang menunggu Booking Fee.'
                 elif (
+                    self.jenis == 'dp'
+                    and pesanan.jenis_pembelian == 'beli_langsung'
+                    and pesanan.metode_pembayaran == 'kredit'
+                ):
+                    if pesanan.pembayaran.filter(
+                        jenis='dp',
+                        status__in=('menunggu_verifikasi', 'terverifikasi'),
+                    ).exists():
+                        galat['jenis'] = 'DP kredit untuk pesanan ini sudah tercatat.'
+                    if pesanan.status != 'menunggu_dp_kredit':
+                        galat['jenis'] = 'DP kredit hanya dapat dicatat setelah pengajuan disetujui admin.'
+                    if self.nominal != pesanan.nominal_dp_kredit:
+                        galat['nominal'] = 'Nominal DP kredit harus sama dengan 20% harga kendaraan.'
+                    if self.saluran not in ('transfer', 'tunai'):
+                        galat['saluran'] = 'DP kredit hanya dapat dicatat melalui transfer atau tunai di showroom.'
+                elif self.jenis == 'angsuran':
+                    if not (
+                        pesanan.jenis_pembelian == 'beli_langsung'
+                        and pesanan.metode_pembayaran == 'kredit'
+                        and pesanan.status == 'kredit_aktif'
+                    ):
+                        galat['jenis'] = 'Angsuran hanya dapat dicatat untuk kredit aktif.'
+                    elif pesanan.pembayaran.filter(
+                        jenis='angsuran',
+                        status='menunggu_verifikasi',
+                    ).exists():
+                        galat['jenis'] = 'Masih ada angsuran yang menunggu verifikasi admin.'
+                    elif self.nominal != pesanan.nominal_angsuran_kredit_berikutnya():
+                        galat['nominal'] = (
+                            'Nominal angsuran harus 5% harga OTR atau sisa pokok untuk angsuran terakhir.'
+                        )
+                    if self.saluran not in ('transfer', 'tunai'):
+                        galat['saluran'] = 'Angsuran kredit hanya dapat dicatat melalui transfer atau tunai di showroom.'
+                elif (
                     self.jenis == 'pelunasan'
                     and pesanan.jenis_pembelian == 'beli_langsung'
                     and pesanan.status == 'menunggu_booking_fee'
@@ -2118,11 +2251,27 @@ class PembayaranPesanan(models.Model):
             self.refresh_from_db()
             if self.status != 'menunggu_verifikasi':
                 raise ValueError('Pembayaran ini sudah diproses.')
+            pembayaran_beli_langsung_manual = (
+                self.jenis == 'pelunasan'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+                and self.saluran == 'transfer'
+            )
+            pembayaran_dp_kredit = (
+                self.jenis == 'dp'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+                and pesanan.metode_pembayaran == 'kredit'
+            )
+            pembayaran_angsuran_kredit = (
+                self.jenis == 'angsuran'
+                and pesanan.jenis_pembelian == 'beli_langsung'
+                and pesanan.metode_pembayaran == 'kredit'
+            )
             if (
                 self.jenis == 'pelunasan'
                 and pesanan.jenis_pembelian == 'beli_langsung'
+                and not pembayaran_beli_langsung_manual
             ):
-                raise ValueError('Pembayaran beli langsung hanya dapat disahkan oleh validasi Midtrans.')
+                raise ValueError('Pembayaran beli langsung Midtrans hanya dapat disahkan oleh notifikasi Midtrans.')
             if self.jenis == 'booking_fee':
                 if pesanan.status != 'menunggu_booking_fee':
                     raise ValueError('Booking Fee hanya dapat diverifikasi untuk pesanan yang menunggu Booking Fee.')
@@ -2138,6 +2287,41 @@ class PembayaranPesanan(models.Model):
                     'booking_aktif', oleh_user,
                     'Booking Fee diverifikasi; unit dikunci sampai masa booking berakhir.',
                 )
+            elif pembayaran_beli_langsung_manual:
+                if pesanan.status != 'menunggu_booking_fee':
+                    raise ValueError('Pembayaran Beli Langsung hanya dapat diverifikasi satu kali.')
+                if self.nominal != pesanan.harga_kendaraan:
+                    raise ValueError('Pembayaran Beli Langsung harus sama dengan harga kendaraan.')
+                if produk.status_stok != 'ready':
+                    raise ValueError('Kendaraan sudah tidak tersedia (sedang dikunci atau terjual).')
+                produk.status_stok = 'in_review'
+                produk.save(update_fields=['status_stok', 'updated_at'])
+                pesanan._pindah_status(
+                    'booking_aktif', oleh_user,
+                    'Pembayaran Beli Langsung melalui transfer bank diverifikasi; unit dikunci untuk serah terima.',
+                )
+            elif pembayaran_dp_kredit:
+                if pesanan.status != 'menunggu_dp_kredit':
+                    raise ValueError('DP kredit hanya dapat diverifikasi setelah pengajuan disetujui admin.')
+                if self.nominal != pesanan.nominal_dp_kredit:
+                    raise ValueError('Nominal DP kredit harus sama dengan 20% harga kendaraan.')
+                if self.saluran not in ('transfer', 'tunai'):
+                    raise ValueError('DP kredit hanya dapat diverifikasi untuk transfer atau tunai showroom.')
+                if produk.status_stok != 'ready':
+                    raise ValueError('Kendaraan sudah tidak tersedia (sedang dikunci atau terjual).')
+                produk.status_stok = 'in_review'
+                produk.save(update_fields=['status_stok', 'updated_at'])
+                pesanan._pindah_status(
+                    'kredit_aktif', oleh_user,
+                    'DP kredit diverifikasi; unit dikunci. Angsuran tahunan dicatat terpisah.',
+                )
+            elif pembayaran_angsuran_kredit:
+                if pesanan.status != 'kredit_aktif':
+                    raise ValueError('Angsuran hanya dapat diverifikasi untuk kredit aktif.')
+                if self.nominal != pesanan.nominal_angsuran_kredit_berikutnya():
+                    raise ValueError('Nominal angsuran tidak sesuai dengan 5% harga OTR atau sisa pokok.')
+                if self.saluran not in ('transfer', 'tunai'):
+                    raise ValueError('Angsuran kredit hanya dapat diverifikasi sebagai transfer atau tunai showroom.')
             else:
                 if not pesanan.booking_masih_berlaku(sekarang):
                     raise ValueError('Masa booking tidak aktif atau sudah berakhir.')
@@ -2149,7 +2333,7 @@ class PembayaranPesanan(models.Model):
             self.status = 'terverifikasi'
             self.diverifikasi_oleh = oleh_user
             self.tanggal_verifikasi = sekarang
-            self.catatan_verifikasi = catatan
+            self.catatan_verifikasi = catatan or self.catatan_verifikasi
             self.save()
         return self
 
@@ -2190,6 +2374,10 @@ class RefundPesanan(models.Model):
     pesanan = models.ForeignKey(
         PesananPembelian, on_delete=models.PROTECT, related_name='refund',
         verbose_name="Pesanan",
+    )
+    pembayaran = models.ForeignKey(
+        PembayaranPesanan, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='refunds', verbose_name="Pembayaran Terkait",
     )
     alasan = models.TextField(verbose_name="Alasan Pembatalan/Refund")
     nominal_diajukan = models.DecimalField(

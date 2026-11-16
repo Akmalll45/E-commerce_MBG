@@ -19,7 +19,7 @@
                 <p class="text-muted small mb-0">Nomor Pesanan: <strong class="font-monospace text-dark">{{ pesanan.nomor_pesanan }}</strong> &bull; Dibuat: {{ pesanan.created_at|date:"d M Y, H:i" }} WITA</p>
             </div>
             <div>
-                {% if pesanan.status == 'menunggu_booking_fee' %}
+                {% if pesanan.status == 'menunggu_booking_fee' and pesanan.saluran_pembayaran == 'midtrans' %}
                     <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
                         {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
                             <i class="fa-solid fa-circle-check me-1"></i>
@@ -28,10 +28,28 @@
                             <i class="fa-solid fa-clock me-1"></i>{% if pesanan.jenis_pembelian == 'beli_langsung' %} Menunggu Pembayaran Penuh{% else %} Menunggu Booking Fee{% endif %}
                         {% endif %}
                     </span>
+                {% elif pesanan.status == 'menunggu_kredit' %}
+                    <span id="pesananStatusBadge" class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-clock me-1"></i> Pengajuan Kredit Menunggu Review Admin
+                    </span>
+                {% elif pembayaran_booking_fee.status == 'ditolak' %}
+                    Pembayaran ditolak — silakan periksa detail dan kirim ulang transfer
+                {% elif pesanan.status == 'menunggu_dp_kredit' %}
+                    <span id="pesananStatusBadge" class="badge bg-info text-dark px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-circle-check me-1"></i> Kredit Disetujui — Menunggu DP
+                    </span>
+                {% elif pesanan.status == 'menunggu_booking_fee' %}
+                    <span id="pesananStatusBadge" class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-clock me-1"></i> {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu Pembayaran Penuh{% else %}Menunggu Booking Fee{% endif %}
+                    </span>
                 {% elif pesanan.status == 'booking_aktif' %}
                     <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
                         <i class="fa-solid fa-lock me-1"></i>
                         {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — Menunggu Serah Terima{% else %}Booking Aktif (Unit Dikunci){% endif %}
+                    </span>
+                {% elif pesanan.status == 'kredit_aktif' %}
+                    <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
+                        <i class="fa-solid fa-lock me-1"></i> Kredit Aktif — Unit Dikunci
                     </span>
                 {% elif pesanan.status == 'selesai' %}
                     <span class="badge bg-primary px-3 py-2 rounded-pill fw-bold fs-6">
@@ -101,6 +119,25 @@
 
                         <dt class="col-sm-4 text-secondary">Metode Bayar</dt>
                         <dd class="col-sm-8 text-dark">{{ pesanan.get_metode_pembayaran_display }}</dd>
+                        <dt class="col-sm-4 text-secondary">Kanal Pembayaran</dt>
+                        <dd class="col-sm-8 text-dark">{{ pesanan.get_saluran_pembayaran_display }}</dd>
+                        {% if pesanan.metode_pembayaran == 'kredit' %}
+                        <dt class="col-sm-4 text-secondary">Status Pengajuan</dt>
+                        <dd class="col-sm-8 text-dark">
+                            {% if pesanan.status == 'menunggu_kredit' %}Menunggu peninjauan admin. DP hanya dibayar setelah disetujui.
+                            {% elif pesanan.status == 'menunggu_dp_kredit' %}Disetujui admin; menunggu pembayaran DP 20%.
+                            {% elif pesanan.status == 'kredit_aktif' %}DP terverifikasi; angsuran dicatat secara manual oleh admin.
+                            {% else %}Menunggu informasi lanjutan dari staf MBG.{% endif %}
+                            Belum ada integrasi bank/leasing.
+                        </dd>
+                        <dt class="col-sm-4 text-secondary">Simulasi Kredit</dt>
+                        <dd class="col-sm-8 text-dark">
+                            DP 20% Rp {{ rincian_kredit.nominal_dp|intcomma }}
+                            {% if pesanan.jenis_pembelian == 'booking' %}(sisa setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}){% else %}(dibayar setelah pengajuan disetujui){% endif %},
+                            lalu angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun.
+                            Tanpa bunga tambahan; angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                        </dd>
+                        {% endif %}
 
                         <dt class="col-sm-4 text-secondary">Penyerahan</dt>
                         <dd class="col-sm-8 text-dark">{{ pesanan.get_opsi_penyerahan_display }}</dd>
@@ -156,19 +193,29 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 small">
-                        <span class="text-secondary">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Penuh (100% OTR){% else %}Booking Fee ({{ pesanan.persentase_booking_fee }}%){% endif %}</span>
-                        <span class="fw-bold text-primary">Rp {{ pesanan.nominal_pembayaran_midtrans|intcomma }}</span>
+                        <span class="text-secondary">
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' and pesanan.status == 'kredit_aktif' and pesanan.sisa_pembayaran > 0 %}Angsuran Kredit Berikutnya (5% OTR){% elif pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' and pesanan.status == 'kredit_aktif' %}Pokok Kredit Lunas{% elif pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}DP Kredit (20% OTR){% elif pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Penuh (100% OTR){% else %}Booking Fee ({{ pesanan.persentase_booking_fee }}%){% endif %}
+                        </span>
+                        <span class="fw-bold text-primary">{% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' and pesanan.status == 'kredit_aktif' and pesanan.sisa_pembayaran == 0 %}—{% else %}Rp {{ pesanan.nominal_pembayaran_berikutnya|intcomma }}{% endif %}</span>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2 small">
-                        <span class="text-secondary">{% if pesanan.jenis_pembelian == 'beli_langsung' %}Status Pembayaran Penuh{% else %}Status Booking Fee{% endif %}</span>
+                        <span class="text-secondary">
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}Status Pengajuan / DP{% elif pesanan.jenis_pembelian == 'beli_langsung' %}Status Pembayaran Penuh{% else %}Status Booking Fee{% endif %}
+                        </span>
                         <span id="bookingFeePaymentState" class="fw-bold {% if pembayaran_booking_fee.status == 'terverifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'ditolak' %}text-danger{% else %}text-secondary{% endif %}">
-                            {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                            {% if pesanan.status == 'menunggu_kredit' %}
+                                Menunggu peninjauan admin; belum ada tagihan
+                            {% elif pembayaran_booking_fee.status == 'ditolak' %}
+                                Ditolak — silakan bayar kembali
+                            {% elif pesanan.status == 'menunggu_dp_kredit' %}
+                                Disetujui — menunggu pembayaran DP
+                            {% elif pesanan.status == 'kredit_aktif' %}
+                                DP terverifikasi; kredit aktif
+                            {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
                                 {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu validasi pembayaran penuh{% else %}Diterima — menunggu verifikasi admin{% endif %}
                             {% elif pembayaran_booking_fee.status == 'terverifikasi' %}
                                 {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — terverifikasi otomatis{% else %}Terverifikasi{% endif %}
-                            {% elif pembayaran_booking_fee.status == 'ditolak' %}
-                                Ditolak — silakan bayar kembali
                             {% else %}
                                 {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu pembayaran penuh{% else %}Menunggu Booking Fee{% endif %}
                             {% endif %}
@@ -181,11 +228,49 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-4">
-                        <span class="fw-bold text-dark">Sisa Tagihan</span>
+                        <span class="fw-bold text-dark">
+                            {% if pesanan.metode_pembayaran == 'kredit' and pesanan.jenis_pembelian == 'beli_langsung' and pesanan.status != 'kredit_aktif' and pesanan.status != 'selesai' %}
+                                Total harga (belum menjadi tagihan)
+                            {% elif pesanan.metode_pembayaran == 'kredit' and pesanan.jenis_pembelian == 'beli_langsung' %}
+                                Sisa pokok kredit
+                            {% else %}
+                                Sisa Tagihan
+                            {% endif %}
+                        </span>
                         <span class="h5 fw-bold text-dark mb-0 font-heading">Rp {{ pesanan.sisa_pembayaran|intcomma }}</span>
                     </div>
 
-                    {% if pesanan.status == 'menunggu_booking_fee' %}
+                    <div class="mb-4">
+                        <h3 class="h6 fw-bold text-dark mb-3">Riwayat Pembayaran</h3>
+                        <div class="list-group list-group-flush">
+                            {% for pembayaran in pesanan.pembayaran.all %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-semibold">{{ pembayaran.get_jenis_display }} · {{ pembayaran.get_saluran_display }}</div>
+                                        <div class="small text-muted">
+                                            {% if pembayaran.tanggal_bayar %}{{ pembayaran.tanggal_bayar|date:"d M Y, H:i" }} WITA{% else %}Dicatat {{ pembayaran.created_at|date:"d M Y, H:i" }} WITA{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold">Rp {{ pembayaran.nominal|intcomma }}</div>
+                                        <span class="badge {% if pembayaran.status == 'terverifikasi' %}bg-success{% elif pembayaran.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ pembayaran.get_status_display }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="small text-muted">Belum ada pembayaran tercatat.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% if pesanan.status == 'menunggu_kredit' %}
+                    <div class="alert alert-info small mb-3">
+                        Pengajuan sedang ditinjau admin. Belum ada pembayaran yang harus dilakukan; DP 20% baru dibayar setelah disetujui.
+                    </div>
+                    {% endif %}
+
+                    {% if pesanan.status == 'menunggu_booking_fee' and pesanan.saluran_pembayaran == 'midtrans' %}
                     <div class="d-none">{% csrf_token %}</div>
                     <div id="midtransStatusDetail" class="alert alert-info small" role="status" aria-live="polite">
                         Menyiapkan informasi pembayaran...
@@ -210,6 +295,71 @@
                     </a>
                     {% endif %}
 
+                    {% if pesanan.status == 'menunggu_dp_kredit' or pesanan.status == 'kredit_aktif' and pesanan.sisa_pembayaran > 0 or pesanan.status == 'menunggu_booking_fee' and pesanan.saluran_pembayaran == 'transfer' %}
+                        <div class="alert alert-warning small mb-3">
+                            <i class="fa-solid fa-building-columns me-1"></i>
+                            {% if jenis_pembayaran_transfer == 'dp' %}
+                                DP Kredit 20% sebesar <strong>Rp {{ pesanan.nominal_dp_kredit|intcomma }}</strong> dibayar setelah pengajuan disetujui dan akan diverifikasi admin.
+                            {% elif jenis_pembayaran_transfer == 'angsuran' %}
+                                Angsuran tahunan berikutnya sebesar <strong>Rp {{ nominal_pembayaran_transfer|intcomma }}</strong> dicatat dan diverifikasi admin setelah transfer.
+                            {% else %}
+                                Transfer bank manual menunggu pemeriksaan admin.
+                            {% endif %}
+                            Hubungi CS MBG untuk mendapatkan rekening tujuan resmi; jangan transfer ke rekening yang belum dikonfirmasi.
+                        </div>
+                        {% if form_konfirmasi_transfer %}
+                        <form method="post" action="{% url 'konfirmasi_transfer_pesanan' pesanan.nomor_pesanan %}" class="mb-3">
+                            {% csrf_token %}
+                            <label class="form-label small fw-semibold" for="{{ form_konfirmasi_transfer.nomor_referensi.id_for_label }}">
+                                {% if jenis_pembayaran_transfer == 'dp' %}Saya sudah transfer DP{% elif jenis_pembayaran_transfer == 'angsuran' %}Saya sudah transfer angsuran{% else %}Saya sudah transfer{% endif %}
+                                Rp {{ nominal_pembayaran_transfer|intcomma }} — nomor referensi
+                            </label>
+                            {{ form_konfirmasi_transfer.nomor_referensi }}
+                            {% if form_konfirmasi_transfer.nomor_referensi.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.nomor_referensi.errors.0 }}</div>{% endif %}
+                            <small class="form-text d-block mb-2">{{ form_konfirmasi_transfer.nomor_referensi.help_text }}</small>
+                            <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">Kirim untuk Verifikasi Admin</button>
+                        </form>
+                        {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                        <div class="alert alert-info small mb-3">Konfirmasi transfer telah diterima dan sedang diperiksa admin.</div>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if refund_list %}
+                    <div class="mb-3">
+                        <h3 class="h6 fw-bold text-dark">Pembatalan dan Refund</h3>
+                        {% for refund in refund_list %}
+                        <div class="border rounded-3 p-3 mb-2 small">
+                            <div class="d-flex justify-content-between gap-2">
+                                <strong>{{ refund.get_status_display }}</strong>
+                                <span>Rp {{ refund.nominal_diajukan|intcomma }}</span>
+                            </div>
+                            <div class="text-muted mt-1">{{ refund.alasan }}</div>
+                            {% if refund.nominal_disetujui %}
+                            <div class="mt-1">Disetujui: Rp {{ refund.nominal_disetujui|intcomma }}</div>
+                            {% endif %}
+                            {% if refund.nomor_referensi_pengembalian %}
+                            <div class="text-muted mt-1">Pengembalian dicatat {{ refund.tanggal_pengembalian|date:"d M Y, H:i" }} WITA.</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if dapat_mengajukan_pembatalan %}
+                    <details class="mb-3">
+                        <summary class="small text-danger fw-semibold">Ajukan pembatalan / refund</summary>
+                        <form method="post" class="mt-2">
+                            {% csrf_token %}
+                            {{ form_pembatalan.non_field_errors }}
+                            <label class="form-label small" for="{{ form_pembatalan.alasan.id_for_label }}">Alasan</label>
+                            {{ form_pembatalan.alasan }}
+                            {% if form_pembatalan.alasan.errors %}<div class="text-danger small">{{ form_pembatalan.alasan.errors.0 }}</div>{% endif %}
+                            <div class="form-text mb-2">Pembatalan tanpa pembayaran langsung diproses. Jika sudah ada pembayaran terverifikasi, permintaan refund menunggu keputusan admin. Dana tidak otomatis dikembalikan.</div>
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">Kirim Permintaan</button>
+                        </form>
+                    </details>
+                    {% endif %}
+
                     <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary w-100 py-2 small rounded-pill">
                         <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
                     </a>
@@ -218,7 +368,7 @@
         </div>
     </div>
 </section>
-{% if pesanan.jenis_pembelian == 'beli_langsung' %}
+{% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.saluran_pembayaran == 'midtrans' %}
 <div id="directPurchaseSuccessModalDetail" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style="z-index: 1090;" role="dialog" aria-modal="true" aria-labelledby="directPurchaseSuccessTitleDetail" hidden>
     <div class="bg-white rounded-4 shadow-lg p-4 text-center" style="max-width: 460px;">
         <div class="text-success display-4 mb-2"><i class="fa-solid fa-circle-check"></i></div>
@@ -232,7 +382,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if pesanan.status == 'menunggu_booking_fee' %}
+{% if pesanan.status == 'menunggu_booking_fee' and pesanan.saluran_pembayaran == 'midtrans' %}
 <script src="{{ midtrans_snap_js_url }}" data-client-key="{{ midtrans_client_key }}" onerror="window.midtransSnapLoadError = true;"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {

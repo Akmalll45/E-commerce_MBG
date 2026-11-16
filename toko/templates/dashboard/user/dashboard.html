@@ -453,7 +453,8 @@
                             </div>
                             <div>
                                 <div class="stat-value">{{ total_pesanan_pembelian }}</div>
-                                <div class="stat-label">Pesanan Pembelian</div>
+                                <div class="stat-label">Pesanan Kendaraan</div>
+                                <small class="text-muted d-block mt-1">Booking: {{ total_booking_pembelian }} · Langsung: {{ total_pembelian_langsung }}</small>
                             </div>
                         </div>
                     </div>
@@ -524,79 +525,115 @@
                     </div>
                 </div>
 
-                <!-- 0. Daftar Pesanan Pembelian Mobil (B2C) -->
+                <!-- Booking pembelian kendaraan dengan Booking Fee -->
                 <div class="content-card mb-4">
                     <div class="card-header-clean">
-                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-cart-shopping text-primary me-2"></i> Pesanan Pembelian Mobil</h5>
-                        <span class="badge bg-primary rounded-pill px-3">{{ total_pesanan_pembelian }} Pesanan</span>
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-calendar-check text-primary me-2"></i> Booking Kendaraan</h5>
+                        <span class="badge bg-primary rounded-pill px-3">{{ total_booking_pembelian }} Booking</span>
                     </div>
-
-                    {% if user_pesanan_pembelian %}
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light small text-uppercase text-secondary">
-                                    <tr>
-                                        <th>Nomor &amp; Kendaraan</th>
-                                        <th>Tanggal Pesan</th>
-                                        <th>Harga &amp; Pembayaran</th>
-                                        <th>Jenis &amp; Opsi</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for p in user_pesanan_pembelian %}
-                                    <tr>
-                                        <td>
-                                            <div class="fw-bold text-dark font-monospace small text-primary">{{ p.nomor_pesanan }}</div>
-                                            <div class="fw-bold text-dark">{{ p.nama_kendaraan }}</div>
-                                            <small class="text-muted">SKU: {{ p.sku_kendaraan }} &bull; Plat: {{ p.plat_nomor }}</small>
-                                        </td>
-                                        <td>
-                                            <div class="small fw-semibold text-dark">{{ p.created_at|date:"d M Y" }}</div>
-                                            <small class="text-muted">{{ p.created_at|date:"H:i" }} WITA</small>
-                                        </td>
-                                        <td>
-                                            <div class="small fw-bold text-dark">Rp {{ p.harga_kendaraan|intcomma }}</div>
-                                            <small class="{% if p.jenis_pembelian == 'beli_langsung' %}text-success{% else %}text-primary{% endif %} fw-semibold">
-                                                {% if p.jenis_pembelian == 'beli_langsung' %}Bayar penuh: Rp {{ p.harga_kendaraan|intcomma }}{% else %}Booking Fee: Rp {{ p.nominal_booking_fee|intcomma }}{% endif %}
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <div class="small text-dark">{{ p.get_jenis_pembelian_display }}</div>
-                                            {% if p.jenis_pembelian != 'beli_langsung' %}<small class="text-muted">{{ p.get_metode_pembayaran_display }}</small>{% endif %}
-                                            <small class="text-muted">{{ p.get_opsi_penyerahan_display }}</small>
-                                        </td>
-                                        <td>
-                                            {% if p.status == 'menunggu_booking_fee' %}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu Booking Fee</span>
-                                            {% elif p.status == 'booking_aktif' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">{% if p.jenis_pembelian == 'beli_langsung' %}Lunas — Menunggu Serah Terima{% else %}Booking Aktif (Terkunci){% endif %}</span>
-                                            {% elif p.status == 'selesai' %}
-                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill">Selesai</span>
-                                            {% elif p.status == 'dibatalkan' %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">Dibatalkan</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2.5 py-1 rounded-pill">{{ p.get_status_display }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="{% url 'pesanan_detail' p.nomor_pesanan %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                                Detail
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                    {% if user_booking_pembelian %}
+                        {% for p in user_booking_pembelian %}
+                        <div class="border-bottom py-3">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-5">
+                                    <div class="small text-primary font-monospace">{{ p.nomor_pesanan }}</div>
+                                    <div class="fw-bold text-dark">{{ p.nama_kendaraan }}</div>
+                                    <small class="text-muted">Dipesan {{ p.created_at|date:"d M Y, H:i" }} WITA</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="small text-muted">Booking Fee</div>
+                                    <div class="fw-bold text-primary">Rp {{ p.nominal_booking_fee|intcomma }}</div>
+                                    <small class="text-muted">{{ p.get_saluran_pembayaran_display }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    {% if p.status == 'menunggu_booking_fee' %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Booking Fee</span>
+                                    {% elif p.status == 'booking_aktif' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Booking Aktif</span>
+                                    {% elif p.status == 'selesai' %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded-pill">Selesai</span>
+                                    {% elif p.status == 'dibatalkan' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill">Dibatalkan</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ p.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2 text-md-end">
+                                    <a href="{% url 'pesanan_detail' p.nomor_pesanan %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Detail</a>
+                                </div>
+                            </div>
                         </div>
+                        {% endfor %}
                     {% else %}
                         <div class="empty-state">
-                            <div class="empty-icon"><i class="fa-solid fa-cart-arrow-down"></i></div>
-                            <h6 class="fw-bold text-dark mb-1">Belum Ada Pesanan Pembelian Mobil</h6>
-                            <p class="text-muted small mb-3">Temukan mobil impian bergaransi inspeksi transparan di garasi MBG Makassar.</p>
+                            <div class="empty-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <h6 class="fw-bold text-dark mb-1">Belum Ada Booking Kendaraan</h6>
+                            <p class="text-muted small mb-3">Booking kendaraan dengan Booking Fee akan tampil di bagian ini.</p>
                             <a href="{% url 'katalog' %}" class="btn btn-sm btn-primary rounded-pill px-4">
-                                <i class="fa-solid fa-car me-1"></i> Beli Mobil di Katalog
+                                <i class="fa-solid fa-car me-1"></i> Lihat Katalog Mobil
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Pembelian langsung kendaraan -->
+                <div class="content-card mb-4">
+                    <div class="card-header-clean">
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-cart-shopping text-success me-2"></i> Pembelian Langsung</h5>
+                        <span class="badge bg-success rounded-pill px-3">{{ total_pembelian_langsung }} Pembelian</span>
+                    </div>
+                    {% if user_pembelian_langsung %}
+                        {% for p in user_pembelian_langsung %}
+                        <div class="border-bottom py-3">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-5">
+                                    <div class="small text-primary font-monospace">{{ p.nomor_pesanan }}</div>
+                                    <div class="fw-bold text-dark">{{ p.nama_kendaraan }}</div>
+                                    <small class="text-muted">Dipesan {{ p.created_at|date:"d M Y, H:i" }} WITA</small>
+                                </div>
+                                <div class="col-md-3">
+                                    {% if p.metode_pembayaran == 'kredit' %}
+                                        <div class="small text-muted">DP Kredit (20%)</div>
+                                        <div class="fw-bold text-primary">Rp {{ p.nominal_dp_kredit|intcomma }}</div>
+                                        <small class="text-muted">Angsuran tahunan 5%: Rp {{ p.nominal_angsuran_kredit_tahunan|intcomma }}</small>
+                                    {% else %}
+                                        <div class="small text-muted">Pembayaran Penuh (100%)</div>
+                                        <div class="fw-bold text-success">Rp {{ p.harga_kendaraan|intcomma }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">{{ p.get_saluran_pembayaran_display }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    {% if p.status == 'menunggu_kredit' %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Review Kredit</span>
+                                    {% elif p.status == 'menunggu_dp_kredit' %}
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle rounded-pill">Disetujui — Menunggu DP</span>
+                                    {% elif p.status == 'menunggu_booking_fee' %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Pembayaran</span>
+                                    {% elif p.status == 'kredit_aktif' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Kredit Aktif — Unit Dikunci</span>
+                                    {% elif p.status == 'booking_aktif' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Lunas — Serah Terima</span>
+                                    {% elif p.status == 'selesai' %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded-pill">Selesai</span>
+                                    {% elif p.status == 'dibatalkan' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill">Dibatalkan</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ p.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2 text-md-end">
+                                    <a href="{% url 'pesanan_detail' p.nomor_pesanan %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Detail</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+                            <h6 class="fw-bold text-dark mb-1">Belum Ada Pembelian Langsung</h6>
+                            <p class="text-muted small mb-3">Pesanan Beli Langsung dan status pembayarannya akan tampil di bagian ini.</p>
+                            <a href="{% url 'katalog' %}" class="btn btn-sm btn-primary rounded-pill px-4">
+                                <i class="fa-solid fa-car me-1"></i> Lihat Katalog Mobil
                             </a>
                         </div>
                     {% endif %}
@@ -718,19 +755,86 @@
                     {% endif %}
                 </div>
 
-                <!-- 3. Riwayat Transaksi -->
+                <!-- Riwayat pesanan pembelian, booking, pembayaran, dan transaksi booking cek unit -->
                 <div class="content-card">
                     <div class="card-header-clean">
-                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-receipt text-success me-2"></i> Riwayat Pembayaran & Transaksi</h5>
-                        <span class="badge bg-secondary rounded-pill px-3">{{ total_transaksi }} Item</span>
+                        <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-receipt text-success me-2"></i> Riwayat Booking, Pembelian &amp; Pembayaran</h5>
+                        <span class="badge bg-secondary rounded-pill px-3">{{ total_pesanan_pembelian }} Pesanan</span>
                     </div>
 
-                    {% if user_transaksi %}
+                    {% if user_pesanan_pembelian %}
+                        <h6 class="fw-bold text-dark mt-2 mb-3">Riwayat Pesanan Kendaraan</h6>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light small text-uppercase text-secondary">
                                     <tr>
-                                        <th>No. Order</th>
+                                        <th>Nomor &amp; Tanggal</th>
+                                        <th>Jenis</th>
+                                        <th>Kendaraan</th>
+                                        <th>Riwayat Pembayaran</th>
+                                        <th>Status Pesanan</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in user_pesanan_pembelian %}
+                                    <tr>
+                                        <td>
+                                            <span class="fw-bold text-dark font-monospace">{{ p.nomor_pesanan }}</span>
+                                            <small class="d-block text-muted">{{ p.created_at|date:"d M Y, H:i" }} WITA</small>
+                                        </td>
+                                        <td>
+                                            {% if p.jenis_pembelian == 'booking' %}
+                                                <span class="badge bg-primary bg-opacity-10 text-primary">Booking</span>
+                                                <small class="d-block text-muted">{{ p.persentase_booking_fee }}% Booking Fee</small>
+                                            {% else %}
+                                                <span class="badge bg-success bg-opacity-10 text-success">Beli Langsung</span>
+                                                <small class="d-block text-muted">Pembayaran penuh</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="fw-semibold">{{ p.nama_kendaraan }}</span>
+                                            <small class="d-block text-muted">Rp {{ p.harga_kendaraan|intcomma }}</small>
+                                        </td>
+                                        <td>
+                                            {% for pembayaran in p.pembayaran.all %}
+                                                <div class="small mb-1">
+                                                    {{ pembayaran.get_jenis_display }} · {{ pembayaran.get_saluran_display }} · Rp {{ pembayaran.nominal|intcomma }}
+                                                    <span class="badge {% if pembayaran.status == 'terverifikasi' %}bg-success{% elif pembayaran.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ pembayaran.get_status_display }}</span>
+                                                </div>
+                                            {% empty %}
+                                                <small class="text-muted">Belum ada pembayaran tercatat</small>
+                                            {% endfor %}
+                                        </td>
+                                        <td>
+                                            {% if p.status == 'menunggu_booking_fee' %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">{% if p.jenis_pembelian == 'beli_langsung' %}Menunggu Pembayaran{% else %}Menunggu Booking Fee{% endif %}</span>
+                                            {% elif p.status == 'booking_aktif' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">{% if p.jenis_pembelian == 'beli_langsung' %}Lunas — Serah Terima{% else %}Booking Aktif{% endif %}</span>
+                                            {% elif p.status == 'selesai' %}
+                                                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">Selesai</span>
+                                            {% elif p.status == 'dibatalkan' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill">Dibatalkan</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ p.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><a href="{% url 'pesanan_detail' p.nomor_pesanan %}" class="btn btn-sm btn-outline-primary rounded-pill">Detail</a></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+
+                    {% if user_transaksi %}
+                        <hr class="my-4">
+                        <h6 class="fw-bold text-dark mb-3">Riwayat Transaksi Booking Cek Unit</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase text-secondary">
+                                    <tr>
+                                        <th>No. Order &amp; Tanggal</th>
                                         <th>Unit Mobil</th>
                                         <th>Nominal DP</th>
                                         <th>Metode</th>
@@ -740,26 +844,17 @@
                                 <tbody>
                                     {% for trx in user_transaksi %}
                                     <tr>
-                                        <td>
-                                            <span class="fw-bold text-dark">{{ trx.no_order }}</span>
-                                            <small class="d-block text-muted">{{ trx.created_at|date:"d M Y H:i" }}</small>
-                                        </td>
-                                        <td>
-                                            <span class="fw-semibold">{{ trx.booking.produk.nama }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="fw-bold text-primary">Rp {{ trx.nominal_dp|intcomma }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-light text-dark border">{{ trx.get_metode_pembayaran_display }}</span>
-                                        </td>
+                                        <td><span class="fw-bold text-dark">{{ trx.no_order }}</span><small class="d-block text-muted">{{ trx.created_at|date:"d M Y, H:i" }}</small></td>
+                                        <td><span class="fw-semibold">{{ trx.booking.produk.nama }}</span></td>
+                                        <td><span class="fw-bold text-primary">Rp {{ trx.nominal_dp|intcomma }}</span></td>
+                                        <td><span class="badge bg-light text-dark border">{{ trx.get_metode_pembayaran_display }}</span></td>
                                         <td>
                                             {% if trx.status_pembayaran == 'berhasil' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">Berhasil</span>
+                                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill">Berhasil</span>
                                             {% elif trx.status_pembayaran == 'pending' %}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu Bayar</span>
+                                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill">Menunggu Bayar</span>
                                             {% else %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">{{ trx.get_status_pembayaran_display }}</span>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill">{{ trx.get_status_pembayaran_display }}</span>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -767,11 +862,13 @@
                                 </tbody>
                             </table>
                         </div>
-                    {% else %}
+                    {% endif %}
+
+                    {% if not user_pesanan_pembelian and not user_transaksi %}
                         <div class="empty-state">
                             <div class="empty-icon"><i class="fa-solid fa-receipt"></i></div>
-                            <h6 class="fw-bold text-dark mb-1">Belum Ada Transaksi Pembayaran</h6>
-                            <p class="text-muted small mb-0">Semua riwayat booking fee / DP dan pelunasan akan tercatat secara otomatis di sini.</p>
+                            <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Booking atau Pembelian</h6>
+                            <p class="text-muted small mb-0">Pesanan kendaraan, riwayat pembayaran, dan transaksi Booking Cek Unit akan tercatat di sini.</p>
                         </div>
                     {% endif %}
                 </div>

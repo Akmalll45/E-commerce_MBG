@@ -64,12 +64,12 @@ def verifikasi_signature(order_id, status_code, gross_amount, signature_key, ser
 def petakan_saluran_midtrans(payment_type):
     """
     Memetakan payment_type Midtrans ke pilihan saluran pada model PembayaranPesanan.
-    SALURAN_CHOICES = ('transfer', 'va', 'qris', 'ewallet', 'kartu', 'ritel', 'tunai')
+    SALURAN_CHOICES = ('transfer', 'va', 'qris', 'ewallet', 'kartu', 'ritel', 'tunai', 'lainnya')
     """
     tipe = (payment_type or '').lower()
     if 'qris' in tipe:
         return 'qris'
-    if 'gopay' in tipe or 'shopeepay' in tipe:
+    if any(nama in tipe for nama in ('gopay', 'shopeepay', 'dana', 'ovo', 'linkaja')):
         return 'ewallet'
     if 'credit_card' in tipe:
         return 'kartu'
@@ -77,7 +77,7 @@ def petakan_saluran_midtrans(payment_type):
         return 'ritel'
     if 'va' in tipe or 'bank_transfer' in tipe or 'echannel' in tipe or 'permata' in tipe:
         return 'va'
-    return 'transfer'
+    return 'lainnya'
 
 
 def buat_snap_transaksi(pesanan, server_key=None, snap_url=None):
