@@ -312,7 +312,10 @@ class CustomerPurchaseFlowTests(TestCase):
         resp_sukses = self.client_auth.get(reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan]))
         self.assertEqual(resp_sukses.status_code, 200)
         self.assertContains(resp_sukses, pesanan.nomor_pesanan)
-        self.assertContains(resp_sukses, 'Pesanan Pembelian Berhasil Dibuat')
+        self.assertContains(resp_sukses, 'Menunggu Pembayaran')
+        self.assertContains(resp_sukses, 'Pesanan Diajukan')
+        self.assertNotContains(resp_sukses, 'Pesanan Pembelian Berhasil Dibuat')
+        self.assertFalse(resp_sukses.context['tahap_pembayaran_selesai'])
         self.assertEqual(
             resp_sukses.context['pesanan'].nominal_pembayaran_midtrans,
             Decimal('8000000'),
@@ -350,7 +353,7 @@ class CustomerPurchaseFlowTests(TestCase):
         confirm = self.client_auth.get(
             reverse('konfirmasi_pembelian', args=[self.produk_ready.id])
         )
-        self.assertContains(confirm, 'Total pembayaran (100% OTR)')
+        self.assertContains(confirm, 'Total pembayaran')
         self.assertEqual(
             confirm.context['nominal_pembelian_langsung'],
             Decimal('400000000'),
@@ -368,6 +371,12 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(pesanan.metode_pembayaran, 'cash')
         self.assertEqual(pesanan.nominal_pembayaran_midtrans, Decimal('400000000'))
         self.assertEqual(pesanan.status, 'menunggu_booking_fee')
+        status_page = self.client_auth.get(
+            reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan])
+        )
+        self.assertContains(status_page, 'Menunggu Pembayaran')
+        self.assertContains(status_page, 'Admin akan memeriksa nomor referensi')
+        self.assertFalse(status_page.context['tahap_pembayaran_selesai'])
         self.produk_ready.refresh_from_db()
         self.assertEqual(self.produk_ready.status_stok, 'ready')
 
@@ -408,6 +417,11 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(pesanan.metode_pembayaran, 'kredit')
         self.assertEqual(pesanan.saluran_pembayaran, 'transfer')
         self.assertEqual(pesanan.status, 'menunggu_kredit')
+        credit_status = self.client_auth.get(
+            reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan])
+        )
+        self.assertContains(credit_status, 'Pengajuan Kredit Tercatat')
+        self.assertTrue(credit_status.context['tahap_pembayaran_selesai'])
         self.assertFalse(pesanan.pembayaran.exists())
         snap = self.client_auth.post(
             reverse('midtrans_snap_token', args=[pesanan.nomor_pesanan]),

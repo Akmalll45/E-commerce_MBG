@@ -11,6 +11,7 @@
         justify-content: center;
         margin-bottom: 2rem;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
     .step-item {
         display: flex;
@@ -71,6 +72,21 @@
         border-radius: var(--radius-md);
         padding: 1.25rem;
     }
+    .payment-total-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 0.75rem;
+    }
+    .payment-total-value {
+        white-space: nowrap;
+    }
+    @media (max-width: 480px) {
+        .payment-total-row {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.2rem;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -100,12 +116,17 @@
             <div class="step-divider"></div>
             <div class="step-item active">
                 <div class="step-number">2</div>
-                <span>Konfirmasi Pesanan</span>
+                <span>Rincian Pembelian</span>
             </div>
             <div class="step-divider"></div>
             <div class="step-item">
                 <div class="step-number">3</div>
-                <span>Konfirmasi Pembayaran</span>
+                <span>Status Pembayaran</span>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step-item">
+                <div class="step-number">4</div>
+                <span>Pesanan Diajukan</span>
             </div>
         </div>
 
@@ -156,7 +177,7 @@
                             {% endif %}
                         </dd>
 
-                        <dt class="col-sm-4 text-secondary">Rencana Pembayaran</dt>
+                        <dt class="col-sm-4 text-secondary">{% if checkout_data.metode_pembayaran == 'kredit' %}Metode Pembiayaan{% else %}Metode Pembayaran{% endif %}</dt>
                         <dd class="col-sm-8 fw-bold text-dark mb-2">
                             {% if checkout_data.metode_pembayaran == 'cash' %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">
@@ -164,7 +185,7 @@
                                 </span>
                             {% else %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">
-                                    <i class="fa-solid fa-handshake me-1"></i> Kredit
+                                    <i class="fa-solid fa-handshake me-1"></i> Kredit (pengajuan ke MBG)
                                 </span>
                             {% endif %}
                         </dd>
@@ -184,13 +205,12 @@
                         <dd class="col-sm-8 text-dark mb-2">
                             DP 20%: <strong>Rp {{ rincian_kredit.nominal_dp|intcomma }}</strong>
                             {% if checkout_data.jenis_pembelian == 'booking' %}
-                                (sisa DP setelah Booking Fee: Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }})
+                                <span class="d-block text-secondary">Sisa DP setelah Booking Fee: Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.</span>
                             {% else %}
-                                (dibayar setelah pengajuan disetujui admin)
-                            {% endif %};
-                            angsuran pokok 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun</strong>
-                            selama {{ rincian_kredit.tenor_tahun }} tahun (angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}).
-                            Simulasi tanpa bunga tambahan; belum ada integrasi leasing.
+                                <span class="d-block text-secondary">Dibayar setelah pengajuan disetujui admin.</span>
+                            {% endif %}
+                            Angsuran 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun</strong> selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                            <span class="d-block text-secondary">Simulasi tanpa bunga tambahan; belum terhubung ke bank/leasing.</span>
                         </dd>
                         {% endif %}
 
@@ -239,7 +259,7 @@
                                     {% endif %}
                                 {% endif %}
                                 {% if checkout_data.jenis_pembelian != 'beli_langsung' and checkout_data.metode_pembayaran == 'kredit' %}
-                                    <li class="mb-1">Pengajuan kredit belum terintegrasi dengan bank/leasing. Tim MBG akan meninjau dan menghubungi Anda terkait status serta langkah selanjutnya.</li>
+                                    <li class="mb-1">Kredit merupakan pengajuan kepada tim MBG, bukan persetujuan bank/leasing. Tim MBG akan meninjau dan menghubungi Anda.</li>
                                 {% endif %}
                                 <li>Pencegahan double-booking aktif: pesanan Anda dijamin aman di sistem transaksi database kami.</li>
                             </ul>
@@ -283,22 +303,25 @@
 
                         {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
                         {% if checkout_data.metode_pembayaran == 'kredit' %}
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
+                        <div class="payment-total-row pt-2 border-top mb-2">
                             <span class="fw-bold text-primary">DP setelah disetujui admin (20%)</span>
-                            <span class="h5 fw-bold text-primary mb-0 font-heading">Rp {{ rincian_kredit.nominal_dp|intcomma }}</span>
+                            <span class="payment-total-value h5 fw-bold text-primary mb-0 font-heading">Rp {{ rincian_kredit.nominal_dp|intcomma }}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2 small">
                             <span class="text-secondary">Angsuran pokok per tahun (5% OTR)</span>
-                            <span class="fw-bold text-dark">Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}</span>
+                            <span class="payment-total-value fw-bold text-dark">Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}</span>
                         </div>
                         <div class="alert alert-info small mb-0">
                             Tidak ada pembayaran sekarang. Pengajuan harus disetujui admin; DP dibayar setelah persetujuan.
                             Simulasi {{ rincian_kredit.tenor_tahun }} tahun tanpa bunga tambahan.
                         </div>
                         {% else %}
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-2">
-                            <span class="fw-bold text-success">Total pembayaran (100% OTR)</span>
-                            <span class="h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
+                        <div class="payment-total-row pt-2 border-top mb-2">
+                            <div>
+                                <span class="fw-bold text-success d-block">Total pembayaran</span>
+                                <small class="text-muted">100% harga OTR</small>
+                            </div>
+                            <span class="payment-total-value h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
                         </div>
                         <p class="small text-muted mb-0">
                             {% if checkout_data.saluran_pembayaran == 'midtrans' %}

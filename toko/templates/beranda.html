@@ -1565,18 +1565,21 @@
                         <hr class="card-divider">
 
                         <!-- Teks: Harga Normal (Jelas & Menonjol) -->
-                        <div class="mb-3">
+                        <div class="card-price-block mb-3">
                             <span class="price-label d-block">Harga OTR Makassar:</span>
                             <div class="price-value">
                                 Rp {{ mobil.harga|intcomma }}
                             </div>
+                            <div class="card-promo-slot">
                             {% if mobil.harga_promo %}
-                                <div class="text-danger small fw-bold">
-                                    <i class="fa-solid fa-tag me-1"></i> Promo DP Khusus: Rp {{ mobil.harga_promo|intcomma }}
-                                </div>
+                                <span class="card-promo-label">
+                                    <i class="fa-solid fa-tag me-1"></i> Promo DP
+                                </span>
+                                <span class="card-promo-value">Rp {{ mobil.harga_promo|intcomma }}</span>
                             {% else %}
                                 <span class="price-note">*Tersedia opsi Cash / Kredit DP Ringan</span>
                             {% endif %}
+                            </div>
                         </div>
 
                         <!-- Tombol Call-to-Action (CTA) Penuh: Arahkan ke {% url 'detail_produk' mobil.id %} -->

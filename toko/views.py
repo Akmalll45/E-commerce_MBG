@@ -3392,7 +3392,7 @@ def konfirmasi_pembelian(request, id):
 @login_required(login_url='login')
 def pesanan_berhasil(request, nomor_pesanan):
     """
-    Halaman konfirmasi pesanan dibuat dan menampilkan tagihan Midtrans sesuai jenis pembelian.
+    Halaman status pembayaran dan pengajuan pesanan.
     """
     pesanan = get_object_or_404(
         PesananPembelian.objects.select_related('produk', 'pelanggan'),
@@ -3412,10 +3412,18 @@ def pesanan_berhasil(request, nomor_pesanan):
         and jenis_transfer is not None
         and not _pembayaran_menghalangi_konfirmasi(pesanan, jenis_transfer)
     )
+    tahap_pembayaran_selesai = pesanan.status in {
+        'booking_aktif', 'kredit_aktif', 'selesai',
+    } or (
+        pesanan.jenis_pembelian == 'beli_langsung'
+        and pesanan.metode_pembayaran == 'kredit'
+        and pesanan.status in {'menunggu_kredit', 'menunggu_dp_kredit'}
+    )
     return render(request, 'pembelian/pesanan_berhasil.html', {
         'pesanan': pesanan,
         'produk': pesanan.produk,
         'pembayaran_booking_fee': pembayaran_awal,
+        'tahap_pembayaran_selesai': tahap_pembayaran_selesai,
         'form_konfirmasi_transfer': (
             KonfirmasiTransferPesananForm() if dapat_konfirmasi_transfer else None
         ),

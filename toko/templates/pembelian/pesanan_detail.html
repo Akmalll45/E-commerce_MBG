@@ -117,7 +117,7 @@
                         <dt class="col-sm-4 text-secondary">Email</dt>
                         <dd class="col-sm-8 text-dark">{{ pesanan.email|default:"—" }}</dd>
 
-                        <dt class="col-sm-4 text-secondary">Metode Bayar</dt>
+                        <dt class="col-sm-4 text-secondary">{% if pesanan.metode_pembayaran == 'kredit' %}Metode Pembiayaan{% else %}Metode Pembayaran{% endif %}</dt>
                         <dd class="col-sm-8 text-dark">{{ pesanan.get_metode_pembayaran_display }}</dd>
                         <dt class="col-sm-4 text-secondary">Kanal Pembayaran</dt>
                         <dd class="col-sm-8 text-dark">{{ pesanan.get_saluran_pembayaran_display }}</dd>
@@ -132,10 +132,10 @@
                         </dd>
                         <dt class="col-sm-4 text-secondary">Simulasi Kredit</dt>
                         <dd class="col-sm-8 text-dark">
-                            DP 20% Rp {{ rincian_kredit.nominal_dp|intcomma }}
-                            {% if pesanan.jenis_pembelian == 'booking' %}(sisa setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}){% else %}(dibayar setelah pengajuan disetujui){% endif %},
-                            lalu angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun.
-                            Tanpa bunga tambahan; angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                            DP 20% Rp {{ rincian_kredit.nominal_dp|intcomma }}.
+                            {% if pesanan.jenis_pembelian == 'booking' %}Sisa DP setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.{% else %}DP dibayar setelah pengajuan disetujui admin.{% endif %}
+                            Angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                            Simulasi tanpa bunga tambahan; belum terhubung ke bank/leasing.
                         </dd>
                         {% endif %}
 

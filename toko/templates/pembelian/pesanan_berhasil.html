@@ -1,7 +1,7 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
-{% block title %}Pesanan {{ pesanan.nomor_pesanan }} Berhasil Dibuat — MBG Makassar{% endblock %}
+{% block title %}Status Pesanan {{ pesanan.nomor_pesanan }} — MBG Makassar{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -11,6 +11,7 @@
         justify-content: center;
         margin-bottom: 2rem;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
     .step-item {
         display: flex;
@@ -50,6 +51,9 @@
     .step-divider {
         width: 40px;
         height: 2px;
+        background: #CBD5E1;
+    }
+    .step-divider.completed {
         background: var(--mbg-emerald);
     }
     .success-hero-card {
@@ -97,34 +101,62 @@
                 <div class="step-number"><i class="fa-solid fa-check"></i></div>
                 <span>Isi Data</span>
             </div>
-            <div class="step-divider"></div>
+            <div class="step-divider completed"></div>
             <div class="step-item completed">
                 <div class="step-number"><i class="fa-solid fa-check"></i></div>
-                <span>Konfirmasi Pesanan</span>
+                <span>Rincian Pembelian</span>
             </div>
-            <div class="step-divider"></div>
-            <div class="step-item {% if pembayaran_booking_fee.status == 'terverifikasi' %}completed{% else %}active{% endif %}">
-                <div class="step-number">{% if pembayaran_booking_fee.status == 'terverifikasi' %}<i class="fa-solid fa-check"></i>{% else %}3{% endif %}</div>
+            <div class="step-divider completed"></div>
+            <div class="step-item {% if tahap_pembayaran_selesai %}completed{% else %}active{% endif %}">
+                <div class="step-number">{% if tahap_pembayaran_selesai %}<i class="fa-solid fa-check"></i>{% else %}3{% endif %}</div>
                 <span>Status Pembayaran</span>
+            </div>
+            <div class="step-divider {% if tahap_pembayaran_selesai %}completed{% endif %}"></div>
+            <div class="step-item {% if tahap_pembayaran_selesai %}active{% endif %}">
+                <div class="step-number">4</div>
+                <span>Pesanan Diajukan</span>
             </div>
         </div>
 
         <!-- Success Hero -->
         <div class="success-hero-card">
             <div class="success-icon-wrap">
-                <i class="fa-solid fa-circle-check"></i>
+                <i class="fa-solid {% if tahap_pembayaran_selesai %}fa-circle-check{% else %}fa-clock{% endif %}"></i>
             </div>
             <h1 class="h3 fw-bold text-dark font-heading mb-2">
                 {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}
-                    Pengajuan Kredit Tercatat
-                {% elif pesanan.jenis_pembelian == 'beli_langsung' %}Pesanan Beli Langsung Tercatat!{% else %}Pesanan Pembelian Berhasil Dibuat!{% endif %}
+                    {% if pesanan.status == 'menunggu_kredit' %}Pengajuan Kredit Tercatat
+                    {% elif pesanan.status == 'menunggu_dp_kredit' %}Pengajuan Disetujui — Menunggu DP
+                    {% elif pesanan.status == 'kredit_aktif' %}Kredit Aktif — Pesanan Diproses
+                    {% else %}Status Pengajuan Kredit{% endif %}
+                {% elif pesanan.status == 'booking_aktif' or pesanan.status == 'kredit_aktif' or pesanan.status == 'selesai' %}
+                    Pembayaran Terkonfirmasi — Pesanan Diajukan
+                {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                    Konfirmasi Pembayaran Diajukan
+                {% else %}
+                    Menunggu Pembayaran
+                {% endif %}
             </h1>
             <p class="text-secondary mb-4" style="max-width: 620px; margin-left: auto; margin-right: auto;">
                 Terima kasih, <strong>{{ pesanan.nama_pelanggan }}</strong>.
                 {% if pesanan.metode_pembayaran == 'kredit' and pesanan.jenis_pembelian == 'beli_langsung' %}
-                    Pengajuan Anda menunggu peninjauan admin. DP hanya dibayar setelah disetujui.
+                    {% if pesanan.status == 'menunggu_kredit' %}
+                        Pengajuan Anda menunggu peninjauan admin. DP hanya dibayar setelah disetujui.
+                    {% elif pesanan.status == 'menunggu_dp_kredit' %}
+                        Pengajuan disetujui admin. Silakan bayar DP melalui transfer bank untuk melanjutkan proses.
+                    {% elif pesanan.status == 'kredit_aktif' %}
+                        DP telah diverifikasi. Pembayaran angsuran dicatat secara manual oleh admin.
+                    {% else %}
+                        Periksa detail status pengajuan dan pembayaran Anda di bawah.
+                    {% endif %}
+                {% elif pesanan.status == 'booking_aktif' or pesanan.status == 'kredit_aktif' or pesanan.status == 'selesai' %}
+                    Pembayaran telah dikonfirmasi. Pengajuan pesanan Anda diteruskan ke tim MBG untuk proses berikutnya.
+                {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
+                    Konfirmasi pembayaran sudah dikirim dan sedang diperiksa admin. Pesanan belum dianggap selesai sampai pembayaran disahkan.
+                {% elif pesanan.jenis_pembelian == 'beli_langsung' %}
+                    Pembayaran penuh belum diterima. Selesaikan pembayaran untuk melanjutkan pengajuan pesanan.
                 {% else %}
-                    Pesanan kendaraan Anda telah tercatat di sistem Mobil Bekas Garasi Makassar.
+                    Booking Fee belum diterima atau diverifikasi. Selesaikan pembayaran untuk melanjutkan pengajuan pesanan.
                 {% endif %}
             </p>
 
@@ -298,7 +330,7 @@
                 </div>
                 <div class="col-sm-6">
                     <span class="text-muted d-block">Rencana Pembayaran:</span>
-                        <span class="text-dark">{{ pesanan.get_jenis_pembelian_display }}{% if pesanan.jenis_pembelian != 'beli_langsung' %} · {{ pesanan.get_metode_pembayaran_display }}{% endif %}</span>
+                    <span class="text-dark">{{ pesanan.get_jenis_pembelian_display }} · {{ pesanan.get_metode_pembayaran_display }}</span>
                 </div>
                 <div class="col-sm-6">
                     <span class="text-muted d-block">Kanal Pembayaran:</span>
