@@ -120,13 +120,13 @@
                         {% if total_katalog %}<span class="badge bg-primary rounded-pill small">{{ total_katalog }}</span>{% endif %}
                     </a>
                     <a class="admin-side-item {% if 'booking' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_booking' %}">
-                        <span><i class="fa-solid fa-calendar-check text-success"></i> Booking Cek Unit</span>
+                        <span><i class="fa-solid fa-calendar-check text-success"></i> Jadwal Cek Unit</span>
                         {% if booking_menunggu_dp > 0 %}
                             <span class="badge bg-warning text-dark rounded-pill small">{{ booking_menunggu_dp }}</span>
                         {% endif %}
                     </a>
                     <a class="admin-side-item {% if 'pesanan_pembelian' in request.resolver_match.url_name or 'pembayaran_pesanan' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_pesanan_pembelian' %}">
-                        <span><i class="fa-solid fa-car-side text-primary"></i> Pesanan Pembelian</span>
+                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
                         {% if pembayaran_pesanan_menunggu_verifikasi > 0 %}
                             <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
                         {% endif %}
@@ -143,10 +143,6 @@
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'showroom' %}">Kendaraan di Showroom</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'penjualan' %}">Penjualan &amp; Penyelesaian</a>
                     </div>
-                    <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
-                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
-                    </a>
-
                     <div class="side-section-title">Konten Website</div>
                     <a class="admin-side-item {% if 'artikel' in request.resolver_match.url_name and 'kategori' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_artikel' %}">
                         <span><i class="fa-solid fa-newspaper text-primary"></i> Artikel &amp; Berita</span>

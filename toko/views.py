@@ -1060,7 +1060,7 @@ def ringkasan_konten():
 def dashboard_admin(request):
     """
     Panel Dashboard Frontend Administrator MBG:
-    Statistik bisnis riil dari database (Katalog, Pengguna, Booking, Titip-Jual, Transaksi).
+    Statistik bisnis riil dari database (Katalog, Pengguna, Booking, Titip-Jual, Pesanan).
     """
     # Proteksi hak akses di level backend
     if not (request.user.is_staff or request.user.is_superuser):
@@ -1098,10 +1098,12 @@ def dashboard_admin(request):
         titip_jual_pending = None
         titip_jual_disetujui = None
 
-    # 5. Statistik Transaksi
-    total_transaksi = Transaksi.objects.count()
-    transaksi_berhasil = Transaksi.objects.filter(status_pembayaran='berhasil').count()
-    transaksi_pending = Transaksi.objects.filter(status_pembayaran='pending').count()
+    # Statistik transaksi pembelian B2C dan pembayaran yang terkait langsung ke pesanan.
+    total_transaksi = PesananPembelian.objects.count()
+    transaksi_berhasil = PembayaranPesanan.objects.filter(status='terverifikasi').count()
+    transaksi_pending = PesananPembelian.objects.filter(
+        status__in=('menunggu_booking_fee', 'menunggu_kredit', 'menunggu_dp_kredit'),
+    ).count()
 
     # Ringkasan data terbaru untuk quick monitoring
     recent_booking = BookingCekUnit.objects.select_related('produk').order_by('-created_at')[:5]
@@ -1109,7 +1111,14 @@ def dashboard_admin(request):
         TitipJual.objects.order_by('-created_at')[:5]
         if can_view_c2c else TitipJual.objects.none()
     )
-    recent_transaksi = Transaksi.objects.select_related('booking', 'booking__produk').order_by('-created_at')[:5]
+    recent_transaksi = list(
+        PesananPembelian.objects.select_related('produk', 'pelanggan')
+        .prefetch_related('pembayaran')
+        .order_by('-created_at', '-pk')[:5]
+    )
+    for pesanan in recent_transaksi:
+        pembayaran = list(pesanan.pembayaran.all())
+        pesanan.pembayaran_terakhir = pembayaran[0] if pembayaran else None
     recent_produk = Produk.objects.order_by('-created_at')[:5]
 
     context = {
@@ -2109,7 +2118,7 @@ ADMIN_BOOKING_PER_HALAMAN = 15
 @staf_required
 def admin_booking(request):
     """
-    Daftar seluruh Booking Cek Unit MBG:
+    Daftar seluruh jadwal Booking Cek Unit MBG:
     Pencarian (nama pemesan, telepon, email, unit), filter status booking,
     filter opsi delivery, filter tanggal cek unit, pengurutan, pagination.
     """
@@ -2183,6 +2192,9 @@ def admin_booking(request):
         'booking_terkonfirmasi': hitung_status.get('terkonfirmasi', 0),
         'booking_selesai': hitung_status.get('selesai', 0),
         'booking_batal': hitung_status.get('batal', 0),
+        'jumlah_booking_kendaraan': PesananPembelian.objects.filter(
+            jenis_pembelian='booking',
+        ).count(),
         'next_url': request.get_full_path(),
     }
     return render(request, 'dashboard/admin/booking_list.html', context)
@@ -2198,6 +2210,7 @@ def admin_pesanan_pembelian(request):
     ).prefetch_related('pembayaran', 'refund').order_by('-created_at', '-pk')
 
     filter_status = request.GET.get('status', '').strip()
+    filter_jenis = request.GET.get('jenis', '').strip()
     if filter_status == 'menunggu_verifikasi':
         daftar = daftar.filter(
             pembayaran__status='menunggu_verifikasi',
@@ -2206,6 +2219,8 @@ def admin_pesanan_pembelian(request):
         daftar = daftar.filter(jenis_pembelian='beli_langsung')
     elif filter_status in dict(PesananPembelian.STATUS_CHOICES):
         daftar = daftar.filter(status=filter_status)
+    if filter_jenis in dict(PesananPembelian.JENIS_PEMBELIAN_CHOICES):
+        daftar = daftar.filter(jenis_pembelian=filter_jenis)
 
     page_obj = Paginator(daftar, 25).get_page(request.GET.get('page'))
     for pesanan in page_obj.object_list:
@@ -2226,6 +2241,7 @@ def admin_pesanan_pembelian(request):
         'total_hasil': page_obj.paginator.count,
         'pembayaran_pesanan_menunggu_verifikasi': pembayaran_menunggu,
         'filter_status': filter_status,
+        'filter_jenis': filter_jenis,
         'pilihan_status': PesananPembelian.STATUS_CHOICES,
     })
 

@@ -13,8 +13,9 @@
 
     <div class="content-card">
         <div class="d-flex flex-wrap gap-2 mb-3">
-            <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}">Semua</a>
+            <a class="btn btn-sm {% if not filter_status and not filter_jenis %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}">Semua</a>
             <a class="btn btn-sm {% if filter_status == 'menunggu_verifikasi' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=menunggu_verifikasi">Pembayaran Menunggu Verifikasi ({{ pembayaran_pesanan_menunggu_verifikasi }})</a>
+            <a class="btn btn-sm {% if filter_jenis == 'booking' %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?jenis=booking">Booking Kendaraan</a>
             <a class="btn btn-sm {% if filter_status == 'beli_langsung' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pesanan_pembelian' %}?status=beli_langsung">Beli Langsung</a>
         </div>
 
@@ -35,7 +36,7 @@
                     <tr>
                         <td>
                             <a class="fw-bold text-decoration-none" href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" target="_blank" rel="noopener">{{ pesanan.nomor_pesanan }}</a>
-                            <div class="small text-muted">{{ pesanan.nama_pelanggan }}{% if pesanan.pelanggan %} · {{ pesanan.pelanggan.email }}{% endif %}</div>
+                            <div class="small text-muted">{{ pesanan.nama_pelanggan }}{% if pesanan.email %} · {{ pesanan.email }}{% endif %}</div>
                             <div class="small text-muted">{{ pesanan.no_whatsapp }}</div>
                         </td>
                         <td>
@@ -47,6 +48,10 @@
                             <span class="badge {% if pesanan.jenis_pembelian == 'beli_langsung' %}bg-success{% else %}bg-primary{% endif %}">{{ pesanan.get_jenis_pembelian_display }}</span>
                             <div class="small text-muted mt-1">Metode: {{ pesanan.get_metode_pembayaran_display }}</div>
                             <div class="small text-muted mt-1">Kanal: {{ pesanan.get_saluran_pembayaran_display }}</div>
+                            <div class="small text-muted mt-1">Penyerahan: {{ pesanan.get_opsi_penyerahan_display }}</div>
+                            {% if pesanan.alamat_pengantaran %}
+                            <div class="small text-muted">Alamat towing: {{ pesanan.alamat_pengantaran }}</div>
+                            {% endif %}
                             {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}
                             <div class="small text-muted mt-1">DP 20%: Rp {{ pesanan.nominal_dp_kredit|floatformat:0 }}</div>
                             <div class="small text-muted">Angsuran tahunan 5% OTR: Rp {{ pesanan.nominal_angsuran_kredit_tahunan|floatformat:0 }}</div>
@@ -183,9 +188,9 @@
         {% if page_obj.has_other_pages %}
         <nav aria-label="Navigasi daftar pesanan">
             <ul class="pagination justify-content-end mb-0">
-                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Sebelumnya</a></li>{% endif %}
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}{% if filter_jenis %}&jenis={{ filter_jenis }}{% endif %}">Sebelumnya</a></li>{% endif %}
                 <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
-                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Berikutnya</a></li>{% endif %}
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}{% if filter_jenis %}&jenis={{ filter_jenis }}{% endif %}">Berikutnya</a></li>{% endif %}
             </ul>
         </nav>
         {% endif %}

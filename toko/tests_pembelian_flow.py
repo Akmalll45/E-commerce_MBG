@@ -321,6 +321,44 @@ class CustomerPurchaseFlowTests(TestCase):
             Decimal('8000000'),
         )
 
+    def test_input_checkout_tampil_di_panel_admin_sesuai_snapshot_pesanan(self):
+        url_checkout = (
+            f"{reverse('checkout_pembelian', args=[self.produk_ready.id])}"
+            "?jenis_pembelian=booking"
+        )
+        self.client_auth.post(url_checkout, {
+            'nama_pelanggan': 'Budi Santoso',
+            'no_whatsapp': '081234567890',
+            'email': 'email-pesanan@example.test',
+            'metode_pembayaran': 'cash',
+            'saluran_pembayaran': 'transfer',
+            'opsi_penyerahan': 'towing',
+            'alamat_pengantaran': 'Jl. Contoh No. 10, Makassar',
+        })
+        self.client_auth.post(reverse('konfirmasi_pembelian', args=[self.produk_ready.id]))
+        pesanan = PesananPembelian.objects.get(produk=self.produk_ready)
+        admin = Client()
+        admin.login(username='staf_mbg', password='Password123!')
+
+        panel = admin.get(reverse('admin_pesanan_pembelian'))
+        booking_panel = admin.get(reverse('admin_booking'))
+        filtered_bookings = admin.get(
+            reverse('admin_pesanan_pembelian'),
+            {'jenis': 'booking'},
+        )
+
+        self.assertContains(panel, 'email-pesanan@example.test')
+        self.assertNotContains(panel, self.pelanggan.email)
+        self.assertContains(panel, 'Diantar via Truk Towing ke Rumah')
+        self.assertContains(panel, 'Jl. Contoh No. 10, Makassar')
+        self.assertEqual(booking_panel.context['jumlah_booking_kendaraan'], 1)
+        self.assertContains(booking_panel, reverse('admin_pesanan_pembelian') + '?jenis=booking')
+        self.assertContains(filtered_bookings, 'email-pesanan@example.test')
+        self.assertContains(filtered_bookings, pesanan.nomor_pesanan)
+        self.assertEqual(pesanan.email, 'email-pesanan@example.test')
+        self.assertEqual(pesanan.opsi_penyerahan, 'towing')
+        self.assertEqual(pesanan.alamat_pengantaran, 'Jl. Contoh No. 10, Makassar')
+
     def test_checkout_beli_langsung_membuat_pesanan_pembayaran_penuh(self):
         url_checkout = (
             f"{reverse('checkout_pembelian', args=[self.produk_ready.id])}"

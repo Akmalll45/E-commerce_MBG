@@ -963,8 +963,18 @@ class MidtransSnapServiceTests(TestCase):
         admin = Client()
         admin.login(username='admin_mbg', password='Password123!')
         dashboard = admin.get(reverse('dashboard_admin'))
-        self.assertContains(dashboard, 'Pesanan Pembelian')
+        self.assertContains(dashboard, 'Transaksi &amp; DP')
         self.assertContains(dashboard, 'Pembayaran menunggu verifikasi')
+        self.assertEqual(dashboard.context['total_transaksi'], 1)
+        self.assertEqual(dashboard.context['transaksi_berhasil'], 0)
+        self.assertEqual(dashboard.context['transaksi_pending'], 1)
+        self.assertContains(dashboard, self.pesanan.nomor_pesanan)
+        self.assertNotContains(dashboard, '/admin/toko/transaksi/')
+        self.assertRedirects(
+            admin.get('/admin/toko/transaksi/'),
+            reverse('admin_pesanan_pembelian'),
+            fetch_redirect_response=False,
+        )
         page = admin.get(reverse('admin_pesanan_pembelian'))
         self.assertContains(page, self.pesanan.nomor_pesanan)
         self.assertContains(page, 'Budi Santoso')
@@ -981,6 +991,9 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(payment.status, 'terverifikasi')
         self.assertEqual(self.pesanan.status, 'booking_aktif')
         self.assertEqual(self.produk.status_stok, 'in_review')
+        dashboard = admin.get(reverse('dashboard_admin'))
+        self.assertEqual(dashboard.context['transaksi_berhasil'], 1)
+        self.assertEqual(dashboard.context['transaksi_pending'], 0)
 
     @mock.patch('urllib.request.urlopen', side_effect=URLError('network unavailable'))
     def test_get_status_error_dilaporkan_tanpa_mengubah_status_pesanan(self, mock_urlopen):

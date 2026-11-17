@@ -1,7 +1,7 @@
 {% extends 'dashboard/admin/base_admin.html' %}
 {% load humanize %}
 
-{% block title %}Kelola Booking Cek Unit{% endblock %}
+{% block title %}Kelola Jadwal Cek Unit{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -115,14 +115,25 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-1 small text-muted">
                 <li class="breadcrumb-item"><a href="{% url 'dashboard_admin' %}" class="text-decoration-none text-muted">Panel Admin</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Booking Cek Unit</li>
+                <li class="breadcrumb-item active" aria-current="page">Jadwal Cek Unit</li>
             </ol>
         </nav>
         <h3 class="fw-bold text-dark mb-1">
-            <i class="fa-solid fa-calendar-check text-success me-2"></i> Kelola Booking Cek Unit (O2O)
+            <i class="fa-solid fa-calendar-check text-success me-2"></i> Kelola Jadwal Cek Unit (O2O)
         </h3>
         <p class="text-muted small mb-0">Pantau jadwal inspeksi offline garasi Makassar, delivery towing, dan kelola status jadwal pelanggan.</p>
     </div>
+</div>
+
+<div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+        <strong>Booking kendaraan dari checkout:</strong>
+        tersimpan di Transaksi &amp; DP, terpisah dari jadwal cek unit ini.
+        Saat ini ada <strong>{{ jumlah_booking_kendaraan }}</strong> pesanan booking kendaraan.
+    </div>
+    <a href="{% url 'admin_pesanan_pembelian' %}?jenis=booking" class="btn btn-primary btn-sm rounded-pill px-3">
+        <i class="fa-solid fa-receipt me-1"></i> Lihat Booking Kendaraan
+    </a>
 </div>
 
 <!-- Tab Filter Status Cepat -->

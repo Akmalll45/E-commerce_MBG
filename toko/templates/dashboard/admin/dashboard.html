@@ -288,7 +288,7 @@
                         {% endif %}
                     </a>
                     <a class="admin-side-item" href="{% url 'admin_pesanan_pembelian' %}">
-                        <span><i class="fa-solid fa-car-side text-primary"></i> Pesanan Pembelian</span>
+                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi &amp; DP</span>
                         {% if pembayaran_pesanan_menunggu_verifikasi > 0 %}
                             <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
                         {% endif %}
@@ -309,10 +309,6 @@
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'penjualan' %}">Penjualan &amp; Penyelesaian</a>
                     </div>
                     {% endif %}
-                    <a class="admin-side-item" href="/admin/toko/transaksi/" target="_blank">
-                        <span><i class="fa-solid fa-receipt text-warning"></i> Transaksi & DP</span>
-                        <span class="badge bg-secondary rounded-pill small">{{ total_transaksi }}</span>
-                    </a>
                     <a class="admin-side-item" href="/admin/toko/customuser/" target="_blank">
                         <span><i class="fa-solid fa-users text-secondary"></i> Data Pengguna</span>
                         <span class="badge bg-light text-dark border rounded-pill small">{{ total_pengguna }}</span>
@@ -441,10 +437,10 @@
                         <div class="kpi-card">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fa-solid fa-receipt"></i></div>
-                                <span class="badge bg-danger bg-opacity-10 text-danger small">Transaksi DP</span>
+                                <span class="badge bg-danger bg-opacity-10 text-danger small">Pesanan</span>
                             </div>
                             <div class="kpi-val">{{ total_transaksi }}</div>
-                            <div class="kpi-sub mt-1">Berhasil: <strong class="text-success">{{ transaksi_berhasil }}</strong> | Menunggu: <strong class="text-warning">{{ transaksi_pending }}</strong></div>
+                            <div class="kpi-sub mt-1">Pembayaran terverifikasi: <strong class="text-success">{{ transaksi_berhasil }}</strong> | Pesanan menunggu: <strong class="text-warning">{{ transaksi_pending }}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -635,7 +631,7 @@
                         <div class="content-card">
                             <div class="card-header-clean">
                                 <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-receipt text-danger me-2"></i> Transaksi & DP Terbaru</h5>
-                                <a href="/admin/toko/transaksi/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill">Kelola</a>
+                                <a href="{% url 'admin_pesanan_pembelian' %}" class="btn btn-sm btn-outline-secondary rounded-pill">Kelola</a>
                             </div>
 
                             {% if recent_transaksi %}
@@ -643,9 +639,9 @@
                                     <table class="table table-hover align-middle mb-0 small">
                                         <thead class="table-light text-uppercase">
                                             <tr>
-                                                <th>No. Order</th>
-                                                <th>Mobil</th>
-                                                <th>Nominal DP</th>
+                                                <th>No. Pesanan</th>
+                                                <th>Pelanggan / Mobil</th>
+                                                <th>Pembayaran</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -653,19 +649,24 @@
                                             {% for trx in recent_transaksi %}
                                             <tr>
                                                 <td>
-                                                    <div class="fw-bold">{{ trx.no_order }}</div>
+                                                    <a class="fw-bold text-decoration-none" href="{% url 'pesanan_detail' trx.nomor_pesanan %}" target="_blank" rel="noopener">{{ trx.nomor_pesanan }}</a>
                                                     <small class="text-muted">{{ trx.created_at|date:"d M Y" }}</small>
                                                 </td>
-                                                <td>{{ trx.booking.produk.nama }}</td>
-                                                <td class="fw-bold text-success">Rp {{ trx.nominal_dp|intcomma }}</td>
                                                 <td>
-                                                    {% if trx.status_pembayaran == 'berhasil' %}
-                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5 rounded-pill">Berhasil</span>
-                                                    {% elif trx.status_pembayaran == 'pending' %}
-                                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-0.5 rounded-pill">Pending</span>
+                                                    <div>{{ trx.nama_pelanggan }}</div>
+                                                    <div class="text-muted">{{ trx.nama_kendaraan }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-bold text-success">Terverifikasi Rp {{ trx.total_terverifikasi|intcomma }}</div>
+                                                    <div class="text-muted">Tagihan berikutnya Rp {{ trx.nominal_pembayaran_berikutnya|intcomma }}</div>
+                                                    {% if trx.pembayaran_terakhir %}
+                                                        <span class="badge {% if trx.pembayaran_terakhir.status == 'terverifikasi' %}bg-success{% elif trx.pembayaran_terakhir.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ trx.pembayaran_terakhir.get_status_display }}</span>
                                                     {% else %}
-                                                        <span class="badge bg-danger px-2 py-0.5 rounded-pill">{{ trx.get_status_pembayaran_display }}</span>
+                                                        <span class="text-muted">Belum ada pembayaran</span>
                                                     {% endif %}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-light text-dark border">{{ trx.get_status_display }}</span>
                                                 </td>
                                             </tr>
                                             {% endfor %}
@@ -674,7 +675,7 @@
                                 </div>
                             {% else %}
                                 <div class="text-center py-4 text-muted small">
-                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada transaksi tercatat.
+                                    <i class="fa-solid fa-inbox fs-3 mb-2 d-block"></i> Belum ada pesanan pembelian tercatat.
                                 </div>
                             {% endif %}
                         </div>
