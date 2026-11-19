@@ -76,6 +76,7 @@
                                 · {{ pembayaran.get_saluran_display }}
                                 <span class="badge {% if pembayaran.status == 'terverifikasi' %}bg-success{% elif pembayaran.status == 'menunggu_verifikasi' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ pembayaran.get_status_display }}</span>
                                 {% if pembayaran.nomor_referensi %}<div class="text-muted">Ref: {{ pembayaran.nomor_referensi }}</div>{% endif %}
+                                {% if pembayaran.bukti_transfer %}<a class="d-block" href="{% url 'bukti_transfer_pesanan_lihat' pembayaran.id %}" target="_blank" rel="noopener">Lihat bukti transfer</a>{% endif %}
                             </div>
                             {% empty %}
                             <span class="small text-muted">Belum ada pembayaran tercatat</span>

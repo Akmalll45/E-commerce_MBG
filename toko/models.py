@@ -212,6 +212,12 @@ def serah_terima_titipjual_path(instance, filename):
     return f'titip_jual/serah_terima/{instance.titip_jual_id or "baru"}/{uuid.uuid4().hex}{ekstensi}'
 
 
+def bukti_transfer_pesanan_path(instance, filename):
+    """Simpan bukti transfer di penyimpanan privat dengan nama acak."""
+    ekstensi = os.path.splitext(filename)[1].lower()
+    return f'pembayaran_pesanan/{uuid.uuid4().hex}{ekstensi}'
+
+
 class TitipJual(models.Model):
     # ── Status pengajuan & aturan transisi yang diizinkan ──────────
     STATUS_PENGAJUAN = [
@@ -1667,7 +1673,7 @@ class PesananPembelian(models.Model):
     )
     booking_berakhir_pada = models.DateTimeField(
         null=True, blank=True, verbose_name="Masa Booking Berakhir",
-        help_text="Diisi sekali saat Booking Fee diverifikasi (23.59 WITA); tidak dapat diperpanjang.",
+        help_text="Diisi sekali saat Booking Fee disahkan (23.59 WITA); tidak dapat diperpanjang.",
     )
 
     # Midtrans Snap Sandbox (Sprint 3)
@@ -1811,8 +1817,9 @@ class PesananPembelian(models.Model):
     ):
         """
         Buat pesanan dengan snapshot harga, jenis pembelian, dan Booking Fee yang berlaku.
-        Unit belum dikunci di sini: Booking dikunci setelah Booking Fee diverifikasi admin,
-        Cash setelah pembayaran penuh tervalidasi, dan Kredit setelah DP diverifikasi admin.
+        Unit belum dikunci di sini: Booking dikunci setelah Booking Fee Midtrans tervalidasi
+        atau transfernya disetujui admin, Cash setelah pembayaran penuh tervalidasi, dan
+        Kredit setelah DP diverifikasi admin.
         Hanya unit stok MBG (B2C) berstatus ready; unit C2C tetap memakai alur titip-jual.
 
         Satu kendaraan hanya boleh punya satu pesanan aktif. Karena unit masih 'ready' selama
@@ -1868,7 +1875,7 @@ class PesananPembelian(models.Model):
     # ── Ringkasan pembayaran ──────────────────────────────────────
 
     def total_terverifikasi(self):
-        """Total Booking Fee, DP, angsuran, dan pelunasan yang sudah diverifikasi admin."""
+        """Total Booking Fee, DP, angsuran, dan pelunasan yang sudah terverifikasi."""
         total = self.pembayaran.filter(status='terverifikasi').aggregate(
             total=models.Sum('nominal'),
         )['total']
@@ -2136,6 +2143,12 @@ class PembayaranPesanan(models.Model):
     nomor_referensi = models.CharField(
         max_length=100, blank=True, verbose_name="Nomor Referensi",
         help_text="Nomor referensi transfer/QRIS/VA dari pelanggan.",
+    )
+    bukti_transfer = models.FileField(
+        upload_to=bukti_transfer_pesanan_path,
+        storage=PrivateTitipJualStorage(),
+        blank=True,
+        verbose_name="Bukti Transfer",
     )
     tanggal_bayar = models.DateTimeField(null=True, blank=True, verbose_name="Waktu Pembayaran")
     status = models.CharField(

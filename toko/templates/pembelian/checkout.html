@@ -328,7 +328,7 @@
                         </div>
                         <p class="text-muted small mb-3">
                             {% if jenis_pembelian == 'booking' %}
-                                Pilih kanal pembayaran Booking Fee. Pembayaran tetap perlu diverifikasi admin sebelum unit dikunci.
+                                Pilih kanal Booking Fee. Midtrans mengunci unit otomatis setelah pembayaran terkonfirmasi; transfer menunggu persetujuan admin.
                             {% else %}
                                 Pilih kanal pembayaran harga penuh. Midtrans dikonfirmasi otomatis; transfer bank diverifikasi admin.
                             {% endif %}
@@ -476,7 +476,7 @@
                                 {% if form.saluran_pembayaran.value == 'transfer' %}
                                     Booking Fee menjadi bagian harga kendaraan. Transfer dikonfirmasi setelah admin memeriksa nomor referensi.
                                 {% else %}
-                                    Booking Fee menjadi bagian harga kendaraan. Pembayaran diproses melalui Midtrans dan tetap menunggu verifikasi admin.
+                                    Booking Fee menjadi bagian harga kendaraan. Pembayaran Midtrans yang terkonfirmasi otomatis mengunci unit.
                                 {% endif %}
                             </div>
                         </div>
@@ -484,7 +484,7 @@
                             <div class="d-flex gap-2">
                                 <i class="fa-solid fa-shield-halved text-primary mt-1"></i>
                                 <div class="small text-secondary">
-                                    <strong>Ketentuan Garasi MBG:</strong> Booking Fee adalah bagian harga kendaraan dan mengurangi sisa tagihan. Unit dikunci setelah Booking Fee terverifikasi admin.
+                                    <strong>Ketentuan Garasi MBG:</strong> Booking Fee adalah bagian harga kendaraan dan mengurangi sisa tagihan. Midtrans mengunci unit setelah pembayaran terkonfirmasi; transfer bank setelah disetujui admin.
                                 </div>
                             </div>
                         </div>

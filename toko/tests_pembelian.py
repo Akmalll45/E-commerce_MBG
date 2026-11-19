@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, models, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
@@ -27,6 +28,10 @@ _urutan = itertools.count(1)
 
 def wita(tahun, bulan, hari, jam=0, menit=0, detik=0, mikro=0):
     return datetime(tahun, bulan, hari, jam, menit, detik, mikro, tzinfo=WITA)
+
+
+def bukti_transfer_pdf():
+    return SimpleUploadedFile('bukti.pdf', b'%PDF-1.4\nbukti transfer', content_type='application/pdf')
 
 
 def buat_produk(**kw):
@@ -69,6 +74,12 @@ class PembelianTestCase(TestCase):
         )
         data.update(kw)
         return PesananPembelian.buat_dari_produk(**data)
+
+    def bersihkan_bukti_transfer(self, pembayaran):
+        self.addCleanup(
+            pembayaran.bukti_transfer.storage.delete,
+            pembayaran.bukti_transfer.name,
+        )
 
     def buat_pesanan_data_lama(self, produk=None, pelanggan=None):
         """
@@ -906,7 +917,11 @@ class KonfirmasiPembayaranFlowTests(PembelianTestCase):
         self.assertContains(response, 'rekening tujuan resmi')
         response = self.client.post(
             reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
-            {'nomor_referensi': 'TRF-12345', 'nominal': '1'},
+            {
+                'nomor_referensi': 'TRF-12345',
+                'nominal': '1',
+                'bukti_transfer': bukti_transfer_pdf(),
+            },
         )
         self.assertRedirects(response, reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
 
@@ -915,6 +930,15 @@ class KonfirmasiPembayaranFlowTests(PembelianTestCase):
         self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
         self.assertEqual(pembayaran.saluran, 'transfer')
         self.assertEqual(pembayaran.nomor_referensi, 'TRF-12345')
+        self.assertTrue(pembayaran.bukti_transfer)
+        self.assertTrue(pembayaran.bukti_transfer.storage.exists(pembayaran.bukti_transfer.name))
+        self.bersihkan_bukti_transfer(pembayaran)
+
+        self.client.force_login(self.staf)
+        self.assertContains(
+            self.client.get(reverse('admin_pesanan_pembelian')),
+            'Lihat bukti transfer',
+        )
 
         pembayaran.verifikasi(self.staf)
         pesanan.refresh_from_db()
@@ -963,12 +987,16 @@ class KonfirmasiPembayaranFlowTests(PembelianTestCase):
 
         response = self.client.post(
             reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
-            {'nomor_referensi': 'TRF-DIRECT-123'},
+            {
+                'nomor_referensi': 'TRF-DIRECT-123',
+                'bukti_transfer': bukti_transfer_pdf(),
+            },
         )
         self.assertRedirects(response, reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
         pembayaran = PembayaranPesanan.objects.get(pesanan=pesanan)
         self.assertEqual(pembayaran.jenis, 'pelunasan')
         self.assertEqual(pembayaran.nominal, pesanan.harga_kendaraan)
+        self.bersihkan_bukti_transfer(pembayaran)
 
         pembayaran.verifikasi(self.staf)
         pesanan.refresh_from_db()
@@ -976,6 +1004,19 @@ class KonfirmasiPembayaranFlowTests(PembelianTestCase):
         self.assertEqual(pesanan.status, 'booking_aktif')
         self.assertEqual(self.produk.status_stok, 'in_review')
         self.assertEqual(pesanan.sisa_pembayaran(), Decimal('0'))
+
+    def test_konfirmasi_transfer_mewajibkan_bukti_sebelum_mencatat_pembayaran(self):
+        self.mulai_checkout()
+        pesanan = self.konfirmasi_pesanan()
+
+        response = self.client.post(
+            reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
+            {'nomor_referensi': 'TRF-TANPA-BUKTI'},
+        )
+
+        self.assertRedirects(response, reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
+        self.assertFalse(PembayaranPesanan.objects.filter(pesanan=pesanan).exists())
+        self.assertEqual(pesanan.produk.status_stok, 'ready')
 
     def test_pemilik_saja_dapat_mengirim_konfirmasi_transfer(self):
         self.mulai_checkout()

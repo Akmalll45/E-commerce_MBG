@@ -370,134 +370,370 @@
             font-size: 1rem;
         }
 
-        /* ── Hero Banner ─────────────────────────── */
+        /* ── Hero Animated & Interactive MBG (Desktop Optimized & 1-Scroll Fold) ──────── */
+        /* Target: Navbar 60px + Hero ≤320px + FilterCard ≤120px = ≤500px → katalog kelihatan */
         .hero {
             position: relative;
-            background: linear-gradient(165deg, #080D1A 0%, #0F1B38 45%, #131B2E 100%);
-            padding: 5.5rem 0 7rem 0;
+            background: #080D1A;
+            padding: 0.65rem 0 1.25rem 0;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            min-height: 0;
         }
-        .hero::before {
-            content: '';
-            position: absolute;
-            width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(37, 99, 235, 0.18) 0%, transparent 70%);
-            top: -15%; right: -5%;
+        @media (max-width: 991.98px) {
+            .hero { padding: 1rem 0 1.5rem 0; }
+        }
+        @media (min-width: 992px) {
+            /* Clamp tinggi hero agar tidak melewati 68vh di layar desktop apapun */
+            .hero { max-height: 68vh; }
+        }
+        .hero-video-container {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            z-index: 0;
             pointer-events: none;
         }
-        .hero::after {
-            content: '';
+        .hero-video-bg {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover; object-position: center;
+            opacity: 0.28;
+            filter: brightness(0.85) contrast(1.15) saturate(1.2);
+            transition: opacity 0.8s ease;
+        }
+        .hero-video-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(8, 13, 26, 0.95) 0%, rgba(8, 13, 26, 0.85) 50%, rgba(15, 27, 56, 0.90) 100%);
+            z-index: 1;
+        }
+        .hero-light-beam {
             position: absolute;
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(56, 189, 248, 0.10) 0%, transparent 70%);
-            bottom: -10%; left: 5%;
+            border-radius: 50%;
+            filter: blur(80px);
             pointer-events: none;
+            z-index: 1;
+            opacity: 0.35;
+            animation: lightBeamPulse 9s ease-in-out infinite alternate;
+        }
+        .hero-light-beam-left {
+            width: 420px; height: 420px;
+            top: -15%; left: -8%;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.45) 0%, transparent 70%);
+        }
+        .hero-light-beam-right {
+            width: 380px; height: 380px;
+            bottom: -15%; right: -4%;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.30) 0%, transparent 70%);
+            animation-delay: 4.5s;
+        }
+        @keyframes lightBeamPulse {
+            0% { transform: scale(0.9) translate(0, 0); opacity: 0.25; }
+            50% { transform: scale(1.12) translate(20px, -15px); opacity: 0.40; }
+            100% { transform: scale(1) translate(-15px, 15px); opacity: 0.28; }
         }
         .hero-grid-overlay {
             position: absolute; inset: 0;
             background-image:
                 linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 60px 60px;
+            background-size: 50px 50px;
             pointer-events: none;
+            z-index: 1;
         }
         .hero-bottom-fade {
-            position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+            position: absolute; bottom: 0; left: 0; right: 0; height: 60px;
             background: linear-gradient(to top, var(--mbg-surface), transparent);
             pointer-events: none;
+            z-index: 2;
         }
-        .hero-promo-pill {
-            display: inline-flex; align-items: center; gap: .5rem;
-            background: rgba(245, 158, 11, 0.12);
-            border: 1px solid rgba(245, 158, 11, 0.30);
-            color: var(--mbg-gold-light);
-            padding: .45rem 1.1rem;
+        .hero-status-pill {
+            display: inline-flex; align-items: center; gap: .45rem;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.30);
+            color: #34D399;
+            padding: .25rem .8rem;
             border-radius: 999px;
-            font-size: .82rem; font-weight: 700;
+            font-size: .74rem; font-weight: 700;
             letter-spacing: .01em;
-            animation: pulse-glow 3s ease-in-out infinite;
+            backdrop-filter: blur(8px);
         }
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.15); }
-            50%      { box-shadow: 0 0 24px 4px rgba(245, 158, 11, 0.10); }
+        .live-dot-beacon {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #10B981;
+            display: inline-block;
+            position: relative;
+        }
+        .live-dot-beacon::after {
+            content: '';
+            position: absolute; inset: -3px;
+            border-radius: 50%;
+            border: 1.5px solid #10B981;
+            animation: radarPing 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+        }
+        @keyframes radarPing {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.4); opacity: 0; }
         }
         .hero-title {
-            font-size: clamp(2.1rem, 4.5vw, 3.5rem);
-            font-weight: 900; line-height: 1.12;
+            font-size: clamp(1.4rem, 2.1vw, 1.9rem);
+            font-weight: 900; line-height: 1.14;
             color: #FFFFFF;
         }
-        .hero-title .gradient-text {
-            background: linear-gradient(135deg, #60A5FA 0%, var(--mbg-sky) 50%, #34D399 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        .gradient-text-animated {
+            background: linear-gradient(135deg, #60A5FA 0%, #38BDF8 35%, #34D399 70%, #F59E0B 100%);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: gradientShift 7s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
         .hero-subtitle {
-            font-size: 1.08rem; line-height: 1.7;
-            color: #94A3B8; max-width: 580px;
+            font-size: 0.82rem; line-height: 1.48;
+            color: #94A3B8; max-width: 480px;
+        }
+        .hero-btn-cta {
+            box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.45);
+            font-size: .82rem !important;
+            padding: .45rem 1.2rem !important;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .hero-btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -2px rgba(37, 99, 235, 0.6);
+        }
+        .hero-btn-secondary {
+            border-color: rgba(255, 255, 255, 0.22);
+            backdrop-filter: blur(8px);
+            font-size: .82rem !important;
+            padding: .45rem 1.1rem !important;
+            transition: all 0.25s ease;
+        }
+        .hero-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+        .quick-pill {
+            display: inline-flex; align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            color: #CBD5E1;
+            padding: .25rem .7rem;
+            border-radius: 999px;
+            font-size: .72rem; font-weight: 600;
+            text-decoration: none !important;
+            transition: all .2s ease;
+        }
+        .quick-pill:hover {
+            background: rgba(37, 99, 235, 0.22);
+            border-color: var(--mbg-blue);
+            color: #fff;
+            transform: translateY(-1px);
         }
         .trust-chip {
-            display: inline-flex; align-items: center; gap: .4rem;
-            background: rgba(255, 255, 255, 0.06);
+            display: inline-flex; align-items: center; gap: .3rem;
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            padding: .45rem .9rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: .2rem .6rem;
             border-radius: var(--radius-md);
-            font-size: .78rem; font-weight: 500; color: #CBD5E1;
+            font-size: .70rem; font-weight: 500; color: #CBD5E1;
             transition: all .2s ease;
         }
         .trust-chip:hover {
-            background: rgba(255, 255, 255, 0.10);
-            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.16);
         }
-        .hero-inspect-card {
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            border-radius: var(--radius-xl);
-            padding: 1.75rem;
+
+        /* ── Card Mobil Interaktif 3D & Hotspot (Gagah & Luas di Desktop) ───── */
+        .car-interactive-card {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5), 0 0 24px rgba(37, 99, 235, 0.12);
+            overflow: hidden;
+            max-width: 560px;
+            width: 100%;
+            margin: 0 auto;
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+            transform-style: preserve-3d;
+        }
+        .car-interactive-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 50px -8px rgba(0, 0, 0, 0.6), 0 0 35px rgba(37, 99, 235, 0.20);
+        }
+        .status-indicator-live {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #10B981;
+            box-shadow: 0 0 8px #10B981;
+            animation: pulseDot 1.8s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+        .car-stage-wrapper {
+            position: relative;
+            min-height: 165px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.4rem 0.5rem 0.6rem;
+            background: radial-gradient(ellipse at center 65%, rgba(37, 99, 235, 0.22) 0%, transparent 70%);
+        }
+        .car-showcase-img {
+            max-height: 165px;
+            width: auto;
+            max-width: 96%;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.70));
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: floatCar 5s ease-in-out infinite;
+        }
+        @keyframes floatCar {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .car-interactive-card:hover .car-showcase-img {
+            transform: scale(1.03) translateY(-2px);
+        }
+        .car-shadow-ground {
+            position: absolute;
+            bottom: 8px; left: 10%; right: 10%;
+            height: 16px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse, rgba(0, 0, 0, 0.75) 0%, transparent 75%);
+            filter: blur(5px);
+            pointer-events: none;
+        }
+
+        /* Hotspot Pins (Diposisikan Presisi di Bodi Palisade Transparan) */
+        .hotspot-pin {
+            position: absolute;
+            z-index: 10;
+        }
+        .hotspot-engine  { top: 38%; left: 18%; }
+        .hotspot-chasis  { bottom: 14%; left: 28%; }
+        .hotspot-odometer{ top: 25%; left: 45%; }
+        .hotspot-docs    { top: 30%; right: 14%; }
+
+        .hotspot-btn {
+            position: relative;
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--mbg-blue), #1D4ED8);
+            border: 1.5px solid #fff;
+            color: #fff;
+            display: inline-grid;
+            place-items: center;
+            font-size: .65rem;
+            box-shadow: 0 3px 10px rgba(37, 99, 235, 0.5);
+            cursor: pointer;
+            transition: transform .2s ease, background .2s ease;
+            padding: 0;
+        }
+        .hotspot-btn:hover {
+            transform: scale(1.2);
+            background: linear-gradient(135deg, #38BDF8, var(--mbg-blue));
+        }
+        .hotspot-ring {
+            position: absolute; inset: -4px;
+            border-radius: 50%;
+            border: 1.5px solid #38BDF8;
+            animation: hotspotPulse 2.2s cubic-bezier(0.1, 0.8, 0.2, 1) infinite;
+            pointer-events: none;
+        }
+        @keyframes hotspotPulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .hotspot-tag {
+            position: absolute;
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 0.62rem;
+            font-weight: 700;
             color: #E2E8F0;
+            background: rgba(8, 13, 26, 0.90);
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: none;
+            opacity: 0.9;
         }
-        .hero-inspect-card .check-item {
-            display: flex; align-items: center; gap: .55rem;
-            padding: .35rem 0; font-size: .85rem; color: #CBD5E1;
-        }
-        .hero-inspect-card .check-item i { color: var(--mbg-emerald); font-size: .8rem; }
 
-        /* ── Hero Slider (slide dikelola dari panel admin) ── */
-        .hero-bg-stack { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-        .hero-bg-layer {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; object-position: center;
-            opacity: 0; transition: opacity .8s ease;
+        /* Stat Boxes di Footer Card - Explicit Dark Glass styling */
+        .card-stat-box {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 8px;
+            padding: 0.25rem 0.2rem;
+            transition: background 0.2s ease;
         }
-        .hero-bg-layer.active { opacity: 1; }
-        .hero-bg-scrim {
-            position: absolute; inset: 0;
-            background: linear-gradient(90deg, rgba(8,13,26,.93) 0%, rgba(8,13,26,.80) 45%, rgba(8,13,26,.55) 100%);
+        .card-stat-box:hover {
+            background: rgba(255, 255, 255, 0.10) !important;
         }
-        /* Semua slide ditumpuk di satu sel grid supaya tinggi area = slide tertinggi (tidak melompat). */
-        .hero-slider .carousel-inner { display: grid; overflow: visible; }
-        .hero-slider .carousel-inner::after { display: none; }
-        .hero-slider .carousel-item {
-            display: block; grid-area: 1 / 1; float: none; margin-right: 0;
-            visibility: hidden;
+        .card-stat-num {
+            font-size: 0.82rem;
+            font-weight: 800;
+            line-height: 1.2;
         }
-        .hero-slider .carousel-item.active,
-        .hero-slider .carousel-item-next,
-        .hero-slider .carousel-item-prev { visibility: visible; }
-        .hero-slider .carousel-indicators {
-            position: static; justify-content: center; margin: 0 0 1.5rem; padding: 0;
+        .card-stat-lbl {
+            font-size: 0.60rem;
+            color: #94A3B8;
+            margin-top: 1px;
         }
-        @media (min-width: 992px) { .hero-slider .carousel-indicators { justify-content: flex-start; } }
-        .hero-slider .carousel-indicators [data-bs-target] { width: 32px; margin-left: 0; margin-right: 6px; }
+
+        /* Video Controls */
+        .hero-video-controls {
+            position: absolute;
+            bottom: 14px; right: 20px;
+            z-index: 25;
+        }
+        .hero-btn-video-ctrl {
+            background: rgba(15, 23, 42, 0.70);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #CBD5E1;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .35rem .8rem;
+            border-radius: 999px;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all .2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+        }
+        .hero-btn-video-ctrl:hover {
+            background: rgba(37, 99, 235, 0.75);
+            border-color: var(--mbg-blue);
+            color: #fff;
+        }
         @media (prefers-reduced-motion: reduce) {
-            .hero-bg-layer, .hero-slider .carousel-item { transition: none !important; }
+            .hero-video-bg { display: none !important; }
+            .gradient-text-animated { animation: none !important; }
+            .car-showcase-img { animation: none !important; }
+            .hero-light-beam { animation: none !important; }
+            .hotspot-ring { animation: none !important; }
         }
 
-        /* ── Glassmorphism Filter Bar ─────────────── */
+        /* ── Glassmorphism Filter Bar (Compact & Sleek) ─────────────── */
         .filter-float {
-            margin-top: -3.5rem;
+            margin-top: -1rem;
             position: relative; z-index: 30;
         }
         .glass-card {
@@ -507,25 +743,26 @@
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-xl);
             box-shadow: var(--shadow-glass);
-            padding: 1.85rem;
+            padding: 0.75rem 1.25rem;
         }
         .filter-heading {
-            font-size: 1.05rem; font-weight: 800;
+            font-size: 0.90rem; font-weight: 800;
             color: var(--mbg-navy);
         }
         .filter-label {
-            font-size: .72rem; font-weight: 700;
+            font-size: .66rem; font-weight: 700;
             text-transform: uppercase; letter-spacing: .06em;
-            color: #64748B; margin-bottom: .3rem;
+            color: #64748B; margin-bottom: .2rem;
         }
         .form-control, .form-select {
             border-radius: var(--radius-md);
             border: 1.5px solid #E2E8F0;
-            padding: .62rem .9rem;
-            font-size: .88rem; font-weight: 500;
+            padding: .32rem .75rem;
+            font-size: .80rem; font-weight: 500;
             color: #1E293B;
             background-color: rgba(255, 255, 255, 0.85);
             transition: all .2s ease;
+            height: 34px;
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--mbg-blue);
@@ -1255,130 +1492,157 @@
         </div>
     {% endif %}
 
-    <header class="hero">
-        {% if hero_slides %}
-        <!-- Latar slide: satu lapisan per slide, disinkronkan oleh JS di bawah -->
-        <div class="hero-bg-stack" aria-hidden="true">
-            {% for slide in hero_slides %}
-            {% if slide.gambar %}<img src="{{ slide.gambar.url }}" alt="" class="hero-bg-layer{% if forloop.first %} active{% endif %}" decoding="async"{% if forloop.first %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>{% else %}<div class="hero-bg-layer{% if forloop.first %} active{% endif %}"></div>{% endif %}
-            {% endfor %}
-            <div class="hero-bg-scrim"></div>
+    <!-- ╔══════════════════════════════════════════╗
+         ║  3. HERO SECTION DENGAN VIDEO & ANIMASI   ║
+         ╚══════════════════════════════════════════╝ -->
+    <header class="hero position-relative">
+        <!-- Background Video & Moving Ambient Lights -->
+        <div class="hero-video-container" aria-hidden="true">
+            <video id="heroAutomotiveVideo" class="hero-video-bg" autoplay muted loop playsinline preload="auto" poster="/media/mobil/Silver_Toyota_Avanza_in_an_Outdoor_Lot.png">
+                <source src="https://assets.mixkit.co/videos/preview/mixkit-car-driving-on-a-highway-at-night-42861-large.mp4" type="video/mp4">
+                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
+            </video>
+            <div class="hero-video-overlay"></div>
+            <div class="hero-light-beam hero-light-beam-left"></div>
+            <div class="hero-light-beam hero-light-beam-right"></div>
+            <div class="hero-grid-overlay"></div>
         </div>
-        {% endif %}
-        <div class="hero-grid-overlay"></div>
         <div class="hero-bottom-fade"></div>
 
         <div class="container position-relative" style="z-index: 2;">
-            <div class="row align-items-center gy-5">
-                <!-- Left Column -->
-                <div class="col-lg-7 text-center text-lg-start" data-aos="fade-right" data-aos-duration="700">
-                    {% if hero_slides %}
-                    <!-- Hero Slider: isi dikelola dari panel admin (Hero Slide) -->
-                    <div id="heroSlider" class="carousel slide carousel-fade hero-slider" aria-roledescription="carousel" aria-label="Promo dan informasi utama MBG">
-                        <div class="carousel-inner">
-                            {% for slide in hero_slides %}
-                            <div class="carousel-item{% if forloop.first %} active{% endif %}" role="group" aria-roledescription="slide" aria-label="Slide {{ forloop.counter }} dari {{ hero_slides|length }}">
-                                {% if slide.label_promo %}
-                                <div class="mb-3">
-                                    <span class="hero-promo-pill">
-                                        <i class="fa-solid fa-bolt text-warning"></i>
-                                        <span>{{ slide.label_promo }}</span>
-                                    </span>
-                                </div>
-                                {% endif %}
-
-                                <{% if forloop.first %}h1{% else %}div{% endif %} class="hero-title mb-3">
-                                    {{ slide.judul }}{% if slide.judul_sorot %}<br>
-                                    <span class="gradient-text">{{ slide.judul_sorot }}</span>{% endif %}
-                                </{% if forloop.first %}h1{% else %}div{% endif %}>
-
-                                {% if slide.deskripsi %}
-                                <p class="hero-subtitle mb-4 mx-auto mx-lg-0">{{ slide.deskripsi|linebreaksbr }}</p>
-                                {% endif %}
-
-                                {% if slide.teks_tombol and slide.link_tombol %}
-                                <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start mb-4">
-                                    <a href="{{ slide.link_tombol }}"{% if slide.link_tombol|slice:":4" == "http" %} target="_blank" rel="noopener"{% endif %} class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
-                                        {{ slide.teks_tombol }} <i class="fa-solid fa-arrow-right"></i>
-                                    </a>
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
+            <div class="row align-items-center gy-2 gy-lg-0">
+                <!-- Left Column: Headline & CTA (50% Desktop) -->
+                <div class="col-lg-6 text-center text-lg-start pe-lg-3" data-aos="fade-right" data-aos-duration="600">
+                    <!-- Live Showroom Status Pill -->
+                    <div class="mb-1">
+                        <div class="hero-status-pill">
+                            <span class="live-dot-beacon"></span>
+                            <span>Showroom Pettarani Makassar • <strong class="text-white">Buka s/d 18.00 WITA</strong></span>
                         </div>
-
-                        {% if hero_slides|length > 1 %}
-                        <div class="carousel-indicators">
-                            {% for slide in hero_slides %}
-                            <button type="button" data-bs-target="#heroSlider" data-bs-slide-to="{{ forloop.counter0 }}"{% if forloop.first %} class="active" aria-current="true"{% endif %} aria-label="Slide {{ forloop.counter }}"></button>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    <!-- Promo Tag Sulsel -->
-                    <div class="mb-3">
-                        <span class="hero-promo-pill">
-                            <i class="fa-solid fa-bolt text-warning"></i>
-                            <span>PROMO MAKASSAR — Subsidi DP s/d Rp 15 Juta khusus KTP Sulsel!</span>
-                        </span>
                     </div>
 
-                    <h1 class="hero-title mb-3">
+                    <!-- Main Animated Title (Gagah & Proporsional) -->
+                    <h1 class="hero-title mb-1">
                         Mobil Bekas Pilihan,<br>
-                        <span class="gradient-text">Informasi Unit Transparan</span><br>
+                        <span class="gradient-text-animated">100% Transparan &amp; Bergaransi</span><br>
                         Cek Langsung di Makassar
                     </h1>
 
-                    <p class="hero-subtitle mb-4 mx-auto mx-lg-0">
-                        Platform <strong style="color:#E2E8F0;">Online-to-Offline (O2O)</strong> terpercaya di Makassar. Telusuri katalog, pilih unit idaman, lalu <em>Booking Cek Unit &amp; Test Drive</em> langsung di Showroom Garasi kami tanpa biaya siluman.
+                    <!-- Subtitle ringkas -->
+                    <p class="hero-subtitle mb-2 mx-auto mx-lg-0">
+                        Platform O2O terpercaya di Makassar. Setiap unit lolos <strong>150 titik inspeksi ketat</strong>, bebas tabrak/banjir, odometer asli, serta <strong>Garansi 5 Hari Uang Kembali</strong>. Siap test drive di showroom kami!
                     </p>
 
-                    <!-- CTA -->
-                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start mb-4">
-                        <a href="{% url 'katalog' %}" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold shadow d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
-                            <i class="fa-solid fa-magnifying-glass"></i> Jelajahi Unit Tersedia
+                    <!-- Main Action Buttons (1-Scroll to Catalog) -->
+                    <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center justify-content-lg-start mb-2">
+                        <a href="#mobil-pilihan" class="btn btn-primary rounded-pill fw-bold shadow hero-btn-cta d-inline-flex align-items-center justify-content-center gap-2">
+                            <i class="fa-solid fa-car-side"></i> Jelajahi {{ total_unit_tayang }} Unit Tersedia
                         </a>
-                        <a href="#titip-jual" class="btn btn-outline-light btn-lg rounded-pill px-4 fw-semibold d-inline-flex align-items-center justify-content-center gap-2" style="font-size:.95rem;">
-                            <i class="fa-solid fa-gauge-high"></i> Titip Jual Cepat
+                        <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit%20dan%20test%20drive" target="_blank" rel="noopener" class="btn btn-outline-light rounded-pill fw-semibold hero-btn-secondary d-inline-flex align-items-center justify-content-center gap-2">
+                            <i class="fa-solid fa-calendar-check text-warning"></i> Booking Cek Unit &amp; Test Drive
                         </a>
                     </div>
-                    {% endif %}
 
-                    <!-- Trust Chips -->
-                    <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
-                        <div class="trust-chip"><i class="fa-solid fa-shield-halved text-success"></i> Informasi kondisi unit</div>
-                        <div class="trust-chip"><i class="fa-solid fa-calendar-check text-info"></i> Booking cek unit</div>
-                        <div class="trust-chip"><i class="fa-solid fa-store text-warning"></i> Showroom Makassar</div>
-                        <div class="trust-chip"><i class="fa-solid fa-rotate-left text-success"></i> Garansi 5 Hari</div>
+                    <!-- Trust Chips (1 Baris Rapi) -->
+                    <div class="d-flex flex-wrap gap-1 justify-content-center justify-content-lg-start align-items-center">
+                        <div class="trust-chip"><i class="fa-solid fa-clipboard-check text-success"></i> 150+ Titik Inspeksi</div>
+                        <div class="trust-chip"><i class="fa-solid fa-rotate-left text-info"></i> Garansi 5 Hari</div>
+                        <div class="trust-chip"><i class="fa-solid fa-file-shield text-warning"></i> BPKB Sah</div>
+                        <div class="trust-chip"><i class="fa-solid fa-money-bill-wave text-success"></i> Harga OTR Bebas Siluman</div>
                     </div>
                 </div>
 
-                <!-- Right Column — Vehicle Info Card -->
-                <div class="col-lg-5 d-none d-lg-block" data-aos="fade-left" data-aos-duration="700" data-aos-delay="150">
-                    <div class="hero-inspect-card">
-                        <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.08);">
-                            <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--mbg-emerald),#059669);display:grid;place-items:center;">
-                                <i class="fa-solid fa-clipboard-check text-white fs-5"></i>
+                <!-- Right Column: Interactive 3D Showcase Card with Inspection Hotspots (Luas & Gagah di Desktop) -->
+                <div class="col-lg-6" data-aos="fade-left" data-aos-duration="650" data-aos-delay="100">
+                    <div class="car-interactive-card position-relative" id="carInteractiveCard">
+                        <!-- Top status bar -->
+                        <div class="d-flex align-items-center justify-content-between px-3 py-1 border-bottom border-light border-opacity-10 bg-dark bg-opacity-40">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="status-indicator-live"></span>
+                                <span class="fw-bold text-white text-uppercase" style="letter-spacing: .05em; font-size: 0.72rem;">Showroom Live Inspection</span>
                             </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold text-white" style="font-size:.95rem;">Informasi Kendaraan</h6>
-                                <small style="color:#64748B;">Detail sebelum Anda booking</small>
+                            <span class="badge rounded-pill fw-semibold px-2 py-1" style="background: rgba(16,185,129,0.15); color: #34D399; border: 1px solid rgba(16,185,129,0.3); font-size: 0.68rem;">
+                                <i class="fa-solid fa-check-circle me-1"></i> Terverifikasi MBG
+                            </span>
+                        </div>
+
+                        <!-- Stage with Car Visual & Interactive Hotspots -->
+                        <div class="car-stage-wrapper position-relative text-center">
+                            <div class="car-shadow-ground"></div>
+
+                            <img src="/media/mobil/mobil_palisade.png" alt="Showcase Mobil MBG" class="img-fluid car-showcase-img" id="showcaseCarImg" onerror="this.src='/media/mobil/Silver_Toyota_Avanza_in_an_Outdoor_Lot.png'">
+
+                            <!-- Hotspot 1: Mesin & Transmisi -->
+                            <div class="hotspot-pin hotspot-engine">
+                                <button type="button" class="hotspot-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Mesin &amp; Transmisi Kering: Telah diuji kompresi, bebas rembes oli, getaran halus &amp; siap jalan jauh." aria-label="Inspeksi Mesin">
+                                    <span class="hotspot-ring"></span>
+                                    <i class="fa-solid fa-gear"></i>
+                                </button>
+                            </div>
+
+                            <!-- Hotspot 2: Rangka & Sasis Bebas Banjir -->
+                            <div class="hotspot-pin hotspot-chasis">
+                                <button type="button" class="hotspot-btn" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Rangka &amp; Kolong Utuh: Struktur sasis bebas benturan fatal &amp; bebas karat korosi air banjir." aria-label="Inspeksi Rangka Sasis">
+                                    <span class="hotspot-ring"></span>
+                                    <i class="fa-solid fa-shield"></i>
+                                </button>
+                            </div>
+
+                            <!-- Hotspot 3: Odometer & Kabin -->
+                            <div class="hotspot-pin hotspot-odometer">
+                                <button type="button" class="hotspot-btn" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Odometer Asli: Rekam servis transparan, kilometer tidak pernah direset/diputar mundur." aria-label="Odometer Asli">
+                                    <span class="hotspot-ring"></span>
+                                    <i class="fa-solid fa-gauge-high"></i>
+                                </button>
+                            </div>
+
+                            <!-- Hotspot 4: Legalitas Dokumen -->
+                            <div class="hotspot-pin hotspot-docs">
+                                <button type="button" class="hotspot-btn" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-title="Legalitas 100% Sah: BPKB, STNK &amp; faktur asli telah diverifikasi di Samsat Makassar." aria-label="Dokumen Sah">
+                                    <span class="hotspot-ring"></span>
+                                    <i class="fa-solid fa-file-circle-check"></i>
+                                </button>
                             </div>
                         </div>
-                        <p class="small mb-3" style="color:#94A3B8;">Tinjau informasi unit dan jadwalkan pengecekan langsung:</p>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Spesifikasi dan foto kendaraan</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Harga dan status stok</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Booking cek unit online</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Test drive di showroom</div>
-                        <div class="check-item"><i class="fa-solid fa-circle-check"></i> Ringkasan inspeksi jika tersedia</div>
 
-                        <div class="mt-3 p-2 text-center rounded-3" style="background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.20);">
-                            <small class="fw-bold" style="color:#93C5FD;"><i class="fa-solid fa-location-dot me-1"></i> Siap Test Drive di Pettarani, Makassar</small>
+                        <!-- Card Stats Bottom Bar (Dark Glass) -->
+                        <div class="px-3 py-2 bg-dark bg-opacity-60 border-top border-light border-opacity-10">
+                            <div class="row g-2 text-center mb-1.5">
+                                <div class="col-4">
+                                    <div class="card-stat-box">
+                                        <div class="card-stat-num text-white">150+</div>
+                                        <div class="card-stat-lbl">Titik Cek</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card-stat-box">
+                                        <div class="card-stat-num text-success">5 Hari</div>
+                                        <div class="card-stat-lbl">Garansi Retur</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card-stat-box">
+                                        <div class="card-stat-num text-info">100%</div>
+                                        <div class="card-stat-lbl">Siap Jalan</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20jadwalkan%20kunjungan%20cek%20unit%20dan%20test%20drive" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info w-100 rounded-pill py-1 fw-semibold d-inline-flex align-items-center justify-content-center gap-2" style="font-size: 0.78rem;">
+                                <i class="fa-solid fa-location-dot text-danger"></i> Cek &amp; Test Drive di Pettarani Hari Ini
+                            </a>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Video Control Toggle (Bottom-Right) -->
+        <div class="hero-video-controls d-none d-md-block">
+            <button type="button" id="btnToggleHeroVideo" class="hero-btn-video-ctrl" aria-label="Jeda atau Putar Video Latar" title="Jeda/Putar Video Latar">
+                <i class="fa-solid fa-pause" id="heroVideoIcon"></i>
+                <span id="heroVideoText">Jeda Video</span>
+            </button>
         </div>
     </header>
 
@@ -1387,22 +1651,22 @@
          ╚══════════════════════════════════════════╝ -->
     <section class="container filter-float" data-aos="fade-up" data-aos-duration="600">
         <div class="glass-card">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-1 gap-1">
                 <div>
                     <h5 class="filter-heading mb-0"><i class="fa-solid fa-sliders text-primary me-2"></i>Cari &amp; Filter Mobil Idaman</h5>
-                    <p class="text-muted small mb-0 mt-1">Temukan mobil keluarga, city car, atau SUV terbaik di Makassar sesuai budget Anda.</p>
+                    <p class="text-muted mb-0" style="font-size:0.76rem;">Temukan mobil keluarga, city car, atau SUV terbaik di Makassar sesuai budget Anda.</p>
                 </div>
-                <span class="badge rounded-pill fw-semibold px-3 py-2" style="background:rgba(37,99,235,0.08);color:var(--mbg-blue);border:1px solid rgba(37,99,235,0.15);font-size:.76rem;">
+                <span class="badge rounded-pill fw-semibold px-2 py-1 d-none d-md-inline-flex" style="background:rgba(37,99,235,0.08);color:var(--mbg-blue);border:1px solid rgba(37,99,235,0.15);font-size:.70rem;">
                     <i class="fa-solid fa-check-double me-1"></i> Harga Transparan OTR Makassar
                 </span>
             </div>
 
             <form method="get" action="{% url 'katalog' %}">
-                <div class="row g-2 g-md-3">
+                <div class="row g-2">
                     <div class="col-12 col-md-4">
                         <label class="filter-label"><i class="fa-solid fa-magnifying-glass me-1"></i> Kata Kunci</label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" style="font-size:.8rem;"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" style="font-size:.75rem;"></i></span>
                             <input type="search" name="q" class="form-control" maxlength="200" placeholder="Ketik Avanza, Innova, HR-V, Fortuner…">
                         </div>
                     </div>
@@ -1448,9 +1712,9 @@
                 </div>
 
                 <!-- Tags + Apply -->
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid rgba(0,0,0,0.06);">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-1 mt-2 pt-2" style="border-top:1px solid rgba(0,0,0,0.06);">
                     <div class="d-flex flex-wrap gap-1 align-items-center">
-                        <span class="small text-muted me-1">Populer:</span>
+                        <span class="text-muted" style="font-size:0.74rem;">Populer:</span>
                         <button type="button" class="chip-tag">MPV 7-Seater</button>
                         <button type="button" class="chip-tag">City Car Irit</button>
                         <button type="button" class="chip-tag">SUV Tangguh</button>
@@ -1471,10 +1735,10 @@
          ║  5. AREA KATALOG PRODUK: "Rekomendasi Mobil Bekas Pilihan"       ║
          ║     (PRODUCT GRID DENGAN LOGIKA DJANGO 100% DIPERTAHANKAN)       ║
          ╚══════════════════════════════════════════════════════════════════╝ -->
-    <main class="container py-5" id="mobil-pilihan">
+    <main class="container pt-1 pb-5" id="mobil-pilihan" style="scroll-margin-top: 85px;">
         
         <!-- Header Katalog -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 pb-3" style="border-bottom:1px solid #E2E8F0;" data-aos="fade-up">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-3 pb-2" style="border-bottom:1px solid #E2E8F0;" data-aos="fade-up">
             <div>
                 <span class="section-label"><i class="fa-solid fa-badge-check"></i> Unit Terverifikasi MBG</span>
                 <h2 class="section-heading mt-1 mb-1">Rekomendasi Mobil Bekas Pilihan</h2>
@@ -1952,22 +2216,64 @@
     <!-- Bootstrap 5 JS Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Hero Slider: sinkronkan gambar latar dengan slide aktif; matikan autoplay bila pengunjung memilih mengurangi animasi -->
+    <!-- Script Hero Animasi & Interaktif MBG -->
     <script>
         (function () {
-            var slider = document.getElementById('heroSlider');
-            var lapisan = document.querySelectorAll('.hero-bg-layer');
-            if (!slider || lapisan.length < 2 || !window.bootstrap) return;
-            var kurangiGerak = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            bootstrap.Carousel.getOrCreateInstance(slider, {
-                interval: kurangiGerak ? false : 6500,
-                ride: kurangiGerak ? false : 'carousel',
-                pause: 'hover',
-                touch: true
+            // 1. Inisialisasi Tooltip Bootstrap untuk Hotspot Inspeksi Mobil (hanya saat hover)
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (el) {
+                new bootstrap.Tooltip(el, { trigger: 'hover' });
             });
-            slider.addEventListener('slide.bs.carousel', function (e) {
-                lapisan.forEach(function (el, i) { el.classList.toggle('active', i === e.to); });
-            });
+
+            // 2. Kontrol Play/Pause Video Background
+            var video = document.getElementById('heroAutomotiveVideo');
+            var btnToggle = document.getElementById('btnToggleHeroVideo');
+            var icon = document.getElementById('heroVideoIcon');
+            var text = document.getElementById('heroVideoText');
+
+            if (video && btnToggle) {
+                // Periksa prefers-reduced-motion
+                var kurangiGerak = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (kurangiGerak) {
+                    video.pause();
+                    if (icon) icon.className = 'fa-solid fa-play';
+                    if (text) text.textContent = 'Putar Video';
+                }
+
+                btnToggle.addEventListener('click', function () {
+                    if (video.paused) {
+                        video.play();
+                        if (icon) icon.className = 'fa-solid fa-pause';
+                        if (text) text.textContent = 'Jeda Video';
+                    } else {
+                        video.pause();
+                        if (icon) icon.className = 'fa-solid fa-play';
+                        if (text) text.textContent = 'Putar Video';
+                    }
+                });
+
+                // Jika video gagal dimuat (mis. offline), sembunyikan tombol kontrol
+                video.addEventListener('error', function () {
+                    btnToggle.style.display = 'none';
+                });
+            }
+
+            // 3. Efek 3D Card Interactive Tilt (desktop only)
+            var card = document.getElementById('carInteractiveCard');
+            if (card && window.matchMedia('(min-width: 992px)').matches) {
+                card.addEventListener('mousemove', function (e) {
+                    var rect = card.getBoundingClientRect();
+                    var x = e.clientX - rect.left - rect.width / 2;
+                    var y = e.clientY - rect.top - rect.height / 2;
+                    var rotateX = -(y / rect.height) * 12;
+                    var rotateY = (x / rect.width) * 12;
+                    card.style.transform = 'perspective(1000px) rotateX(' + rotateX.toFixed(2) + 'deg) rotateY(' + rotateY.toFixed(2) + 'deg) translateY(-4px)';
+                });
+
+                card.addEventListener('mouseleave', function () {
+                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+                });
+            }
         })();
     </script>
 

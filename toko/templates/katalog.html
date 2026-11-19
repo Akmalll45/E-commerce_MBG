@@ -18,6 +18,20 @@
     .katalog-title { font-size:clamp(1.7rem,3.6vw,2.5rem); font-weight:900; color:#fff; line-height:1.15; }
     .katalog-sub { color:#94A3B8; max-width:620px; font-size:.98rem; }
     .search-wrap { position:relative; z-index:20; margin-top:-2.1rem; }
+
+    /* ── Banner Promo Katalog (Pindahan Hero Slide MBG) ── */
+    .katalog-banner-box { position: relative; z-index: 5; }
+    .katalog-slide-item { min-height: 180px; }
+    @media (min-width: 768px) { .katalog-slide-item { min-height: 220px; } }
+    .katalog-slide-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
+    .katalog-slide-img-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #080D1A 0%, #1E293B 50%, #1E3A8A 100%); z-index: 1; }
+    .katalog-slide-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,13,26,0.92) 0%, rgba(8,13,26,0.76) 55%, rgba(8,13,26,0.42) 100%); z-index: 2; }
+    .katalog-slide-title { font-size: clamp(1.15rem, 2.2vw, 1.7rem); letter-spacing: -0.02em; }
+    .katalog-slider .carousel-indicators { margin-bottom: .6rem; }
+    .katalog-slider .carousel-indicators [data-bs-target] { width: 24px; height: 4px; border-radius: 4px; margin: 0 3px; background-color: rgba(255,255,255,0.45); border: none; }
+    .katalog-slider .carousel-indicators .active { background-color: var(--mbg-blue); width: 34px; }
+    .katalog-slider .carousel-control-prev, .katalog-slider .carousel-control-next { width: 5%; opacity: 0.6; z-index: 3; }
+    .katalog-slider:hover .carousel-control-prev, .katalog-slider:hover .carousel-control-next { opacity: 0.95; }
     .search-bar { background:rgba(255,255,255,.92); backdrop-filter:saturate(180%) blur(18px); -webkit-backdrop-filter:saturate(180%) blur(18px); border:1px solid rgba(255,255,255,.7); border-radius:var(--radius-xl); box-shadow:0 16px 48px -8px rgba(8,13,26,.14); padding:.7rem; }
     .search-bar .form-control { border:none; background:transparent; font-size:1rem; padding:.7rem .5rem; box-shadow:none; }
     .search-bar .search-icon { color:#94A3B8; padding-left:.9rem; display:flex; align-items:center; }
@@ -64,11 +78,77 @@
 <header class="katalog-hero">
     <div class="container position-relative">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
+            <ol class="breadcrumb mb-3">
                 <li class="breadcrumb-item"><a href="{% url 'beranda' %}">Beranda</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Katalog Mobil</li>
             </ol>
         </nav>
+
+        {% if hero_slides %}
+        {# ── BANNER PROMO KATALOG (Dikelola langsung dari Admin Panel: Hero Slide) ── #}
+        <div class="katalog-banner-box mb-4" data-aos="fade-down" data-aos-duration="600">
+            <div id="katalogHeroSlider" class="carousel slide carousel-fade katalog-slider" data-bs-ride="carousel" data-bs-interval="6500">
+                <div class="carousel-inner rounded-4 overflow-hidden border border-white border-opacity-10 shadow-lg">
+                    {% for slide in hero_slides %}
+                    <div class="carousel-item {% if forloop.first %}active{% endif %} katalog-slide-item position-relative">
+                        {% if slide.gambar %}
+                        <img src="{{ slide.gambar.url }}" alt="{{ slide.judul }}" class="katalog-slide-img" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+                        {% else %}
+                        <div class="katalog-slide-img-placeholder"></div>
+                        {% endif %}
+                        <div class="katalog-slide-scrim d-flex align-items-center">
+                            <div class="p-3 p-md-4 w-100">
+                                <div class="row align-items-center gy-3">
+                                    <div class="col-lg-8">
+                                        {% if slide.label_promo %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-warning text-dark px-3 py-1 rounded-pill fw-bold" style="font-size:0.75rem;">
+                                                <i class="fa-solid fa-bolt me-1"></i> {{ slide.label_promo }}
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        <h3 class="katalog-slide-title text-white fw-bold mb-1">
+                                            {{ slide.judul }}
+                                            {% if slide.judul_sorot %}
+                                            <span class="d-block" style="color: #38BDF8;">{{ slide.judul_sorot }}</span>
+                                            {% endif %}
+                                        </h3>
+                                        {% if slide.deskripsi %}
+                                        <p class="katalog-slide-desc text-light text-opacity-75 small mb-0 mt-1" style="max-width: 620px;">
+                                            {{ slide.deskripsi|linebreaksbr }}
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    {% if slide.teks_tombol and slide.link_tombol %}
+                                    <div class="col-lg-4 text-lg-end">
+                                        <a href="{{ slide.link_tombol }}"{% if slide.link_tombol|slice:":4" == "http" %} target="_blank" rel="noopener"{% endif %} class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2" style="font-size: 0.9rem;">
+                                            {{ slide.teks_tombol }} <i class="fa-solid fa-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if hero_slides|length > 1 %}
+                <div class="carousel-indicators mb-2">
+                    {% for slide in hero_slides %}
+                    <button type="button" data-bs-target="#katalogHeroSlider" data-bs-slide-to="{{ forloop.counter0 }}" class="{% if forloop.first %}active{% endif %}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}" aria-label="Slide {{ forloop.counter }}"></button>
+                    {% endfor %}
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#katalogHeroSlider" data-bs-slide="prev" aria-label="Sebelumnya">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#katalogHeroSlider" data-bs-slide="next" aria-label="Selanjutnya">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <span class="section-label" style="color:#60A5FA;"><i class="fa-solid fa-circle-check"></i> Unit Terverifikasi MBG</span>
         <h1 class="katalog-title mt-2 mb-2">Katalog Mobil Bekas Garasi Makassar</h1>
         <p class="katalog-sub mb-0">

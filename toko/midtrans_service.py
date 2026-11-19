@@ -7,8 +7,8 @@ Fitur:
 2. Pencegahan transaksi ganda (idempotensi pembuatan token dan penanganan pembayaran).
 3. Validasi webhook Midtrans (SHA512 signature, order_id, nominal gross_amount).
 4. Penanganan status transaksi: pending, settlement, capture, expire, cancel, deny.
-5. Kepatuhan domain MBG: Booking Fee sukses menunggu verifikasi staf; pembelian langsung
-   tervalidasi otomatis sebelum unit dikunci.
+5. Kepatuhan domain MBG: pembayaran Midtrans yang tervalidasi mengunci unit otomatis;
+   transfer bank manual tetap menunggu verifikasi staf sebelum unit dikunci.
 6. Keamanan: Server Key hanya digunakan di sisi backend, tidak pernah diekspos ke klien.
 """
 import base64
@@ -23,11 +23,13 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
 from django.conf import settings
-from django.db import transaction
+from django.db import NotSupportedError, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .models import PembayaranPesanan, PesananPembelian, RiwayatPesanan
+from .models import (
+    PembayaranPesanan, PesananPembelian, RiwayatPesanan, akhir_masa_booking,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -229,9 +231,8 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
     2. Keberadaan pesanan berdasarkan order_id.
     3. Kecocokan nominal gross_amount dengan tagihan sesuai jenis pembelian.
 
-    Booking Fee yang sukses menunggu verifikasi admin sebelum mengunci unit. Pembelian
-    langsung hanya dianggap berhasil setelah nominal penuh tervalidasi; pembayarannya
-    otomatis tercatat terverifikasi dan unit dikunci dalam transaksi database yang sama.
+    Pembayaran Midtrans yang sukses otomatis diverifikasi dan mengunci unit dalam
+    transaksi database yang sama. Pembayaran transfer bank manual tetap melalui admin.
     """
     sekarang = sekarang or timezone.now()
 
@@ -259,9 +260,16 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
     pesanan = PesananPembelian.objects.filter(midtrans_order_id=order_id).first()
     pesanan_lama = False
     if not pesanan:
-        pesanan = PesananPembelian.objects.filter(
-            midtrans_order_id_history__contains=[order_id],
-        ).first()
+        try:
+            pesanan = PesananPembelian.objects.filter(
+                midtrans_order_id_history__contains=[order_id],
+            ).first()
+        except NotSupportedError:
+            # Fallback untuk backend database (seperti SQLite saat testing) yang tidak mendukung JSON __contains lookup
+            for candidate in PesananPembelian.objects.exclude(midtrans_order_id_history=[]):
+                if isinstance(candidate.midtrans_order_id_history, list) and order_id in candidate.midtrans_order_id_history:
+                    pesanan = candidate
+                    break
         pesanan_lama = pesanan is not None
     if not pesanan:
         # Older Snap transactions used the purchase number as their order ID.
@@ -418,38 +426,13 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'pembayaran_id': pembayaran_midtrans.pk,
                 }
 
-            if pembayaran_midtrans:
-                if pembayaran_midtrans.status == 'terverifikasi':
-                    return {
-                        'success': True,
-                        'action': 'already_verified',
-                        'pesanan_id': pesanan.pk,
-                        'pembayaran_id': pembayaran_midtrans.pk,
-                    }
-                if pembayaran_midtrans.status == 'menunggu_verifikasi':
-                    if pesanan.midtrans_transaction_status != transaction_status:
-                        pesanan.midtrans_transaction_status = transaction_status
-                        pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
-                    return {
-                        'success': True,
-                        'action': 'already_recorded',
-                        'pesanan_id': pesanan.pk,
-                        'pembayaran_id': pembayaran_midtrans.pk,
-                    }
-                status_sebelumnya = pembayaran_midtrans.status
-                pembayaran_midtrans.status = 'menunggu_verifikasi'
-                pembayaran_midtrans.catatan_verifikasi = (
-                    f'Midtrans mengonfirmasi {transaction_status} setelah status '
-                    f'{status_sebelumnya}. Menunggu verifikasi admin MBG.'
-                )
-                pembayaran_midtrans.save(update_fields=[
-                    'status', 'catatan_verifikasi', 'updated_at',
-                ])
-                pesanan.midtrans_transaction_status = transaction_status
-                pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
+            if pembayaran_midtrans and pembayaran_midtrans.status == 'terverifikasi':
+                if pesanan.midtrans_transaction_status != transaction_status:
+                    pesanan.midtrans_transaction_status = transaction_status
+                    pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
                 return {
                     'success': True,
-                    'action': 'payment_recorded',
+                    'action': 'already_verified',
                     'pesanan_id': pesanan.pk,
                     'pembayaran_id': pembayaran_midtrans.pk,
                 }
@@ -458,48 +441,52 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                 pesanan=pesanan,
                 jenis=jenis_pembayaran,
                 status__in=['terverifikasi', 'menunggu_verifikasi'],
-            ).first()
+            )
+            if pembayaran_midtrans:
+                pembayaran_lain = pembayaran_lain.exclude(pk=pembayaran_midtrans.pk)
+            pembayaran_lain = pembayaran_lain.first()
 
-            # Catat pembayaran baru
             waktu_bayar = parse_datetime(str(settlement_time)) if settlement_time else sekarang
             if not waktu_bayar:
                 waktu_bayar = sekarang
             elif timezone.is_naive(waktu_bayar):
                 waktu_bayar = timezone.make_aware(waktu_bayar)
 
-            saluran = petakan_saluran_midtrans(payment_type)
-            pembayaran = PembayaranPesanan.objects.create(
-                pesanan=pesanan,
-                jenis=jenis_pembayaran,
-                nominal=pesanan.nominal_pembayaran_midtrans,
-                saluran=saluran,
-                nomor_referensi=transaction_id or order_id,
-                tanggal_bayar=waktu_bayar,
-                status='menunggu_verifikasi',
-                catatan_verifikasi=(
-                    f"Midtrans {transaction_status} ({payment_type}). "
-                    f"TRX: {transaction_id}. "
-                    + (
-                        'Transaksi tambahan; tinjau kemungkinan pembayaran ganda sebelum diproses.'
-                        if pembayaran_lain else 'Menunggu verifikasi admin MBG.'
-                    )
-                ),
-            )
+            if pembayaran_midtrans is None:
+                pembayaran_midtrans = PembayaranPesanan.objects.create(
+                    pesanan=pesanan,
+                    jenis=jenis_pembayaran,
+                    nominal=pesanan.nominal_pembayaran_midtrans,
+                    saluran=petakan_saluran_midtrans(payment_type),
+                    nomor_referensi=nomor_referensi,
+                    tanggal_bayar=waktu_bayar,
+                    status='menunggu_verifikasi',
+                )
+            else:
+                pembayaran_midtrans.status = 'menunggu_verifikasi'
+                pembayaran_midtrans.tanggal_bayar = waktu_bayar
+                pembayaran_midtrans.catatan_verifikasi = (
+                    f'Midtrans mengonfirmasi {transaction_status} setelah status sebelumnya.'
+                )
+                pembayaran_midtrans.save(update_fields=[
+                    'status', 'tanggal_bayar', 'catatan_verifikasi', 'updated_at',
+                ])
             pesanan.midtrans_transaction_status = transaction_status
             pesanan.save(update_fields=['midtrans_transaction_status', 'updated_at'])
 
-            # Catat pada riwayat status pesanan
-            RiwayatPesanan.objects.create(
-                pesanan=pesanan,
-                status_dari=pesanan.status,
-                status_ke=pesanan.status,
-                catatan=(
-                    f"Pembayaran Booking Fee diterima dari Midtrans ({payment_type}, TRX: {transaction_id}). "
-                    f"Menunggu verifikasi admin MBG."
-                ),
-            )
-
             if pembayaran_lain:
+                pembayaran_midtrans.catatan_verifikasi = (
+                    f'Midtrans mengonfirmasi {transaction_status} ({payment_type}, '
+                    f'TRX: {transaction_id}). Ada pembayaran sukses lain untuk tagihan ini; '
+                    'perlu tinjauan admin sebelum ditetapkan.'
+                )
+                pembayaran_midtrans.save(update_fields=['catatan_verifikasi', 'updated_at'])
+                RiwayatPesanan.objects.create(
+                    pesanan=pesanan,
+                    status_dari=pesanan.status,
+                    status_ke=pesanan.status,
+                    catatan='Pembayaran Midtrans tambahan terdeteksi dan memerlukan tinjauan admin.',
+                )
                 logger.error(
                     'Additional successful Midtrans payment requires review for order %s.',
                     pesanan.nomor_pesanan,
@@ -508,13 +495,65 @@ def _proses_status_pembayaran(data, server_key=None, sekarang=None, require_sign
                     'success': True,
                     'action': 'duplicate_payment_review_required',
                     'pesanan_id': pesanan.pk,
-                    'pembayaran_id': pembayaran.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
                 }
+
+            if pesanan.status != 'menunggu_booking_fee':
+                return {
+                    'success': True,
+                    'action': 'ignored_order_inactive',
+                    'pesanan_id': pesanan.pk,
+                    'status_pesanan': pesanan.status,
+                }
+            if produk.status_stok != 'ready':
+                pembayaran_midtrans.catatan_verifikasi = (
+                    'Midtrans memvalidasi Booking Fee, tetapi unit tidak lagi tersedia. '
+                    'Perlu penanganan staf MBG.'
+                )
+                pembayaran_midtrans.save(update_fields=['catatan_verifikasi', 'updated_at'])
+                RiwayatPesanan.objects.create(
+                    pesanan=pesanan,
+                    status_dari=pesanan.status,
+                    status_ke=pesanan.status,
+                    catatan='Pembayaran Midtrans valid tetapi unit tidak tersedia; perlu penanganan staf MBG.',
+                )
+                logger.error(
+                    'Validated Booking Fee has unavailable inventory for order %s.',
+                    pesanan.nomor_pesanan,
+                )
+                return {
+                    'success': True,
+                    'action': 'inventory_conflict_review_required',
+                    'pesanan_id': pesanan.pk,
+                    'pembayaran_id': pembayaran_midtrans.pk,
+                }
+
+            pembayaran_midtrans.status = 'terverifikasi'
+            pembayaran_midtrans.tanggal_bayar = waktu_bayar
+            pembayaran_midtrans.tanggal_verifikasi = sekarang
+            pembayaran_midtrans.diverifikasi_oleh = None
+            pembayaran_midtrans.catatan_verifikasi = (
+                f'Midtrans {transaction_status} ({payment_type}); '
+                'Booking Fee tervalidasi otomatis.'
+            )
+            pembayaran_midtrans.save(update_fields=[
+                'status', 'tanggal_bayar', 'tanggal_verifikasi',
+                'diverifikasi_oleh', 'catatan_verifikasi', 'updated_at',
+            ])
+            produk.status_stok = 'in_review'
+            produk.save(update_fields=['status_stok', 'updated_at'])
+            pesanan.booking_berakhir_pada = akhir_masa_booking(sekarang)
+            pesanan.save(update_fields=['booking_berakhir_pada', 'updated_at'])
+            pesanan._pindah_status(
+                'booking_aktif',
+                None,
+                'Booking Fee tervalidasi otomatis oleh Midtrans; unit langsung dikunci sampai masa booking berakhir.',
+            )
             return {
                 'success': True,
-                'action': 'payment_recorded',
+                'action': 'booking_fee_verified',
                 'pesanan_id': pesanan.pk,
-                'pembayaran_id': pembayaran.pk,
+                'pembayaran_id': pembayaran_midtrans.pk,
             }
 
         # B. Status Pending

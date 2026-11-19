@@ -8,8 +8,8 @@ Cakupan Pengujian:
 3. Validasi Webhook: signature SHA512, order_id, nominal gross_amount.
 4. Penanganan seluruh status transaksi: pending, settlement, capture, expire, cancel, deny.
 5. Idempotensi webhook/status sync terhadap notifikasi berulang dan notifikasi terlambat.
-6. Aturan Inti MBG: Unit TIDAK dikunci otomatis saat pembayaran sukses;
-   unit hanya dikunci setelah staf admin memverifikasi Booking Fee.
+6. Aturan Inti MBG: Midtrans mengunci unit otomatis setelah pembayaran terkonfirmasi;
+   transfer bank manual baru mengunci unit setelah persetujuan admin.
 7. Tidak ada kebocoran MIDTRANS_SERVER_KEY ke frontend / template / response JSON.
 """
 import base64
@@ -473,13 +473,7 @@ class MidtransSnapServiceTests(TestCase):
 
     # ── 4. Penanganan Status Transaksi Midtrans & Aturan Inti MBG ──
 
-    def test_webhook_settlement_mencatat_pembayaran_tetapi_belum_mengunci_unit(self):
-        """
-        ATURAN UTAMA MBG:
-        Pembayaran sukses Midtrans (settlement) mencatat PembayaranPesanan berstatus
-        'menunggu_verifikasi'. Unit mobil TETAP 'ready' dan pesanan TETAP 'menunggu_booking_fee'.
-        Unit HANYA dikunci saat staf admin memverifikasi pembayaran.
-        """
+    def test_webhook_settlement_memverifikasi_booking_dan_mengunci_unit_otomatis(self):
         payload = self._buat_payload_webhook(
             transaction_status='settlement',
             payment_type='echannel',
@@ -496,7 +490,8 @@ class MidtransSnapServiceTests(TestCase):
         pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').first()
         self.assertIsNotNone(pembayaran)
         self.assertEqual(pembayaran.nominal, self.pesanan.nominal_booking_fee)
-        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.status, 'terverifikasi')
+        self.assertIsNone(pembayaran.diverifikasi_oleh_id)
         self.assertEqual(pembayaran.saluran, 'va')
         self.assertEqual(pembayaran.nomor_referensi, 'TRX-SETTLE-001')
         customer = Client()
@@ -504,25 +499,12 @@ class MidtransSnapServiceTests(TestCase):
         success_page = customer.get(
             reverse('pesanan_berhasil', args=[self.pesanan.nomor_pesanan])
         )
-        self.assertContains(success_page, 'Booking Fee diterima — menunggu verifikasi admin')
+        self.assertContains(success_page, 'Booking Aktif — Unit Dikunci')
 
-        # Verifikasi Status Pesanan & Stok Unit TIDAK BERUBAH SEBELUM VERIFIKASI ADMIN
         self.pesanan.refresh_from_db()
         self.produk.refresh_from_db()
-        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
-        self.assertEqual(self.produk.status_stok, 'ready')
-
-        # Sekarang Staf Admin melakukan verifikasi manual di panel admin MBG
-        pembayaran.verifikasi(oleh_user=self.admin, catatan='Verifikasi pembayaran Midtrans oleh staf.')
-
-        # Setelah diverifikasi admin, BARULAH unit dikunci dan pesanan aktif!
-        self.pesanan.refresh_from_db()
-        self.produk.refresh_from_db()
-        pembayaran.refresh_from_db()
-
-        self.assertEqual(pembayaran.status, 'terverifikasi')
-        self.assertEqual(self.produk.status_stok, 'in_review')  # Unit resmi dikunci!
-        self.assertEqual(self.pesanan.status, 'booking_aktif')   # Pesanan resmi aktif!
+        self.assertEqual(self.pesanan.status, 'booking_aktif')
+        self.assertEqual(self.produk.status_stok, 'in_review')
         self.assertIsNotNone(self.pesanan.booking_berakhir_pada)
 
     def test_beli_langsung_webhook_memvalidasi_100_persen_ot_r_mengunci_dan_idempotent(self):
@@ -585,7 +567,7 @@ class MidtransSnapServiceTests(TestCase):
         )
         self.assertContains(success_page, 'Pembelian Selesai')
 
-    def test_webhook_capture_accept_mencatat_pembayaran_menunggu_verifikasi(self):
+    def test_webhook_capture_accept_memverifikasi_booking_dan_mengunci_unit(self):
         payload = self._buat_payload_webhook(
             transaction_status='capture',
             fraud_status='accept',
@@ -599,7 +581,11 @@ class MidtransSnapServiceTests(TestCase):
 
         pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').first()
         self.assertIsNotNone(pembayaran)
-        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.status, 'terverifikasi')
+        self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
+        self.assertEqual(self.pesanan.status, 'booking_aktif')
+        self.assertEqual(self.produk.status_stok, 'in_review')
 
     def test_webhook_capture_challenge_tidak_dihitung_sebagai_pembayaran(self):
         payload = self._buat_payload_webhook(
@@ -747,18 +733,18 @@ class MidtransSnapServiceTests(TestCase):
         # Panggilan pertama
         resp1 = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
         self.assertEqual(resp1.status_code, 200)
-        self.assertEqual(resp1.json()['result']['action'], 'payment_recorded')
+        self.assertEqual(resp1.json()['result']['action'], 'booking_fee_verified')
 
         # Panggilan kedua (notifikasi berulang dari Midtrans)
         resp2 = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
         self.assertEqual(resp2.status_code, 200)
-        self.assertEqual(resp2.json()['result']['action'], 'already_recorded')
+        self.assertEqual(resp2.json()['result']['action'], 'already_verified')
 
         # Verifikasi tepat hanya 1 pembayaran di database
         total_pembayaran = PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').count()
         self.assertEqual(total_pembayaran, 1)
 
-    def test_settlement_memperbarui_status_midtrans_pada_pembayaran_yang_sudah_menunggu_verifikasi(self):
+    def test_settlement_memverifikasi_pembayaran_midtrans_yang_sebelumnya_menunggu(self):
         payload = self._buat_payload_webhook(
             transaction_status='settlement',
             transaction_id='TRX-PREEXISTING-SETTLEMENT',
@@ -778,16 +764,18 @@ class MidtransSnapServiceTests(TestCase):
 
         self.assertTrue(result['success'])
         self.pesanan.refresh_from_db()
+        self.produk.refresh_from_db()
         pembayaran.refresh_from_db()
         self.assertEqual(self.pesanan.midtrans_transaction_status, 'settlement')
-        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.status, 'terverifikasi')
+        self.assertEqual(self.pesanan.status, 'booking_aktif')
+        self.assertEqual(self.produk.status_stok, 'in_review')
         self.assertEqual(
             PembayaranPesanan.objects.filter(pesanan=self.pesanan, jenis='booking_fee').count(),
             1,
         )
 
-    def test_webhook_idempotent_jika_sudah_diverifikasi_admin(self):
-        """Jika admin sudah memverifikasi sebelum notifikasi kedua tiba, tidak terjadi galat."""
+    def test_webhook_idempotent_jika_pembayaran_midtrans_sudah_terverifikasi(self):
         payload = self._buat_payload_webhook(
             transaction_status='settlement',
             transaction_id='TRX-IDEMPOTENT-002',
@@ -796,7 +784,7 @@ class MidtransSnapServiceTests(TestCase):
         client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
 
         pembayaran = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='booking_fee')
-        pembayaran.verifikasi(oleh_user=self.admin)
+        self.assertEqual(pembayaran.status, 'terverifikasi')
 
         # Notifikasi terlambat/berulang
         resp = client.post(reverse('midtrans_webhook'), data=json.dumps(payload), content_type='application/json')
@@ -863,7 +851,7 @@ class MidtransSnapServiceTests(TestCase):
         mock_sync.assert_called_once()
 
     @mock.patch('urllib.request.urlopen')
-    def test_get_status_settlement_mencatat_qris_tanpa_mengunci_unit(self, mock_urlopen):
+    def test_get_status_settlement_mengunci_booking_qris_otomatis(self, mock_urlopen):
         self.pesanan.midtrans_order_id = self.pesanan.nomor_pesanan
         self.pesanan.save(update_fields=['midtrans_order_id'])
         api_response = {
@@ -888,7 +876,7 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['transaction_status'], 'settlement')
-        self.assertEqual(data['payment_status'], 'menunggu_verifikasi')
+        self.assertEqual(data['payment_status'], 'terverifikasi')
         self.assertFalse(data['can_pay'])
         self.assertFalse(data['status_sync_error'])
 
@@ -902,16 +890,16 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(request.headers.get('Authorization'), f'Basic {expected_auth}')
 
         pembayaran = PembayaranPesanan.objects.get(pesanan=self.pesanan, jenis='booking_fee')
-        self.assertEqual(pembayaran.status, 'menunggu_verifikasi')
+        self.assertEqual(pembayaran.status, 'terverifikasi')
         self.assertEqual(pembayaran.saluran, 'qris')
         self.pesanan.refresh_from_db()
         self.produk.refresh_from_db()
-        self.assertEqual(self.pesanan.status, 'menunggu_booking_fee')
-        self.assertEqual(self.produk.status_stok, 'ready')
+        self.assertEqual(self.pesanan.status, 'booking_aktif')
+        self.assertEqual(self.produk.status_stok, 'in_review')
 
         detail = client.get(reverse('pesanan_detail', args=[self.pesanan.nomor_pesanan]))
-        self.assertContains(detail, 'Booking Fee Diterima')
-        self.assertContains(detail, 'Diterima — menunggu verifikasi')
+        self.assertContains(detail, 'Booking Aktif')
+        self.assertContains(detail, 'Terverifikasi')
 
     @mock.patch('urllib.request.urlopen')
     def test_get_status_beli_langsung_memvalidasi_pembayaran_penuh_otomatis(self, mock_urlopen):
@@ -948,7 +936,7 @@ class MidtransSnapServiceTests(TestCase):
         self.assertEqual(pesanan.status, 'booking_aktif')
         self.assertEqual(self.produk.status_stok, 'in_review')
 
-    def test_panel_admin_menampilkan_booking_fee_menunggu_verifikasi_dan_bisa_memverifikasi(self):
+    def test_panel_admin_menampilkan_booking_midtrans_yang_sudah_otomatis_terverifikasi(self):
         payload = self._buat_payload_webhook(
             transaction_status='settlement',
             transaction_id='TRX-ADMIN-VERIFY-001',
@@ -966,8 +954,8 @@ class MidtransSnapServiceTests(TestCase):
         self.assertContains(dashboard, 'Transaksi &amp; DP')
         self.assertContains(dashboard, 'Pembayaran menunggu verifikasi')
         self.assertEqual(dashboard.context['total_transaksi'], 1)
-        self.assertEqual(dashboard.context['transaksi_berhasil'], 0)
-        self.assertEqual(dashboard.context['transaksi_pending'], 1)
+        self.assertEqual(dashboard.context['transaksi_berhasil'], 1)
+        self.assertEqual(dashboard.context['transaksi_pending'], 0)
         self.assertContains(dashboard, self.pesanan.nomor_pesanan)
         self.assertNotContains(dashboard, '/admin/toko/transaksi/')
         self.assertRedirects(
@@ -979,21 +967,14 @@ class MidtransSnapServiceTests(TestCase):
         self.assertContains(page, self.pesanan.nomor_pesanan)
         self.assertContains(page, 'Budi Santoso')
         self.assertContains(page, self.produk.nama)
-        self.assertContains(page, '1 Pembayaran menunggu verifikasi')
+        self.assertContains(page, '0 Pembayaran menunggu verifikasi')
+        self.assertNotContains(page, 'Verifikasi Booking Fee')
         payment = PembayaranPesanan.objects.get(pesanan=self.pesanan)
-        response = admin.post(
-            reverse('admin_verifikasi_pembayaran_pesanan', args=[payment.pk])
-        )
-        self.assertEqual(response.status_code, 302)
-        payment.refresh_from_db()
+        self.assertEqual(payment.status, 'terverifikasi')
         self.pesanan.refresh_from_db()
         self.produk.refresh_from_db()
-        self.assertEqual(payment.status, 'terverifikasi')
         self.assertEqual(self.pesanan.status, 'booking_aktif')
         self.assertEqual(self.produk.status_stok, 'in_review')
-        dashboard = admin.get(reverse('dashboard_admin'))
-        self.assertEqual(dashboard.context['transaksi_berhasil'], 1)
-        self.assertEqual(dashboard.context['transaksi_pending'], 0)
 
     @mock.patch('urllib.request.urlopen', side_effect=URLError('network unavailable'))
     def test_get_status_error_dilaporkan_tanpa_mengubah_status_pesanan(self, mock_urlopen):

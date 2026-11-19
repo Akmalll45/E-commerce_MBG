@@ -229,14 +229,14 @@
                         {% if pesanan.jenis_pembelian == 'beli_langsung' %}
                             Pembayaran penuh tervalidasi otomatis dari notifikasi Midtrans yang sah.
                         {% else %}
-                            Pembayaran Booking Fee yang berhasil tetap menunggu verifikasi admin sebelum unit dikunci.
+                            Booking Fee yang terkonfirmasi otomatis disahkan dan langsung mengunci unit.
                         {% endif %}
                     </div>
                     {% else %}
                     <div class="alert alert-warning small mb-3" role="status">
                         <i class="fa-solid fa-building-columns me-1"></i>
-                        <strong>Metode pembayaran: transfer bank.</strong> Admin akan memeriksa nomor referensi sebelum pembayaran disahkan.
-                        Hubungi CS MBG untuk mendapatkan rekening tujuan resmi; jangan transfer ke rekening yang belum dikonfirmasi.
+                        <strong>Metode pembayaran: transfer bank.</strong> Admin akan memeriksa nomor referensi dan bukti transfer sebelum pembayaran disahkan.
+                        Hubungi CS MBG untuk mendapatkan rekening tujuan resmi. jangan transfer ke rekening yang belum dikonfirmasi.
                     </div>
                     {% endif %}
                     {% if pesanan.metode_pembayaran == 'kredit' %}
@@ -264,7 +264,7 @@
                     {% endif %}
 
                     {% if form_konfirmasi_transfer %}
-                    <form method="post" action="{% url 'konfirmasi_transfer_pesanan' pesanan.nomor_pesanan %}" class="mb-3">
+                    <form method="post" enctype="multipart/form-data" action="{% url 'konfirmasi_transfer_pesanan' pesanan.nomor_pesanan %}" class="mb-3">
                         {% csrf_token %}
                         <label class="form-label small fw-semibold" for="{{ form_konfirmasi_transfer.nomor_referensi.id_for_label }}">
                             {% if jenis_pembayaran_transfer == 'dp' %}Saya sudah transfer DP{% elif jenis_pembayaran_transfer == 'angsuran' %}Saya sudah transfer angsuran{% else %}Saya sudah transfer{% endif %}
@@ -273,6 +273,10 @@
                         {{ form_konfirmasi_transfer.nomor_referensi }}
                         {% if form_konfirmasi_transfer.nomor_referensi.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.nomor_referensi.errors.0 }}</div>{% endif %}
                         <small class="form-text d-block mb-2">{{ form_konfirmasi_transfer.nomor_referensi.help_text }}</small>
+                        <label class="form-label small fw-semibold mt-2" for="{{ form_konfirmasi_transfer.bukti_transfer.id_for_label }}">Bukti transfer</label>
+                        {{ form_konfirmasi_transfer.bukti_transfer }}
+                        {% if form_konfirmasi_transfer.bukti_transfer.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.bukti_transfer.errors.0 }}</div>{% endif %}
+                        <small class="form-text d-block mb-3">{{ form_konfirmasi_transfer.bukti_transfer.help_text }}</small>
                         <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">Kirim untuk Verifikasi Admin</button>
                     </form>
                     {% elif pesanan.saluran_pembayaran == 'transfer' and pembayaran_booking_fee.status == 'menunggu_verifikasi' %}

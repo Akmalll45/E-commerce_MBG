@@ -345,6 +345,7 @@ def katalog(request):
         'pilihan_km': list(PRESET_KM.items()),
         'pilihan_urutan': [(k, v[0]) for k, v in PILIHAN_URUTAN.items()],
         'total_unit_tayang': dasar.count(),
+        'hero_slides': hero_slide_tayang(),
     })
 
 
@@ -954,6 +955,43 @@ def serah_terima_foto_unduh(request, serah_terima_id):
         as_attachment=False,
         filename=f'serah-terima-{serah_terima.pk}{os.path.splitext(serah_terima.foto_kondisi.name)[1].lower()}',
         content_type='application/octet-stream',
+    )
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@login_required(login_url='login')
+@require_GET
+def bukti_transfer_pesanan_lihat(request, pembayaran_id):
+    pembayaran = get_object_or_404(
+        PembayaranPesanan.objects.select_related('pesanan'),
+        pk=pembayaran_id,
+    )
+    if pembayaran.pesanan.pelanggan_id != request.user.pk and not (
+        request.user.is_staff or request.user.is_superuser
+    ):
+        raise Http404
+    if not pembayaran.bukti_transfer:
+        raise Http404
+    try:
+        berkas = pembayaran.bukti_transfer.open('rb')
+    except (FileNotFoundError, OSError, ValueError):
+        raise Http404
+
+    ekstensi = os.path.splitext(pembayaran.bukti_transfer.name)[1].lower()
+    jenis_konten = {
+        '.pdf': 'application/pdf',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+    }.get(ekstensi, 'application/octet-stream')
+    response = FileResponse(
+        berkas,
+        as_attachment=False,
+        filename=f'bukti-transfer-{pembayaran.pk}{ekstensi}',
+        content_type=jenis_konten,
     )
     response['Cache-Control'] = 'private, no-store'
     response['X-Content-Type-Options'] = 'nosniff'
@@ -3542,9 +3580,12 @@ def konfirmasi_transfer_pesanan(request, nomor_pesanan):
     if pesanan.pelanggan_id != request.user.id:
         raise PermissionDenied("Hanya pemilik pesanan yang dapat mengonfirmasi transfer.")
 
-    form = KonfirmasiTransferPesananForm(request.POST)
+    form = KonfirmasiTransferPesananForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, 'Nomor referensi transfer wajib diisi dengan benar.')
+        messages.error(
+            request,
+            'Nomor referensi dan bukti transfer wajib diisi dengan format yang valid.',
+        )
         return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
 
     try:
@@ -3564,6 +3605,7 @@ def konfirmasi_transfer_pesanan(request, nomor_pesanan):
                 nominal=pesanan.nominal_pembayaran_berikutnya,
                 saluran='transfer',
                 nomor_referensi=form.cleaned_data['nomor_referensi'],
+                bukti_transfer=form.cleaned_data['bukti_transfer'],
                 tanggal_bayar=timezone.now(),
                 status='menunggu_verifikasi',
             )

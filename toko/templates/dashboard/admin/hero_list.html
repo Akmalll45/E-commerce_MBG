@@ -20,12 +20,12 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
     <div>
-        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-images text-warning me-2"></i> Hero Slide</h3>
-        <p class="text-muted small mb-0">Kelola banner utama di beranda: judul, promo, gambar latar, dan tombol ajakan.</p>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-images text-warning me-2"></i> Banner Hero / Promo</h3>
+        <p class="text-muted small mb-0">Kelola banner promo utama di bagian atas Katalog Mobil: judul, promo, gambar latar, dan tombol ajakan.</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{% url 'beranda' %}" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-3">
-            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat Beranda
+        <a href="{% url 'katalog' %}" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Lihat di Katalog
         </a>
         <a href="{% url 'admin_hero_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
             <i class="fa-solid fa-plus me-1"></i> Tambah Slide
@@ -36,12 +36,12 @@
 {% if jumlah_pub > maks_slide %}
 <div class="alert alert-warning py-2 px-3 small" style="border-radius:12px;">
     <i class="fa-solid fa-triangle-exclamation me-1"></i>
-    Ada {{ jumlah_pub }} slide berstatus Tayang, tetapi beranda hanya menampilkan {{ maks_slide }} slide pertama menurut urutan.
+    Ada {{ jumlah_pub }} slide berstatus Tayang, tetapi katalog hanya menampilkan {{ maks_slide }} slide pertama menurut urutan.
 </div>
 {% elif jumlah_total and not jumlah_pub %}
 <div class="alert alert-info py-2 px-3 small" style="border-radius:12px;">
     <i class="fa-solid fa-circle-info me-1"></i>
-    Belum ada slide berstatus Tayang, jadi beranda masih memakai hero bawaan.
+    Belum ada slide berstatus Tayang, jadi katalog mobil tampil dengan header standar tanpa banner promo.
 </div>
 {% endif %}
 

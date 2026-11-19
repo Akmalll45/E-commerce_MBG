@@ -253,7 +253,7 @@
                                 {% else %}
                                     <li class="mb-1">Booking Fee sebesar {{ persentase_booking_fee }}% OTR bersifat resmi sebagai tanda jadi dan memotong total harga kendaraan.</li>
                                     {% if checkout_data.saluran_pembayaran == 'midtrans' %}
-                                        <li class="mb-1">Booking Fee yang berhasil dibayar melalui Midtrans tetap menunggu verifikasi admin sebelum unit dikunci.</li>
+                                        <li class="mb-1">Booking Fee yang terkonfirmasi melalui Midtrans otomatis disahkan dan langsung mengunci unit.</li>
                                     {% else %}
                                         <li class="mb-1">Admin memeriksa konfirmasi transfer Booking Fee sebelum pembayaran disahkan dan unit dikunci.</li>
                                     {% endif %}

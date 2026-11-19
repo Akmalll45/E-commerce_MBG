@@ -36,6 +36,11 @@ urlpatterns = [
         views.serah_terima_foto_unduh,
         name='serah_terima_foto_download',
     ),
+    path(
+        'pembayaran-pesanan/<int:pembayaran_id>/bukti-transfer/',
+        views.bukti_transfer_pesanan_lihat,
+        name='bukti_transfer_pesanan_lihat',
+    ),
 
     # Dashboard Admin
     path('panel/', views.dashboard_admin, name='dashboard_admin'),

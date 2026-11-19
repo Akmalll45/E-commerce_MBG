@@ -1731,12 +1731,24 @@ class KonfirmasiTransferPesananForm(forms.Form):
             'required': True,
         }),
     )
+    bukti_transfer = forms.FileField(
+        label='Bukti transfer',
+        help_text='Unggah bukti transfer berupa PDF, JPG, PNG, atau WEBP (maksimal 10 MB).',
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp',
+            'required': True,
+        }),
+    )
 
     def clean_nomor_referensi(self):
         referensi = ' '.join((self.cleaned_data.get('nomor_referensi') or '').split())
         if not referensi:
             raise ValidationError('Nomor referensi transfer wajib diisi.')
         return referensi
+
+    def clean_bukti_transfer(self):
+        return validasi_dokumen_titip_jual(self.cleaned_data['bukti_transfer'])
 
 
 class PembayaranManualPesananForm(forms.Form):

@@ -3,6 +3,7 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client
 from django.urls import reverse
 
@@ -11,6 +12,10 @@ from toko.models import (
 )
 
 _urutan = itertools.count(100)
+
+
+def bukti_transfer_pdf():
+    return SimpleUploadedFile('bukti.pdf', b'%PDF-1.4\nbukti transfer', content_type='application/pdf')
 
 
 def buat_produk(**kw):
@@ -36,6 +41,12 @@ def buat_produk(**kw):
 
 
 class CustomerPurchaseFlowTests(TestCase):
+    def bersihkan_bukti_transfer(self, pembayaran):
+        self.addCleanup(
+            pembayaran.bukti_transfer.storage.delete,
+            pembayaran.bukti_transfer.name,
+        )
+
     def setUp(self):
         pengguna = get_user_model().objects
         self.pelanggan = pengguna.create_user(
@@ -502,12 +513,16 @@ class CustomerPurchaseFlowTests(TestCase):
 
         self.client_auth.post(
             reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
-            {'nomor_referensi': 'TRF-DP-80M'},
+            {
+                'nomor_referensi': 'TRF-DP-80M',
+                'bukti_transfer': bukti_transfer_pdf(),
+            },
         )
         dp = PembayaranPesanan.objects.get(pesanan=pesanan)
         self.assertEqual(dp.jenis, 'dp')
         self.assertEqual(dp.nominal, Decimal('80000000'))
         self.assertEqual(dp.status, 'menunggu_verifikasi')
+        self.bersihkan_bukti_transfer(dp)
         dp.verifikasi(self.staf)
         pesanan.refresh_from_db()
         self.produk_ready.refresh_from_db()
@@ -528,7 +543,10 @@ class CustomerPurchaseFlowTests(TestCase):
 
         installment_recorded = self.client_auth.post(
             reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
-            {'nomor_referensi': 'TRF-ANGSURAN-1'},
+            {
+                'nomor_referensi': 'TRF-ANGSURAN-1',
+                'bukti_transfer': bukti_transfer_pdf(),
+            },
         )
         self.assertRedirects(
             installment_recorded,
@@ -536,9 +554,13 @@ class CustomerPurchaseFlowTests(TestCase):
         )
         installment = PembayaranPesanan.objects.get(pesanan=pesanan, jenis='angsuran')
         self.assertEqual(installment.status, 'menunggu_verifikasi')
+        self.bersihkan_bukti_transfer(installment)
         self.client_auth.post(
             reverse('konfirmasi_transfer_pesanan', args=[pesanan.nomor_pesanan]),
-            {'nomor_referensi': 'TRF-ANGSURAN-DUPLIKAT'},
+            {
+                'nomor_referensi': 'TRF-ANGSURAN-DUPLIKAT',
+                'bukti_transfer': bukti_transfer_pdf(),
+            },
         )
         self.assertEqual(
             PembayaranPesanan.objects.filter(pesanan=pesanan, jenis='angsuran').count(),

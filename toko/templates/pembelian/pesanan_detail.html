@@ -251,6 +251,9 @@
                                         <div class="small text-muted">
                                             {% if pembayaran.tanggal_bayar %}{{ pembayaran.tanggal_bayar|date:"d M Y, H:i" }} WITA{% else %}Dicatat {{ pembayaran.created_at|date:"d M Y, H:i" }} WITA{% endif %}
                                         </div>
+                                        {% if pembayaran.bukti_transfer %}
+                                        <a class="small" href="{% url 'bukti_transfer_pesanan_lihat' pembayaran.id %}">Lihat bukti transfer</a>
+                                        {% endif %}
                                     </div>
                                     <div class="text-end">
                                         <div class="fw-bold">Rp {{ pembayaran.nominal|intcomma }}</div>
@@ -280,7 +283,7 @@
                         {% if pesanan.jenis_pembelian == 'beli_langsung' %}
                             Pembayaran penuh sebesar <strong>Rp {{ pesanan.harga_kendaraan|intcomma }}</strong> diproses melalui Midtrans. Unit terkunci setelah status tervalidasi.
                         {% else %}
-                            Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> dibayar via Midtrans. Unit terkunci setelah verifikasi admin.
+                            Booking Fee sebesar <strong>Rp {{ pesanan.nominal_booking_fee|intcomma }}</strong> dibayar via Midtrans. Jika terkonfirmasi, pembayaran otomatis disahkan dan unit langsung dikunci.
                         {% endif %}
                     </div>
                     <button id="btnPaySnapDetail" class="btn btn-primary w-100 py-2.5 rounded-pill fw-bold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2" style="background: linear-gradient(135deg, #2563EB, #1D4ED8); border: none;">
@@ -305,10 +308,10 @@
                             {% else %}
                                 Transfer bank manual menunggu pemeriksaan admin.
                             {% endif %}
-                            Hubungi CS MBG untuk mendapatkan rekening tujuan resmi; jangan transfer ke rekening yang belum dikonfirmasi.
+                            Hubungi CS MBG untuk mendapatkan rekening tujuan resmi. jangan transfer ke rekening yang belum dikonfirmasi.
                         </div>
                         {% if form_konfirmasi_transfer %}
-                        <form method="post" action="{% url 'konfirmasi_transfer_pesanan' pesanan.nomor_pesanan %}" class="mb-3">
+                        <form method="post" enctype="multipart/form-data" action="{% url 'konfirmasi_transfer_pesanan' pesanan.nomor_pesanan %}" class="mb-3">
                             {% csrf_token %}
                             <label class="form-label small fw-semibold" for="{{ form_konfirmasi_transfer.nomor_referensi.id_for_label }}">
                                 {% if jenis_pembayaran_transfer == 'dp' %}Saya sudah transfer DP{% elif jenis_pembayaran_transfer == 'angsuran' %}Saya sudah transfer angsuran{% else %}Saya sudah transfer{% endif %}
@@ -317,6 +320,10 @@
                             {{ form_konfirmasi_transfer.nomor_referensi }}
                             {% if form_konfirmasi_transfer.nomor_referensi.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.nomor_referensi.errors.0 }}</div>{% endif %}
                             <small class="form-text d-block mb-2">{{ form_konfirmasi_transfer.nomor_referensi.help_text }}</small>
+                            <label class="form-label small fw-semibold mt-2" for="{{ form_konfirmasi_transfer.bukti_transfer.id_for_label }}">Bukti transfer</label>
+                            {{ form_konfirmasi_transfer.bukti_transfer }}
+                            {% if form_konfirmasi_transfer.bukti_transfer.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.bukti_transfer.errors.0 }}</div>{% endif %}
+                            <small class="form-text d-block mb-3">{{ form_konfirmasi_transfer.bukti_transfer.help_text }}</small>
                             <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">Kirim untuk Verifikasi Admin</button>
                         </form>
                         {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
@@ -436,13 +443,13 @@
                     orderBadge.className = 'badge bg-success px-3 py-2 rounded-pill fw-bold fs-6';
                     orderBadge.textContent = data.purchase_type === 'beli_langsung'
                         ? 'Pembayaran Diterima — Perlu Tindak Lanjut Admin'
-                        : 'Booking Fee Diterima — Menunggu Verifikasi';
+                        : 'Booking Fee Diterima — Perlu Tinjauan Admin';
                 }
                 if (paymentState) {
                     paymentState.className = 'fw-bold text-success';
                     paymentState.textContent = data.purchase_type === 'beli_langsung'
                         ? 'Pembayaran diterima — perlu tindak lanjut admin'
-                        : 'Diterima — menunggu verifikasi';
+                        : 'Diterima — perlu tinjauan admin';
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Menunggu Verifikasi Booking Fee';
