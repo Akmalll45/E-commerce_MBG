@@ -179,7 +179,7 @@ class PengaturanPembelianTests(TestCase):
 # ═══════════════════════════════════════════════════════════════════
 
 class PesananPembelianTests(PembelianTestCase):
-    def test_beranda_menyembunyikan_unit_dengan_pesanan_aktif(self):
+    def test_beranda_menampilkan_unit_dengan_pesanan_aktif_sebagai_diproses(self):
         self.buat_pesanan()
         for nomor in range(3):
             buat_produk(nama=f'Unit Tersedia {nomor}')
@@ -187,9 +187,10 @@ class PesananPembelianTests(PembelianTestCase):
         response = self.client.get(reverse('beranda'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['katalog_mobil']), 3)
-        self.assertEqual(response.context['total_unit_tayang'], 3)
-        self.assertNotContains(response, self.produk.nama)
+        self.assertEqual(len(response.context['katalog_mobil']), 4)
+        self.assertEqual(response.context['total_unit_tayang'], 4)
+        self.assertContains(response, self.produk.nama)
+        self.assertContains(response, 'Unit sedang diproses')
 
     def test_pesanan_menyimpan_snapshot_harga_dan_booking_fee(self):
         self.produk.harga_promo = Decimal('5000000')

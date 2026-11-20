@@ -212,7 +212,7 @@ class KatalogTests(TestCase):
 
 
 class BerandaDanIntegrasiTests(TestCase):
-    def test_beranda_hanya_mobil_pilihan(self):
+    def test_beranda_menampilkan_semua_unit_tayang_dan_menandai_booking(self):
         unit = [buat_produk(f'Unit {i}') for i in range(10)]
         buat_produk('Unit Terjual', status_stok='sold')
         BookingCekUnit.objects.create(
@@ -225,14 +225,16 @@ class BerandaDanIntegrasiTests(TestCase):
         )
         r = self.client.get(reverse('beranda'))
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(len(r.context['katalog_mobil']), 3)
-        self.assertEqual(r.context['total_unit_tayang'], 9)
+        self.assertEqual(len(r.context['katalog_mobil']), 10)
+        self.assertEqual(r.context['total_unit_tayang'], 10)
         self.assertContains(r, reverse('katalog'))
         self.assertContains(r, 'hero-mbg-coast.webp')
         self.assertNotContains(r, 'heroAutomotiveVideo')
         self.assertNotContains(r, 'carInteractiveCard')
+        self.assertContains(r, 'data-auto-carousel')
+        self.assertContains(r, 'Unit sedang diproses')
         self.assertNotContains(r, 'Unit Terjual')
-        self.assertNotContains(r, 'Unit 9')
+        self.assertContains(r, 'Unit 9')
 
     def test_beranda_kosong(self):
         r = self.client.get(reverse('beranda'))

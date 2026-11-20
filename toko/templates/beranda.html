@@ -471,13 +471,14 @@
             background-clip: text;
             animation: gradientShift 7s ease infinite;
         }
+        .hero-title .gradient-text-animated { font-size: .7em; }
         @keyframes gradientShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
         .hero-subtitle {
-            font-size: clamp(1rem, 1.25vw, 1.15rem); line-height: 1.6;
+            font-size: clamp(0.3rem, 1vw, 1.10rem); line-height: 1.6;
             color: #E2E8F0; max-width: 540px;
         }
         .hero-btn-cta {
@@ -536,6 +537,7 @@
 
         @media (prefers-reduced-motion: reduce) {
             .gradient-text-animated { animation: none !important; }
+            .featured-carousel-track { transition: none !important; }
         }
 
         /* ── Search forms ──────────────────────────────────────────── */
@@ -595,11 +597,38 @@
             border-color: #CBD5E1;
             box-shadow: var(--shadow-hover);
         }
+        .featured-carousel-viewport {
+            overflow: hidden;
+            padding: 8px 0 16px;
+        }
+        .featured-carousel-track {
+            display: flex;
+            align-items: stretch;
+            gap: 1.5rem;
+            will-change: transform;
+        }
+        .featured-carousel-slide {
+            display: flex;
+            flex: 0 0 25.5%;
+            min-width: 0;
+        }
+        .featured-carousel-slide .card-product-premium { width: 100%; }
+        .featured-carousel-empty {
+            flex: 0 0 100%;
+            padding: 0 12px;
+        }
+        @media (max-width: 991.98px) {
+            .featured-carousel-slide { flex-basis: calc((100% - 1.5rem) / 2); }
+        }
+        @media (max-width: 575.98px) {
+            .featured-carousel-track { gap: 1rem; }
+            .featured-carousel-slide { flex-basis: 100%; }
+        }
 
         /* Foto Mobil: Rasio Proporsional & Sudut Melengkung Halus Atas */
         .card-product-img-wrapper {
             position: relative;
-            width: 100%; height: 235px;
+            width: 100%; height: 170px;
             overflow: hidden;
             border-top-left-radius: var(--radius-lg);
             border-top-right-radius: var(--radius-lg);
@@ -681,10 +710,16 @@
         .badge-inspeksi-exclusive i {
             color: #D97706; /* Aksen Emas Eksklusif */
         }
+        .inspection-badge-slot {
+            min-height: 1.75rem;
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
 
         /* Konten Card */
         .card-body-content {
-            padding: 1.35rem;
+            padding: 1rem;
             display: flex; flex-direction: column; flex-grow: 1;
         }
         .card-car-title {
@@ -740,6 +775,27 @@
         .price-note {
             font-size: .70rem; color: #94A3B8;
         }
+        .card-price-block { display: flex; flex-direction: column; }
+        .card-promo-slot {
+            min-height: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: .5rem;
+            line-height: 1.2;
+        }
+        .card-promo-label {
+            color: #DC2626;
+            font-size: .66rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .card-promo-value {
+            color: #DC2626;
+            font-size: .72rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
 
         /* Tombol CTA Penuh "Booking Cek Unit" dengan Efek Membesar (Scale Hover) */
         .btn-cta-booking {
@@ -764,6 +820,12 @@
             background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
             box-shadow: 0 8px 22px var(--mbg-blue-glow);
             color: #FFFFFF !important;
+        }
+        .btn-cta-booking:disabled {
+            opacity: .7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         .btn-cta-booking:active {
             transform: scale(0.98);
@@ -922,6 +984,7 @@
             border-top: 1px solid #F1F5F9;
             margin: .75rem 0;
         }
+        .card-divider-after-inspection { margin: .35rem 0; }
         .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 
         /* ── Responsive ──────────────────────── */
@@ -1020,7 +1083,7 @@
                 {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
-                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                    <div class="brand-sub">Mobil Bekas Garasi</div>
                 </div>
             </a>
 
@@ -1315,11 +1378,11 @@
             </div>
         </div>
 
-        <!-- GRID BOOTSTRAP: 3 Kolom di Desktop, 1 Kolom di Mobile -->
-        <!-- ▸▸▸ ATURAN MUTLAK: SELURUH TAG TEMPLATE DJANGO DIPERTAHANKAN UTUH ◂◂◂ -->
-        <div class="row g-4">
+        <!-- Carousel unit: 3 kartu di desktop, 1 kartu di mobile -->
+        <div class="featured-carousel-viewport" data-auto-carousel role="region" aria-roledescription="carousel" aria-label="Mobil pilihan berganti otomatis setiap detik">
+            <div class="featured-carousel-track" data-carousel-track>
             {% for mobil in katalog_mobil %}
-            <div class="col-12 col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
+            <div class="featured-carousel-slide" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
 
                 <!-- SATU KOTAK MOBIL (PRODUCT CARD) ELEGAN, MODERN & HIGH-TRUST -->
                 <div class="card-product-premium">
@@ -1351,11 +1414,10 @@
                     <!-- 2. Konten Bodi Card -->
                     <div class="card-body-content">
                         
-                        {% if mobil.has_inspection_result %}
+                        {% if mobil.sedang_dipesan %}
                         <div class="mb-2">
-                            <span class="badge-inspeksi-exclusive">
-                                <i class="fa-solid fa-shield-check"></i>
-                                <span>Lulus inspeksi</span>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                <i class="fa-solid fa-clock me-1"></i>Unit sedang diproses
                             </span>
                         </div>
                         {% endif %}
@@ -1386,11 +1448,20 @@
                         </div>
 
                         <!-- Deskripsi Singkat Mobil -->
-                        <p class="car-desc mb-2">
+                        <p class="car-desc mb-1">
                             {{ mobil.deskripsi_singkat }}
                         </p>
 
-                        <hr class="card-divider">
+                        <div class="inspection-badge-slot">
+                            {% if mobil.has_inspection_result %}
+                            <span class="badge-inspeksi-exclusive">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Lulus inspeksi</span>
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <hr class="card-divider card-divider-after-inspection">
 
                         <!-- Teks: Harga Normal (Jelas & Menonjol) -->
                         <div class="card-price-block mb-3">
@@ -1413,11 +1484,18 @@
                         <!-- Tombol Call-to-Action (CTA) Penuh: Arahkan ke {% url 'detail_produk' mobil.id %} -->
                         <div class="d-flex flex-column gap-2 mt-auto">
                             <!-- CTA Utama Penuh (Warna Cerah Gradient Kontras + Scale Hover) -->
+                            {% if mobil.sedang_dipesan %}
+                            <button type="button" class="btn-cta-booking" disabled>
+                                <i class="fa-solid fa-clock"></i>
+                                <span>Unit Sedang Diproses</span>
+                            </button>
+                            {% else %}
                             <a href="{% url 'detail_produk' mobil.id %}"
                                class="btn-cta-booking">
                                 <i class="fa-solid fa-calendar-check"></i>
                                 <span>Booking Cek Unit</span>
                             </a>
+                            {% endif %}
 
                             <!-- CTA Tambahan WhatsApp Konsultasi -->
                             <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma }})%20masih%20tersedia?%20Bisa%20minta%20info%20detail%20dan%20laporan%20inspeksinya?"
@@ -1435,7 +1513,7 @@
 
             {% empty %}
             <!-- Kondisi jika tidak ada mobil tersedia -->
-            <div class="col-12 py-4">
+            <div class="featured-carousel-empty">
                 <div class="empty-state text-center">
                     <div class="empty-state-icon">
                         <i class="fa-solid fa-car-side"></i>
@@ -1448,6 +1526,7 @@
                 </div>
             </div>
             {% endfor %}
+            </div>
         </div>
 
         {% if total_unit_tayang > katalog_mobil|length %}
@@ -1797,6 +1876,66 @@
             window.addEventListener('scroll', () => {
                 navbar.classList.toggle('scrolled', window.scrollY > 20);
             });
+        }
+
+        const carousel = document.querySelector('[data-auto-carousel]');
+        const carouselTrack = carousel?.querySelector('[data-carousel-track]');
+        if (carousel && carouselTrack && carouselTrack.children.length > 1) {
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+            let carouselTimer = null;
+            let isSliding = false;
+
+            const moveNextCard = () => {
+                if (isSliding || carousel.matches(':hover') || carousel.contains(document.activeElement)) return;
+
+                const lastCard = carouselTrack.lastElementChild;
+                if (!lastCard) return;
+
+                const gap = parseFloat(getComputedStyle(carouselTrack).columnGap) || 0;
+                const offset = lastCard.getBoundingClientRect().width + gap;
+                carouselTrack.style.transition = 'none';
+                carouselTrack.insertBefore(lastCard, carouselTrack.firstElementChild);
+                carouselTrack.style.transform = `translateX(-${offset}px)`;
+                carouselTrack.offsetWidth;
+                carouselTrack.style.transition = 'transform .6s ease';
+                carouselTrack.style.transform = 'translateX(0)';
+                isSliding = true;
+
+                carouselTrack.addEventListener('transitionend', function finishSlide(event) {
+                    if (event.target !== carouselTrack || event.propertyName !== 'transform') return;
+                    carouselTrack.removeEventListener('transitionend', finishSlide);
+                    carouselTrack.style.transition = '';
+                    isSliding = false;
+                });
+            };
+
+            const stopCarousel = () => {
+                window.clearInterval(carouselTimer);
+                carouselTimer = null;
+            };
+            const startCarousel = () => {
+                if (
+                    !prefersReducedMotion.matches
+                    && !document.hidden
+                    && !carousel.matches(':hover')
+                    && !carousel.contains(document.activeElement)
+                    && !carouselTimer
+                ) {
+                    carouselTimer = window.setInterval(moveNextCard, 1000);
+                }
+            };
+
+            carousel.addEventListener('mouseenter', stopCarousel);
+            carousel.addEventListener('mouseleave', startCarousel);
+            carousel.addEventListener('focusin', stopCarousel);
+            carousel.addEventListener('focusout', event => {
+                if (!carousel.contains(event.relatedTarget)) startCarousel();
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) stopCarousel();
+                else startCarousel();
+            });
+            startCarousel();
         }
     </script>
 </body>

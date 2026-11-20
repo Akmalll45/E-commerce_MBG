@@ -338,12 +338,6 @@
                         </div>
 
                         <div class="card-body-content">
-                            {% if mobil.has_inspection_result %}
-                                <div class="mb-2">
-                                    <span class="badge-inspeksi-exclusive"><i class="fa-solid fa-shield-check"></i><span>Lulus inspeksi</span></span>
-                                </div>
-                            {% endif %}
-
                             <h2 class="card-car-title mb-2" title="{{ mobil.nama }}">
                                 <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">{{ mobil.nama }}</a>
                             </h2>
@@ -354,9 +348,15 @@
                                 <span class="specs-mini-item"><i class="fa-solid fa-gauge-high"></i><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
                             </div>
 
-                            <p class="car-desc mb-2">{{ mobil.deskripsi_singkat }}</p>
+                            <p class="car-desc mb-1">{{ mobil.deskripsi_singkat }}</p>
 
-                            <hr class="card-divider">
+                            <div class="inspection-badge-slot">
+                                {% if mobil.has_inspection_result %}
+                                    <span class="badge-inspeksi-exclusive"><i class="fa-solid fa-shield-check"></i><span>Lulus inspeksi</span></span>
+                                {% endif %}
+                            </div>
+
+                            <hr class="card-divider card-divider-after-inspection">
 
                             <div class="card-price-block mb-3">
                                 <span class="price-label d-block">Harga OTR {{ mobil.lokasi }}:</span>
