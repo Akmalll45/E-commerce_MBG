@@ -765,7 +765,7 @@ class SerahTerimaUnit(models.Model):
     nama_penyerah   = models.CharField(max_length=100, verbose_name="Nama Pihak Penyerah")
     nama_penerima   = models.CharField(max_length=100, verbose_name="Nama Pihak Penerima")
     lokasi          = models.CharField(
-        max_length=200, default='Showroom MBG — Jl. A.P. Pettarani No. 88, Makassar',
+        max_length=200, default='Showroom MBG — Bonto Maeo, Mannuruki, Makassar',
         verbose_name="Lokasi"
     )
     kondisi_unit    = models.CharField(
@@ -1402,7 +1402,7 @@ class PengaturanWebsite(models.Model):
     situs tampil seperti biasa sebelum admin pernah menyimpan pengaturan.
     """
     whatsapp         = models.CharField(
-                           max_length=15, default='6281234567890',
+                           max_length=15, default='6282190435876',
                            validators=[validasi_whatsapp], verbose_name="Nomor WhatsApp"
                        )
     email            = models.EmailField(
@@ -1410,11 +1410,11 @@ class PengaturanWebsite(models.Model):
                        )
     alamat           = models.CharField(
                            max_length=250,
-                           default='Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222',
+                           default='Bonto Maeo, Mannuruki, Tamalate, Makassar, Sulawesi Selatan 90223',
                            verbose_name="Alamat Lengkap"
                        )
     alamat_singkat   = models.CharField(
-                           max_length=120, default='Jl. A.P. Pettarani No. 88, Makassar',
+                           max_length=120, default='Bonto Maeo, Mannuruki, Makassar',
                            verbose_name="Alamat Singkat"
                        )
     jam_buka         = models.CharField(

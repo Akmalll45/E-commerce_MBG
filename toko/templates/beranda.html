@@ -916,18 +916,12 @@
             background: linear-gradient(135deg, #1E293B, #0F172A);
             border-radius: var(--radius-lg);
             overflow: hidden; height: 100%; min-height: 280px;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            color: #fff; text-align: center; padding: 2rem;
             position: relative;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, .10);
         }
-        .map-mockup::before {
-            content: '';
-            position: absolute; inset: 0;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
+        .map-mockup iframe {
+            width: 100%; height: 100%; min-height: 280px;
+            border: 0; display: block;
         }
 
         /* ── Footer Startup MBG ───────────────── */
@@ -1326,7 +1320,7 @@
                 <div class="col-lg-8 col-xl-7 text-center text-lg-start" data-aos="fade-up" data-aos-duration="650">
                     <div class="hero-status-pill mb-4">
                         <span class="live-dot-beacon"></span>
-                        <span>Showroom Pettarani Makassar <strong class="text-white">• Buka s/d 18.00 WITA</strong></span>
+                        <span>Showroom Mannuruki Makassar <strong class="text-white">• Buka s/d 18.00 WITA</strong></span>
                     </div>
 
                     <div class="hero-copy">
@@ -1568,7 +1562,7 @@
                     <div class="feature-card">
                         <div class="feature-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-store"></i></div>
                         <h5 class="fw-bold mb-2" style="font-size:.95rem;">Showroom O2O</h5>
-                        <p class="text-muted small mb-0">Pilih mobil di website, langsung booking jadwal untuk cek fisik &amp; test drive di Garasi Jl. Pettarani Makassar.</p>
+                        <p class="text-muted small mb-0">Pilih mobil di website, langsung booking jadwal untuk cek fisik &amp; test drive di Garasi Mannuruki Makassar.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
@@ -1622,33 +1616,70 @@
     <!-- ╔══════════════════════════════════════════╗
          ║  8. SEKSI SIMULASI KREDIT & STATUS INFO   ║
          ╚══════════════════════════════════════════╝ -->
-    <section class="py-5 bg-white border-top border-bottom" id="simulasi-kredit">
+    <section class="py-5 bg-white border-top border-bottom" id="simulasi-kredit"
+             data-persentase-dp="{{ persentase_dp_kredit }}"
+             data-persentase-angsuran-tahunan="{{ persentase_angsuran_kredit_tahunan }}">
         <div class="container">
             <div class="row align-items-center gy-4">
                 <div class="col-lg-6" data-aos="fade-right">
                     <span class="section-label"><i class="fa-solid fa-calculator"></i> Finansial &amp; Pembiayaan</span>
-                    <h2 class="section-heading mt-2 mb-3">Simulasi Kredit Mobil Fleksibel</h2>
+                    <h2 class="section-heading mt-2 mb-3">Simulasi Kredit Sesuai Sistem MBG</h2>
                     <p class="text-muted mb-4">
-                        Dapatkan estimasi cicilan bulanan ringan dengan DP bersahabat melalui mitra leasing terpercaya (BCA Finance, Mandiri Tunas Finance, Adira Finance, OTO, &amp; Syariah).
+                        Pilih unit dari katalog atau masukkan harga OTR untuk melihat estimasi DP dan angsuran berdasarkan ketentuan kredit MBG.
                     </p>
-                    <div class="d-flex flex-column gap-2.5 mb-4">
-                        <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-light border border-light-subtle">
-                            <i class="fa-solid fa-percent text-primary fs-4"></i>
-                            <div>
-                                <h6 class="fw-bold mb-0 text-dark">Bunga Kompetitif Mulai 3.5% / Tahun</h6>
-                                <small class="text-muted">Tenor fleksibel 1 hingga 5 tahun sesuai kemampuan</small>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-light border border-light-subtle">
-                            <i class="fa-solid fa-bolt text-warning fs-4"></i>
-                            <div>
-                                <h6 class="fw-bold mb-0 text-dark">Proses Approval Cepat 1x24 Jam</h6>
-                                <small class="text-muted">Dibantu tim finance MBG hingga unit serah terima</small>
+                    <div class="p-3 rounded-3 mb-4 bg-light border border-light-subtle">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="fa-solid fa-circle-info text-primary fs-5 mt-1"></i>
+                            <div class="small text-secondary">
+                                DP <strong>{{ persentase_dp_kredit }}% dari harga OTR</strong> dibayar setelah pengajuan disetujui admin. Angsuran pokok sebesar <strong>{{ persentase_angsuran_kredit_tahunan }}% harga OTR per tahun</strong>, tanpa bunga tambahan.
                             </div>
                         </div>
                     </div>
-                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20ingin%20konsultasi%20simulasi%20kredit%20mobil%20bekas" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
-                        <i class="fa-brands fa-whatsapp me-2"></i>Hitung Simulasi via WhatsApp
+                    <div class="mb-3">
+                        <label for="pilihMobilKredit" class="form-label fw-bold text-dark">Pilih mobil dari katalog (opsional)</label>
+                        <select id="pilihMobilKredit" class="form-select" style="height:auto;padding:.75rem 1rem;">
+                            <option value="">Pilih unit untuk mengisi harga otomatis</option>
+                            {% for mobil in katalog_mobil %}
+                            <option value="{{ mobil.harga }}">{{ mobil.nama }} — Rp {{ mobil.harga|intcomma }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="hargaMobilKredit" class="form-label fw-bold text-dark">Harga mobil / OTR (Rp)</label>
+                        <input id="hargaMobilKredit" class="form-control" type="number" min="1" step="1"
+                               inputmode="numeric" placeholder="Contoh: 200000000"
+                               aria-describedby="kreditHelp" style="height:auto;padding:.75rem 1rem;">
+                        <small id="kreditHelp" class="form-text text-muted">Harga dapat diisi manual atau dipilih dari unit katalog di atas.</small>
+                        <small id="kreditError" class="form-text text-danger d-none" role="alert"></small>
+                    </div>
+                    <div id="hasilSimulasiKredit" class="p-3 p-md-4 rounded-3 mb-4 bg-primary bg-opacity-10 d-none"
+                         aria-live="polite">
+                        <h3 class="h6 fw-bold text-dark mb-3">Estimasi Kredit MBG</h3>
+                        <div class="d-flex justify-content-between gap-3 mb-2">
+                            <span class="text-secondary">DP {{ persentase_dp_kredit }}% (setelah disetujui)</span>
+                            <strong id="nilaiDpKredit" class="text-primary text-end"></strong>
+                        </div>
+                        <div class="d-flex justify-content-between gap-3 mb-2">
+                            <span class="text-secondary">Sisa pokok setelah DP</span>
+                            <strong id="nilaiSisaKredit" class="text-dark text-end"></strong>
+                        </div>
+                        <div class="d-flex justify-content-between gap-3 mb-2">
+                            <span class="text-secondary">Angsuran pokok per tahun</span>
+                            <strong id="nilaiAngsuranKredit" class="text-dark text-end"></strong>
+                        </div>
+                        <div class="d-flex justify-content-between gap-3">
+                            <span class="text-secondary">Estimasi tenor</span>
+                            <strong id="nilaiTenorKredit" class="text-dark text-end"></strong>
+                        </div>
+                        <p id="keteranganAngsuranTerakhir" class="small text-secondary mb-0 mt-3"></p>
+                    </div>
+                    <div class="small text-muted mb-3">
+                        Estimasi ini mengikuti aturan pembayaran kredit MBG; pengajuan tetap menunggu persetujuan admin. Untuk transaksi booking, booking fee diperhitungkan sebagai bagian DP sesuai rincian checkout.
+                    </div>
+                    <a id="konsultasiSimulasiKredit" href="https://wa.me/{{ pengaturan.whatsapp }}"
+                       target="_blank" rel="noopener noreferrer"
+                       class="btn btn-primary rounded-pill px-4 fw-bold">
+                        <i class="fa-brands fa-whatsapp me-2"></i>Konsultasi Kredit via WhatsApp
                     </a>
                 </div>
 
@@ -1714,12 +1745,13 @@
 
                 <div class="col-lg-6" data-aos="fade-left" data-aos-delay="100">
                     <div class="map-mockup">
-                        <i class="fa-solid fa-location-dot text-danger mb-3" style="font-size:2.5rem;position:relative;z-index:1;"></i>
-                        <h5 class="fw-bold text-white mb-1 position-relative" style="z-index:1;">Showroom &amp; Garasi MBG</h5>
-                        <p class="small mb-3 position-relative" style="color:#94A3B8;z-index:1;">Pusat Kota Makassar — Jl. A.P. Pettarani</p>
-                        <span class="badge bg-success px-3 py-2 rounded-pill position-relative" style="z-index:1;">
-                            <i class="fa-solid fa-shield-halved me-1"></i> Fasilitas Lift Inspeksi Kolong Tersedia
-                        </span>
+                        <iframe
+                            src="https://www.google.com/maps?q=-5.1732064,119.429251&hl=id&z=17&output=embed"
+                            title="Lokasi Showroom dan Garasi MBG"
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                            allowfullscreen>
+                        </iframe>
                     </div>
                 </div>
             </div>
@@ -1937,6 +1969,84 @@
             });
             startCarousel();
         }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const bagianKredit = document.getElementById('simulasi-kredit');
+            const pilihMobil = document.getElementById('pilihMobilKredit');
+            const inputHarga = document.getElementById('hargaMobilKredit');
+            const hasil = document.getElementById('hasilSimulasiKredit');
+            const pesanError = document.getElementById('kreditError');
+            const dpOutput = document.getElementById('nilaiDpKredit');
+            const sisaOutput = document.getElementById('nilaiSisaKredit');
+            const angsuranOutput = document.getElementById('nilaiAngsuranKredit');
+            const tenorOutput = document.getElementById('nilaiTenorKredit');
+            const terakhirOutput = document.getElementById('keteranganAngsuranTerakhir');
+            const tautanWhatsApp = document.getElementById('konsultasiSimulasiKredit');
+            if (!bagianKredit || !inputHarga || !hasil) return;
+
+            const persentaseDp = Number(bagianKredit.dataset.persentaseDp);
+            const persentaseAngsuran = Number(bagianKredit.dataset.persentaseAngsuranTahunan);
+            const formatRupiah = new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                maximumFractionDigits: 0
+            });
+
+            function hitungSimulasi() {
+                const harga = Number(inputHarga.value);
+                pesanError.classList.add('d-none');
+                pesanError.textContent = '';
+                if (!inputHarga.value) {
+                    hasil.classList.add('d-none');
+                    return;
+                }
+                if (!Number.isSafeInteger(harga) || harga <= 0) {
+                    hasil.classList.add('d-none');
+                    pesanError.textContent = 'Masukkan harga OTR berupa angka bulat yang lebih besar dari nol.';
+                    pesanError.classList.remove('d-none');
+                    return;
+                }
+
+                const dp = Math.round(harga * persentaseDp / 100);
+                const sisaPokok = Math.max(harga - dp, 0);
+                const angsuranTahunan = Math.round(harga * persentaseAngsuran / 100);
+                const tenor = sisaPokok && angsuranTahunan
+                    ? Math.ceil(sisaPokok / angsuranTahunan)
+                    : 0;
+                const angsuranTerakhir = tenor
+                    ? sisaPokok - angsuranTahunan * (tenor - 1)
+                    : 0;
+
+                dpOutput.textContent = formatRupiah.format(dp);
+                sisaOutput.textContent = formatRupiah.format(sisaPokok);
+                angsuranOutput.textContent = formatRupiah.format(angsuranTahunan);
+                tenorOutput.textContent = tenor + ' tahun';
+                terakhirOutput.textContent = 'Angsuran tahun terakhir: ' + formatRupiah.format(angsuranTerakhir) + '.';
+                hasil.classList.remove('d-none');
+
+                const pesan = [
+                    'Halo Admin MBG, saya ingin konsultasi kredit.',
+                    'Harga OTR: ' + formatRupiah.format(harga),
+                    'Estimasi DP (' + persentaseDp + '%): ' + formatRupiah.format(dp),
+                    'Angsuran pokok (' + persentaseAngsuran + '% OTR per tahun): ' + formatRupiah.format(angsuranTahunan),
+                    'Estimasi tenor: ' + tenor + ' tahun',
+                    'Angsuran terakhir: ' + formatRupiah.format(angsuranTerakhir)
+                ].join('\n');
+                tautanWhatsApp.href = 'https://wa.me/{{ pengaturan.whatsapp|escapejs }}?text=' + encodeURIComponent(pesan);
+            }
+
+            if (pilihMobil) {
+                pilihMobil.addEventListener('change', function() {
+                    if (pilihMobil.value) inputHarga.value = pilihMobil.value;
+                    hitungSimulasi();
+                });
+            }
+            inputHarga.addEventListener('input', function() {
+                if (pilihMobil && pilihMobil.value !== inputHarga.value) pilihMobil.value = '';
+                hitungSimulasi();
+            });
+        });
     </script>
 </body>
 </html>

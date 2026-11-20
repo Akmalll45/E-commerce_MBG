@@ -1512,7 +1512,7 @@ class PengaturanWebsiteForm(forms.ModelForm):
             }),
             'alamat_singkat': forms.TextInput(attrs={
                 'class': 'form-control', 'maxlength': 120,
-                'placeholder': 'Contoh: Jl. A.P. Pettarani No. 88, Makassar',
+                'placeholder': 'Contoh: Bonto Maeo, Mannuruki, Makassar',
             }),
             'jam_buka': forms.TextInput(attrs={
                 'class': 'form-control', 'maxlength': 120,

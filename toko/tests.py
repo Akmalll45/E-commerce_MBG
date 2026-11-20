@@ -1295,7 +1295,7 @@ from .models import PengaturanWebsite, normalisasi_whatsapp, validasi_whatsapp
 
 # Catatan: memakai kembali buat_produk() dan impor yang sudah ada di atas.
 
-ALAMAT_BAWAAN = 'Jl. A.P. Pettarani No. 88, Bonto-Bontoa, Makassar, Sulawesi Selatan 90222'
+ALAMAT_BAWAAN = 'Bonto Maeo, Mannuruki, Tamalate, Makassar, Sulawesi Selatan 90223'
 
 
 def buat_pengaturan(**kw):
@@ -1350,12 +1350,24 @@ class PengaturanPublikTests(TestCase):
     def test_tanpa_data_memakai_nilai_bawaan(self):
         r = self.client.get(self.beranda)
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'wa.me/6281234567890')
-        self.assertContains(r, '+62 812-3456-7890')
+        self.assertContains(r, 'wa.me/6282190435876')
+        self.assertContains(r, '+62 821-9043-5876')
         self.assertContains(r, 'halo@mobilbekasgarasi.com')
         self.assertContains(r, ALAMAT_BAWAAN)
         self.assertContains(r, 'Platform e-commerce otomotif')
         self.assertEqual(PengaturanWebsite.objects.count(), 0)   # membaca tidak membuat baris
+
+    def test_simulasi_kredit_berdasarkan_harga_katalog_dan_ketentuan_sistem(self):
+        buat_produk('Toyota Avanza Kredit', harga=Decimal('200000000'))
+        r = self.client.get(self.beranda)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'data-persentase-dp="20"')
+        self.assertContains(r, 'data-persentase-angsuran-tahunan="5"')
+        self.assertContains(r, 'value="200000000">Toyota Avanza Kredit')
+        self.assertContains(r, 'DP <strong>20% dari harga OTR</strong>')
+        self.assertContains(r, 'Angsuran pokok sebesar <strong>5% harga OTR per tahun</strong>')
+        self.assertNotContains(r, 'Bunga Kompetitif Mulai 3.5%')
+        self.assertNotContains(r, 'Tenor fleksibel 1 hingga 5 tahun')
 
     def test_nilai_tersimpan_tampil_di_semua_halaman_publik(self):
         buat_pengaturan()
@@ -1363,7 +1375,7 @@ class PengaturanPublikTests(TestCase):
             r = self.client.get(url)
             self.assertEqual(r.status_code, 200, url)
             self.assertContains(r, 'wa.me/6285200001111')
-            self.assertNotContains(r, 'wa.me/6281234567890')
+            self.assertNotContains(r, 'wa.me/6282190435876')
             self.assertNotContains(r, 'halo@mobilbekasgarasi.com')
             self.assertNotContains(r, 'Pettarani No. 88')
         r = self.client.get(self.beranda)
@@ -1414,7 +1426,7 @@ class PengaturanPublikTests(TestCase):
             objek.filter.side_effect = DatabaseError('no such table')
             r = self.client.get(self.beranda)
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'wa.me/6281234567890')
+        self.assertContains(r, 'wa.me/6282190435876')
         self.assertContains(r, ALAMAT_BAWAAN)
 
 

@@ -178,6 +178,8 @@ def beranda(request):
         'total_unit_tayang': unit_tayang.count(),
         'hero_slides': hero_slide_tayang(),
         'mitra_list': mitra_tayang(),
+        'persentase_dp_kredit': PERSENTASE_DP_KREDIT,
+        'persentase_angsuran_kredit_tahunan': PERSENTASE_ANGSURAN_KREDIT_TAHUNAN,
     })
 
 
