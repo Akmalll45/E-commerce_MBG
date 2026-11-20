@@ -115,6 +115,10 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertIsNotNone(button)
         self.assertNotIn('Beli Mobil Sekarang', button.group(0))
         self.assertContains(resp, 'unitBookedModal')
+        self.assertContains(resp, 'Kembali ke Katalog')
+        self.assertContains(resp, f'href="{reverse("katalog")}"')
+        html = resp.content.decode()
+        self.assertLess(html.index('</main>'), html.index('id="unitBookedModal"'))
 
     def test_ketersediaan_real_time_menonaktifkan_booking_dan_menampilkan_modal(self):
         url_status = reverse('status_ketersediaan_unit', args=[self.produk_ready.id])

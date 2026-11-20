@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import FotoTitipJual, InspeksiC2C, Produk, SerahTerimaUnit, TitipJual
+from .models import BookingCekUnit, FotoTitipJual, InspeksiC2C, Produk, SerahTerimaUnit, TitipJual
 
 
 def buat_produk(nama, **kw):
@@ -213,15 +213,26 @@ class KatalogTests(TestCase):
 
 class BerandaDanIntegrasiTests(TestCase):
     def test_beranda_hanya_mobil_pilihan(self):
-        for i in range(10):
-            buat_produk(f'Unit {i}')
+        unit = [buat_produk(f'Unit {i}') for i in range(10)]
         buat_produk('Unit Terjual', status_stok='sold')
+        BookingCekUnit.objects.create(
+            produk=unit[-1],
+            nama_pemesan='Pemesan Uji',
+            no_whatsapp='08',
+            email='uji@example.test',
+            tanggal_cek_unit='2026-12-01',
+            jam_cek_unit='10:00',
+        )
         r = self.client.get(reverse('beranda'))
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(len(r.context['katalog_mobil']), 6)
-        self.assertEqual(r.context['total_unit_tayang'], 10)
+        self.assertEqual(len(r.context['katalog_mobil']), 3)
+        self.assertEqual(r.context['total_unit_tayang'], 9)
         self.assertContains(r, reverse('katalog'))
+        self.assertContains(r, 'hero-mbg-coast.webp')
+        self.assertNotContains(r, 'heroAutomotiveVideo')
+        self.assertNotContains(r, 'carInteractiveCard')
         self.assertNotContains(r, 'Unit Terjual')
+        self.assertNotContains(r, 'Unit 9')
 
     def test_beranda_kosong(self):
         r = self.client.get(reverse('beranda'))

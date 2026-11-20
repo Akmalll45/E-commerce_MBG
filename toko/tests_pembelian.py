@@ -179,6 +179,18 @@ class PengaturanPembelianTests(TestCase):
 # ═══════════════════════════════════════════════════════════════════
 
 class PesananPembelianTests(PembelianTestCase):
+    def test_beranda_menyembunyikan_unit_dengan_pesanan_aktif(self):
+        self.buat_pesanan()
+        for nomor in range(3):
+            buat_produk(nama=f'Unit Tersedia {nomor}')
+
+        response = self.client.get(reverse('beranda'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['katalog_mobil']), 3)
+        self.assertEqual(response.context['total_unit_tayang'], 3)
+        self.assertNotContains(response, self.produk.nama)
+
     def test_pesanan_menyimpan_snapshot_harga_dan_booking_fee(self):
         self.produk.harga_promo = Decimal('5000000')
         self.produk.save()

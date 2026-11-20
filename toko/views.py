@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 # 1. HALAMAN PUBLIK
 # ═══════════════════════════════════════════════════════════════════
 
-JUMLAH_MOBIL_PILIHAN = 6      # jumlah mobil pilihan di beranda
+JUMLAH_MOBIL_PILIHAN = 3      # jumlah mobil pilihan di beranda
 JUMLAH_MAKS_SLIDE = 6           # jumlah maksimal slide hero yang tampil di beranda
 JUMLAH_MAKS_MITRA = 12          # jumlah maksimal mitra yang tampil di beranda
 KATALOG_PER_HALAMAN = 9       # jumlah kartu per halaman di katalog
@@ -158,15 +158,26 @@ def mitra_tayang():
 
 def beranda(request):
     """
-    Beranda: hanya menampilkan beberapa mobil pilihan (unit Ready Stock terbaru).
+    Beranda: menampilkan tiga unit terbaru yang siap dipesan dan belum dibooking.
     Daftar lengkap, pencarian, dan filter ada di halaman katalog.
     """
-    semua_tayang = produk_tayang()
-    katalog_mobil = semua_tayang.order_by('-created_at', '-id')[:JUMLAH_MOBIL_PILIHAN]
+    pesanan_aktif_unit = PesananPembelian.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=PesananPembelian.STATUS_AKTIF,
+    )
+    booking_unit = BookingCekUnit.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=('menunggu_dp', 'terkonfirmasi', 'selesai'),
+    )
+    unit_tersedia = produk_tayang().filter(
+        ~Exists(pesanan_aktif_unit),
+        ~Exists(booking_unit),
+    )
+    katalog_mobil = unit_tersedia.order_by('-created_at', '-id')[:JUMLAH_MOBIL_PILIHAN]
 
     return render(request, 'beranda.html', {
         'katalog_mobil': katalog_mobil,
-        'total_unit_tayang': semua_tayang.count(),
+        'total_unit_tayang': unit_tersedia.count(),
         'hero_slides': hero_slide_tayang(),
         'mitra_list': mitra_tayang(),
     })

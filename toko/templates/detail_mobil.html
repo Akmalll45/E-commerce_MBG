@@ -1114,28 +1114,6 @@
                                     Unit ini sedang dalam proses pemesanan pelanggan lain. Pembelian dan booking dinonaktifkan.
                                 {% endif %}
                             </div>
-                            <div class="modal fade" id="unitBookedModal" tabindex="-1"
-                                 aria-labelledby="unitBookedModalTitle" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 rounded-4 shadow">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h2 class="modal-title fs-5 fw-bold" id="unitBookedModalTitle">
-                                                Unit sedang di-booking
-                                            </h2>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                    aria-label="Tutup"></button>
-                                        </div>
-                                        <div class="modal-body text-secondary">
-                                            Unit ini sedang dipesan pelanggan lain. Untuk mencegah double booking,
-                                            tombol pemesanan dinonaktifkan. Ketersediaan akan diperiksa kembali otomatis.
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-primary rounded-pill px-4"
-                                                    data-bs-dismiss="modal">Mengerti</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         {% endif %}
 
                         <!-- CTA 1: Booking Cek Unit Langsung di Showroom Pettarani -->
@@ -1238,6 +1216,35 @@
         {% endif %}
 
     </main>
+
+    {% if produk.tipe_penjual == 'B2C' %}
+    <div class="modal fade" id="unitBookedModal" tabindex="-1"
+         aria-labelledby="unitBookedModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h2 class="modal-title fs-5 fw-bold" id="unitBookedModalTitle">
+                        Unit sedang di-booking
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body text-secondary">
+                    Unit ini sedang dipesan pelanggan lain. Untuk mencegah double booking,
+                    tombol pemesanan dinonaktifkan. Ketersediaan akan diperiksa kembali otomatis.
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <a href="{% url 'katalog' %}"
+                       class="btn btn-outline-primary rounded-pill px-3 me-auto">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Katalog
+                    </a>
+                    <button type="button" class="btn btn-primary rounded-pill px-4"
+                            data-bs-dismiss="modal">Mengerti</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 4. FOOTER -->
     <footer class="footer-mbg-startup">
