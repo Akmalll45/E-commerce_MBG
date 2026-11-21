@@ -1,0 +1,160 @@
+{% extends 'dashboard/admin/base_admin.html' %}
+{% load humanize %}
+
+{% block title %}Data Pengguna{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pengguna-stat { border:1px solid #E2E8F0; border-radius:16px; background:#fff; padding:1.15rem; height:100%; box-shadow:var(--shadow-card); }
+    .pengguna-stat-icon { width:42px; height:42px; border-radius:13px; display:grid; place-items:center; font-size:1.05rem; flex-shrink:0; }
+    .pengguna-stat-label { color:#64748B; font-size:.78rem; font-weight:600; }
+    .pengguna-stat-value { color:#0F172A; font:800 1.45rem 'Montserrat',sans-serif; margin-top:.15rem; }
+    .pengguna-avatar { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; color:#1D4ED8; background:#DBEAFE; font-weight:800; flex-shrink:0; }
+    .pengguna-name { color:#0F172A; font-weight:700; line-height:1.25; }
+    .role-pill,.state-pill { display:inline-flex; align-items:center; gap:.35rem; padding:.28rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .role-pill { color:#1D4ED8; background:#EFF6FF; border:1px solid #BFDBFE; }
+    .state-active { color:#047857; background:#ECFDF5; border:1px solid #A7F3D0; }
+    .state-inactive { color:#B91C1C; background:#FEF2F2; border:1px solid #FECACA; }
+    .pengguna-table td { vertical-align:middle; }
+    .pagination .page-link { border-radius:10px !important; margin:0 .15rem; font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+    <div>
+        <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-users text-primary me-2"></i> Data Pengguna</h3>
+        <p class="text-muted small mb-0">Kelola akun pengguna dan aksesnya di sistem MBG.</p>
+    </div>
+    {% if boleh_tambah_pengguna %}
+    <a href="{% url 'admin_pengguna_tambah' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+        <i class="fa-solid fa-plus me-1"></i> Tambah Pengguna
+    </a>
+    {% endif %}
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="pengguna-stat d-flex align-items-center gap-3">
+        <div class="pengguna-stat-icon bg-primary bg-opacity-10 text-primary"><i class="fa-solid fa-users"></i></div>
+        <div><div class="pengguna-stat-label">Total Pengguna</div><div class="pengguna-stat-value">{{ total_pengguna|intcomma }}</div></div>
+    </div></div>
+    <div class="col-6 col-xl-3"><div class="pengguna-stat d-flex align-items-center gap-3">
+        <div class="pengguna-stat-icon bg-success bg-opacity-10 text-success"><i class="fa-solid fa-circle-check"></i></div>
+        <div><div class="pengguna-stat-label">Pengguna Aktif</div><div class="pengguna-stat-value">{{ pengguna_aktif|intcomma }}</div></div>
+    </div></div>
+    <div class="col-6 col-xl-3"><div class="pengguna-stat d-flex align-items-center gap-3">
+        <div class="pengguna-stat-icon bg-info bg-opacity-10 text-info"><i class="fa-solid fa-user-shield"></i></div>
+        <div><div class="pengguna-stat-label">Staff</div><div class="pengguna-stat-value">{{ total_staff|intcomma }}</div></div>
+    </div></div>
+    <div class="col-6 col-xl-3"><div class="pengguna-stat d-flex align-items-center gap-3">
+        <div class="pengguna-stat-icon bg-warning bg-opacity-10 text-warning"><i class="fa-solid fa-crown"></i></div>
+        <div><div class="pengguna-stat-label">Superuser</div><div class="pengguna-stat-value">{{ total_superuser|intcomma }}</div></div>
+    </div></div>
+</div>
+
+<div class="content-card">
+    <form method="get" class="row g-2 align-items-center mb-4">
+        <div class="col-12 col-lg-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:12px 0 0 12px;border:1.5px solid #E2E8F0;border-right:none;"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="search" name="q" value="{{ nilai.q|default:'' }}" class="form-control" style="border-left:none;" placeholder="Cari nama, username, atau email…" maxlength="100">
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <select name="group" class="form-select" aria-label="Filter group">
+                <option value="">Semua Group</option>
+                {% for group in groups %}
+                <option value="{{ group.pk }}" {% if nilai.group == group.pk|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-lg-2">
+            <select name="status" class="form-select" aria-label="Filter status">
+                <option value="">Semua Status</option>
+                <option value="aktif" {% if nilai.status == 'aktif' %}selected{% endif %}>Aktif</option>
+                <option value="nonaktif" {% if nilai.status == 'nonaktif' %}selected{% endif %}>Nonaktif</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary rounded-pill fw-bold flex-grow-1"><i class="fa-solid fa-magnifying-glass me-1"></i> Cari</button>
+            {% if nilai %}<a href="{% url 'admin_pengguna' %}" class="btn btn-light border rounded-pill px-3">Reset</a>{% endif %}
+        </div>
+    </form>
+
+    <div class="card-header-clean">
+        <div>
+            <h5 class="fw-bold mb-1"><i class="fa-solid fa-address-book text-primary me-2"></i>Daftar Pengguna</h5>
+            <small class="text-muted">Menampilkan {{ page_obj.start_index }}–{{ page_obj.end_index }} dari {{ total_hasil|intcomma }} pengguna</small>
+        </div>
+    </div>
+
+    {% if pengguna_list %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 pengguna-table">
+            <thead class="table-light small text-uppercase">
+                <tr>
+                    <th>Nama</th><th>Username</th><th>Email</th><th>Peran</th><th>Status</th><th>Tanggal Bergabung</th><th class="text-end">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pengguna in pengguna_list %}
+                <tr>
+                    <td><div class="d-flex align-items-center gap-2">
+                        <div class="pengguna-avatar">{% if pengguna.first_name %}{{ pengguna.first_name|first|upper }}{% else %}{{ pengguna.username|first|upper }}{% endif %}</div>
+                        <div class="pengguna-name">{{ pengguna.get_full_name|default:pengguna.username }}</div>
+                    </div></td>
+                    <td class="text-nowrap">{{ pengguna.username }}</td>
+                    <td>{{ pengguna.email|default:"—" }}</td>
+                    <td>
+                        {% if pengguna.is_superuser %}<span class="role-pill"><i class="fa-solid fa-crown"></i> Superuser</span>
+                        {% elif pengguna.is_staff %}<span class="role-pill"><i class="fa-solid fa-user-shield"></i> Staff</span>
+                        {% elif pengguna.groups.all %}{% for group in pengguna.groups.all %}<span class="role-pill me-1 mb-1">{{ group.name }}</span>{% endfor %}
+                        {% else %}<span class="role-pill">Pelanggan</span>{% endif %}
+                    </td>
+                    <td>{% if pengguna.is_active %}<span class="state-pill state-active"><i class="fa-solid fa-circle"></i> Aktif</span>
+                        {% else %}<span class="state-pill state-inactive"><i class="fa-solid fa-circle"></i> Nonaktif</span>{% endif %}</td>
+                    <td class="text-nowrap small">{{ pengguna.date_joined|date:"d M Y" }}<br><span class="text-muted">{{ pengguna.date_joined|date:"H:i" }}</span></td>
+                    <td class="text-end text-nowrap">
+                        <a href="{% url 'admin_pengguna_detail' pengguna.pk %}" class="btn btn-sm btn-light border rounded-circle" title="Detail" aria-label="Detail {{ pengguna.username }}"><i class="fa-solid fa-eye"></i></a>
+                        {% if boleh_ubah_pengguna %}
+                        <a href="{% url 'admin_pengguna_edit' pengguna.pk %}" class="btn btn-sm btn-outline-primary rounded-circle" title="Ubah" aria-label="Ubah {{ pengguna.username }}"><i class="fa-solid fa-pen"></i></a>
+                        {% if pengguna.pk != user.pk %}
+                        <form method="post" action="{% url 'admin_pengguna_status' pengguna.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm {% if pengguna.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %} rounded-circle" title="{% if pengguna.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %} akun" aria-label="{% if pengguna.is_active %}Nonaktifkan{% else %}Aktifkan{% endif %} {{ pengguna.username }}" onclick="return confirm('Ubah status akun {{ pengguna.username|escapejs }}?')">
+                                <i class="fa-solid {% if pengguna.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="text-primary mb-3"><i class="fa-solid fa-users fs-1"></i></div>
+        <h5 class="fw-bold">{% if nilai %}Pengguna tidak ditemukan{% else %}Belum ada pengguna{% endif %}</h5>
+        <p class="text-muted small mb-0">Coba ubah kata kunci atau filter pencarian.</p>
+    </div>
+    {% endif %}
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mt-4">
+        <small class="text-muted">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</small>
+        <nav aria-label="Halaman daftar pengguna"><ul class="pagination mb-0">
+            {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Sebelumnya">&laquo;</a></li>{% endif %}
+            {% for nomor in page_obj.paginator.page_range %}
+                {% if nomor == page_obj.number %}<li class="page-item active"><span class="page-link">{{ nomor }}</span></li>
+                {% elif nomor <= 2 or nomor > page_obj.paginator.num_pages|add:'-2' or nomor >= page_obj.number|add:'-1' and nomor <= page_obj.number|add:'1' %}
+                    <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ nomor }}">{{ nomor }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}" aria-label="Berikutnya">&raquo;</a></li>{% endif %}
+        </ul></nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

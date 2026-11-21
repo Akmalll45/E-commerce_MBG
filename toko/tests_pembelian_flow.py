@@ -712,6 +712,7 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertContains(resp_dash, 'Pembelian Langsung')
         self.assertContains(resp_dash, 'Riwayat Booking, Pembelian &amp; Pembayaran')
         self.assertContains(resp_dash, 'Menunggu Verifikasi')
+        self.assertContains(resp_dash, 'id="riwayat-pesanan"')
         self.assertContains(resp_dash, reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
         self.assertTrue(resp_dash.context['user_booking_pembelian'].filter(pk=pesanan.pk).exists())
         self.assertTrue(resp_dash.context['user_pembelian_langsung'].filter(pk=pesanan_langsung.pk).exists())

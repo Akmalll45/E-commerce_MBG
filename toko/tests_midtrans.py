@@ -401,6 +401,20 @@ class MidtransSnapServiceTests(TestCase):
         self.pesanan.save(update_fields=['midtrans_order_id'])
         return self.pesanan
 
+    def test_detail_pesanan_tidak_menampilkan_popup_dan_memuat_status_terbaru(self):
+        pesanan = self._buat_pesanan_beli_langsung()
+        pesanan.saluran_pembayaran = 'midtrans'
+        pesanan.save(update_fields=['saluran_pembayaran'])
+        customer = Client()
+        customer.login(username='pembeli_midtrans', password='Password123!')
+
+        detail = customer.get(reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
+
+        self.assertContains(detail, 'id="detail-pesanan"')
+        self.assertNotContains(detail, 'directPurchaseSuccessModalDetail')
+        self.assertContains(detail, 'if (data.order_status !== lastOrderStatus)')
+        self.assertContains(detail, 'window.location.reload()')
+
     def test_webhook_menolak_signature_palsu(self):
         payload = self._buat_payload_webhook()
         payload['signature_key'] = 'signature_palsu_yang_salah_total'
@@ -547,7 +561,7 @@ class MidtransSnapServiceTests(TestCase):
         customer.login(username='pembeli_midtrans', password='Password123!')
         detail = customer.get(reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
         self.assertContains(detail, 'Lunas — Menunggu Serah Terima')
-        self.assertContains(detail, 'directPurchaseSuccessModalDetail')
+        self.assertNotContains(detail, 'directPurchaseSuccessModalDetail')
 
         admin = Client()
         admin.login(username='admin_mbg', password='Password123!')
@@ -566,6 +580,11 @@ class MidtransSnapServiceTests(TestCase):
             reverse('pesanan_berhasil', args=[pesanan.nomor_pesanan])
         )
         self.assertContains(success_page, 'Pembelian Selesai')
+        self.assertContains(success_page, f'href="{reverse("dashboard_user")}#riwayat-pesanan"')
+        self.assertContains(
+            success_page,
+            f'href="{reverse("pesanan_detail", args=[pesanan.nomor_pesanan])}#detail-pesanan"',
+        )
 
     def test_webhook_capture_accept_memverifikasi_booking_dan_mengunci_unit(self):
         payload = self._buat_payload_webhook(

@@ -310,10 +310,12 @@
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_inquiry_c2c' %}">Inquiry Calon Pembeli</a>
                     </div>
                     {% endif %}
-                    <a class="admin-side-item" href="/admin/toko/customuser/" target="_blank">
+                    {% if user.is_superuser or perms.toko.view_customuser %}
+                    <a class="admin-side-item" href="{% url 'admin_pengguna' %}">
                         <span><i class="fa-solid fa-users text-secondary"></i> Data Pengguna</span>
                         <span class="badge bg-light text-dark border rounded-pill small">{{ total_pengguna }}</span>
                     </a>
+                    {% endif %}
                     <div class="side-section-title">Konten Website</div>
                     <a class="admin-side-item" href="{% url 'admin_artikel' %}">
                         <span><i class="fa-solid fa-newspaper text-primary"></i> Artikel &amp; Berita</span>

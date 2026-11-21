@@ -360,8 +360,8 @@
         <div class="text-success display-4 mb-2"><i class="fa-solid fa-circle-check"></i></div>
         <h2 id="directPurchaseSuccessTitle" class="h4 fw-bold text-dark">Pembayaran Terverifikasi!</h2>
         <p class="text-muted">Pembayaran penuh telah divalidasi Midtrans dan unit sudah dikunci. Silakan lanjutkan administrasi dan serah terima bersama tim MBG.</p>
-        <a href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" class="btn btn-success rounded-pill px-4">Lihat Detail Pesanan</a>
-        <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Riwayat Pesanan</a>
+        <a href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}#detail-pesanan" class="btn btn-success rounded-pill px-4">Lihat Detail Pesanan</a>
+        <a href="{% url 'dashboard_user' %}#riwayat-pesanan" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Riwayat Pesanan</a>
     </div>
 </div>
 {% endif %}

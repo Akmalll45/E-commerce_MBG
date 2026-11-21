@@ -1,11 +1,18 @@
 <!DOCTYPE html>
-{% load humanize %}
+{% load humanize static %}
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>{% block title %}Panel Administrator{% endblock %} — MBG Makassar</title>
+    {% static 'toko/images/mbg-logo.png' as mbg_logo_url %}
+    <meta property="og:site_name" content="MBG Makassar">
+    <meta property="og:title" content="{% block og_title %}Panel Administrator — MBG Makassar{% endblock %}">
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ mbg_logo_url }}">
+    <meta property="og:image:alt" content="Logo MBG Makassar">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ mbg_logo_url }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,7 +63,7 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
-    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
+    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% else %}<link rel="icon" type="image/png" href="{{ request.scheme }}://{{ request.get_host }}{{ mbg_logo_url }}">{% endif %}
 </head>
 <body>
 
@@ -146,6 +153,11 @@
                         <a class="admin-side-item ps-4 small {% if 'inquiry_c2c' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_inquiry_c2c' %}">Inquiry Calon Pembeli</a>
                         {% endif %}
                     </div>
+                    {% if user.is_superuser or perms.toko.view_customuser %}
+                    <a class="admin-side-item {% if 'pengguna' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_pengguna' %}">
+                        <span><i class="fa-solid fa-users text-secondary"></i> Data Pengguna</span>
+                    </a>
+                    {% endif %}
                     <div class="side-section-title">Konten Website</div>
                     <a class="admin-side-item {% if 'artikel' in request.resolver_match.url_name and 'kategori' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_artikel' %}">
                         <span><i class="fa-solid fa-newspaper text-primary"></i> Artikel &amp; Berita</span>

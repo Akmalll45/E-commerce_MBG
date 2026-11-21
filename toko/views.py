@@ -5,6 +5,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from django.conf import settings
+from django.contrib.auth.models import Group
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import login, logout, update_session_auth_hash, get_user_model
@@ -43,7 +44,7 @@ from .models import (
     normalisasi_whatsapp,
 )
 from .forms import (
-    LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
+    LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, AdminUserForm, UbahPasswordForm,
     ProdukForm, PengajuanTitipJualForm, InquiryPembeliC2CForm, AdminInquiryC2CForm,
     HasilInspeksiC2CForm,
     LaporanPenjualanPemilikForm, LaporanPenjualanMBGForm,
@@ -1390,6 +1391,137 @@ def c2c_permission_required(permission):
             return view(request, *args, **kwargs)
         return pembungkus
     return decorator
+
+
+def _pastikan_izin_pengguna(request, izin):
+    if not request.user.is_superuser and not request.user.has_perm(f'toko.{izin}_customuser'):
+        raise PermissionDenied
+
+
+def _konteks_izin_pengguna(request):
+    return {
+        'boleh_tambah_pengguna': request.user.is_superuser or request.user.has_perm('toko.add_customuser'),
+        'boleh_ubah_pengguna': request.user.is_superuser or request.user.has_perm('toko.change_customuser'),
+        'boleh_kelola_group': request.user.is_superuser or request.user.has_perm('auth.change_group'),
+    }
+
+
+@staf_required
+def admin_pengguna(request):
+    _pastikan_izin_pengguna(request, 'view')
+    daftar = User.objects.prefetch_related('groups').order_by('-date_joined', '-pk')
+    params = {}
+
+    q = ' '.join(request.GET.get('q', '').split())[:100]
+    if q:
+        params['q'] = q
+        for kata in q.split()[:5]:
+            daftar = daftar.filter(
+                Q(username__icontains=kata)
+                | Q(first_name__icontains=kata)
+                | Q(last_name__icontains=kata)
+                | Q(email__icontains=kata)
+            )
+
+    status = request.GET.get('status', '')
+    if status in ('aktif', 'nonaktif'):
+        params['status'] = status
+        daftar = daftar.filter(is_active=(status == 'aktif'))
+
+    group_id = request.GET.get('group', '')
+    if group_id.isdigit() and Group.objects.filter(pk=group_id).exists():
+        params['group'] = group_id
+        daftar = daftar.filter(groups__pk=group_id)
+
+    halaman = Paginator(daftar.distinct(), 20).get_page(request.GET.get('page'))
+    context = {
+        'page_obj': halaman,
+        'pengguna_list': halaman.object_list,
+        'total_hasil': halaman.paginator.count,
+        'querystring': urlencode(params),
+        'nilai': params,
+        'groups': Group.objects.order_by('name'),
+        'total_pengguna': User.objects.count(),
+        'pengguna_aktif': User.objects.filter(is_active=True).count(),
+        'total_staff': User.objects.filter(is_staff=True).count(),
+        'total_superuser': User.objects.filter(is_superuser=True).count(),
+    }
+    context.update(_konteks_izin_pengguna(request))
+    return render(request, 'dashboard/admin/pengguna_list.html', context)
+
+
+@staf_required
+def admin_pengguna_tambah(request):
+    _pastikan_izin_pengguna(request, 'add')
+    can_manage_groups = request.user.is_superuser or request.user.has_perm('auth.change_group')
+    form = AdminUserForm(
+        request.POST if request.method == 'POST' else None,
+        can_manage_groups=can_manage_groups,
+        actor=request.user,
+    )
+    if request.method == 'POST' and form.is_valid():
+        pengguna = form.save()
+        messages.success(request, f'Akun {pengguna.username} berhasil ditambahkan.')
+        return redirect('admin_pengguna_detail', pengguna_id=pengguna.pk)
+    return render(request, 'dashboard/admin/pengguna_form.html', {
+        'form': form,
+        'judul': 'Tambah Pengguna',
+        'pengguna': None,
+        'boleh_kelola_group': can_manage_groups,
+    })
+
+
+@staf_required
+def admin_pengguna_detail(request, pengguna_id):
+    _pastikan_izin_pengguna(request, 'view')
+    pengguna = get_object_or_404(User.objects.prefetch_related('groups'), pk=pengguna_id)
+    context = {'pengguna': pengguna}
+    context.update(_konteks_izin_pengguna(request))
+    return render(request, 'dashboard/admin/pengguna_detail.html', context)
+
+
+@staf_required
+def admin_pengguna_edit(request, pengguna_id):
+    _pastikan_izin_pengguna(request, 'change')
+    pengguna = get_object_or_404(User, pk=pengguna_id)
+    can_manage_groups = request.user.is_superuser or request.user.has_perm('auth.change_group')
+    form = AdminUserForm(
+        request.POST if request.method == 'POST' else None,
+        instance=pengguna,
+        can_manage_groups=can_manage_groups,
+        actor=request.user,
+    )
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Akun {pengguna.username} berhasil diperbarui.')
+        return redirect('admin_pengguna_detail', pengguna_id=pengguna.pk)
+    return render(request, 'dashboard/admin/pengguna_form.html', {
+        'form': form,
+        'judul': 'Ubah Data Pengguna',
+        'pengguna': pengguna,
+        'boleh_kelola_group': can_manage_groups,
+    })
+
+
+@staf_required
+@require_POST
+def admin_pengguna_status(request, pengguna_id):
+    _pastikan_izin_pengguna(request, 'change')
+    pengguna = get_object_or_404(User, pk=pengguna_id)
+    if pengguna.pk == request.user.pk:
+        messages.error(request, 'Anda tidak dapat menonaktifkan akun yang sedang digunakan.')
+    elif (
+        pengguna.is_active
+        and pengguna.is_superuser
+        and User.objects.filter(is_active=True, is_superuser=True).exclude(pk=pengguna.pk).count() == 0
+    ):
+        messages.error(request, 'Akun superuser aktif terakhir tidak dapat dinonaktifkan.')
+    else:
+        pengguna.is_active = not pengguna.is_active
+        pengguna.save(update_fields=['is_active'])
+        label = 'diaktifkan' if pengguna.is_active else 'dinonaktifkan'
+        messages.success(request, f'Akun {pengguna.username} berhasil {label}.')
+    return redirect('admin_pengguna')
 
 
 def _periksa_izin_tindakan_c2c(request, tindakan, pengajuan):

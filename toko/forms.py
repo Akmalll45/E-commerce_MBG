@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
@@ -348,6 +349,101 @@ class AdminProfileForm(forms.ModelForm):
         if existing.exists():
             raise ValidationError("Email ini sudah digunakan oleh akun lain.")
         return email
+
+
+class AdminUserForm(forms.ModelForm):
+    """Create and edit users without exposing staff or superuser privilege flags."""
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.none(),
+        required=False,
+        label='Group',
+        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': 5}),
+    )
+    password1 = forms.CharField(
+        label='Kata sandi',
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+    password2 = forms.CharField(
+        label='Ulangi kata sandi',
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active', 'groups']
+        labels = {
+            'username': 'Username',
+            'first_name': 'Nama depan',
+            'last_name': 'Nama belakang',
+            'email': 'Email',
+            'is_active': 'Akun aktif',
+        }
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'username'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'autocomplete': 'email'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, can_manage_groups=False, actor=None, **kwargs):
+        self.can_manage_groups = can_manage_groups
+        self.actor = actor
+        super().__init__(*args, **kwargs)
+        self.fields['groups'].queryset = Group.objects.order_by('name')
+        if not can_manage_groups:
+            self.fields.pop('groups')
+        if self.instance.pk:
+            self.fields.pop('password1')
+            self.fields.pop('password2')
+        else:
+            self.fields['password1'].required = True
+            self.fields['password2'].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+        if password1 or password2:
+            if password1 != password2:
+                self.add_error('password2', 'Konfirmasi kata sandi tidak cocok.')
+            elif password1:
+                try:
+                    validate_password(password1, self.instance)
+                except ValidationError as error:
+                    self.add_error('password1', error)
+        return cleaned_data
+
+    def clean_is_active(self):
+        is_active = self.cleaned_data['is_active']
+        if (
+            self.instance.pk
+            and self.instance.is_active
+            and not is_active
+            and self.actor
+            and self.actor.pk == self.instance.pk
+        ):
+            raise ValidationError('Anda tidak dapat menonaktifkan akun yang sedang digunakan.')
+        if (
+            self.instance.pk
+            and self.instance.is_active
+            and not is_active
+            and self.instance.is_superuser
+            and User.objects.filter(is_active=True, is_superuser=True).exclude(pk=self.instance.pk).count() == 0
+        ):
+            raise ValidationError('Akun superuser aktif terakhir tidak dapat dinonaktifkan.')
+        return is_active
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if not self.instance.pk:
+            user.set_password(self.cleaned_data['password1'])
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
 
 
 class UbahPasswordForm(PasswordChangeForm):

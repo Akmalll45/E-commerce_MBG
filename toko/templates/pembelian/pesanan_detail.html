@@ -69,7 +69,7 @@
     </div>
 </section>
 
-<section class="py-5">
+<section id="detail-pesanan" class="py-5" style="scroll-margin-top: 96px;">
     <div class="container" style="max-width: 1040px;">
         <div class="row g-4">
             <!-- Kolom Kiri: Detail Unit & Keuangan -->
@@ -375,17 +375,6 @@
         </div>
     </div>
 </section>
-{% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.saluran_pembayaran == 'midtrans' %}
-<div id="directPurchaseSuccessModalDetail" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style="z-index: 1090;" role="dialog" aria-modal="true" aria-labelledby="directPurchaseSuccessTitleDetail" hidden>
-    <div class="bg-white rounded-4 shadow-lg p-4 text-center" style="max-width: 460px;">
-        <div class="text-success display-4 mb-2"><i class="fa-solid fa-circle-check"></i></div>
-        <h2 id="directPurchaseSuccessTitleDetail" class="h4 fw-bold text-dark">Pembayaran Terverifikasi!</h2>
-        <p class="text-muted">Pembayaran penuh tervalidasi Midtrans dan unit sudah dikunci untuk proses administrasi serta serah terima.</p>
-        <a href="{% url 'pesanan_detail' pesanan.nomor_pesanan %}" class="btn btn-success rounded-pill px-4">Lihat Detail Pesanan</a>
-        <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Riwayat Pesanan</a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -399,7 +388,6 @@
         const statusBox = document.getElementById('midtransStatusDetail');
         const orderBadge = document.getElementById('pesananStatusBadge');
         const paymentState = document.getElementById('bookingFeePaymentState');
-        const directPurchaseSuccessModal = document.getElementById('directPurchaseSuccessModalDetail');
 
         if (!btn) return;
 
@@ -435,7 +423,6 @@
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Pembayaran Penuh Terverifikasi';
-                if (directPurchaseSuccessModal) directPurchaseSuccessModal.hidden = false;
                 return;
             }
             if (data.payment_status === 'menunggu_verifikasi') {
@@ -556,6 +543,9 @@
                     showStatus(data.message, data.payment_status === 'menunggu_verifikasi' ? 'success' : 'info');
                     updatePaymentDisplay(data);
                     if (data.purchase_type === 'beli_langsung' && data.payment_status === 'terverifikasi') {
+                        if (data.order_status !== lastOrderStatus) {
+                            window.location.reload();
+                        }
                         return;
                     }
                     if (data.order_status !== lastOrderStatus) {
