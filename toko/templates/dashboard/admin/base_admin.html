@@ -131,17 +131,20 @@
                             <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
                         {% endif %}
                     </a>
-                    <button class="admin-side-item admin-side-toggle w-100 border-0 {% if 'titip_jual' in request.resolver_match.url_name %}active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="{% if 'titip_jual' in request.resolver_match.url_name %}true{% else %}false{% endif %}" aria-controls="menuTitipJualC2C">
+                    <button class="admin-side-item admin-side-toggle w-100 border-0 {% if 'titip_jual' in request.resolver_match.url_name or 'inquiry_c2c' in request.resolver_match.url_name %}active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="{% if 'titip_jual' in request.resolver_match.url_name or 'inquiry_c2c' in request.resolver_match.url_name %}true{% else %}false{% endif %}" aria-controls="menuTitipJualC2C">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
                         <i class="fa-solid fa-chevron-down small"></i>
                     </button>
-                    <div class="collapse w-100 {% if 'titip_jual' in request.resolver_match.url_name %}show{% endif %}" id="menuTitipJualC2C">
+                    <div class="collapse w-100 {% if 'titip_jual' in request.resolver_match.url_name or 'inquiry_c2c' in request.resolver_match.url_name %}show{% endif %}" id="menuTitipJualC2C">
                         <a class="admin-side-item ps-4 small {% if request.resolver_match.url_name == 'admin_titip_jual' %}active{% endif %}" href="{% url 'admin_titip_jual' %}">Semua Pengajuan</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'verifikasi' %}">Verifikasi &amp; Revisi</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'inspeksi' %}">Jadwal Inspeksi</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'harga' %}">Persetujuan Harga</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'showroom' %}">Kendaraan di Showroom</a>
                         <a class="admin-side-item ps-4 small" href="{% url 'admin_titip_jual_tahap' 'penjualan' %}">Penjualan &amp; Penyelesaian</a>
+                        {% if user.is_superuser or perms.toko.view_titipjual %}
+                        <a class="admin-side-item ps-4 small {% if 'inquiry_c2c' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_inquiry_c2c' %}">Inquiry Calon Pembeli</a>
+                        {% endif %}
                     </div>
                     <div class="side-section-title">Konten Website</div>
                     <a class="admin-side-item {% if 'artikel' in request.resolver_match.url_name and 'kategori' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_artikel' %}">

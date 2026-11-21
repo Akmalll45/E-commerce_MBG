@@ -20,7 +20,7 @@ from PIL import Image
 
 from .forms import HasilInspeksiC2CForm, validasi_dokumen_titip_jual
 from .models import (
-    ChecklistInspeksiC2C, DokumenTitipJual, FotoTitipJual,
+    ChecklistInspeksiC2C, DokumenTitipJual, FotoTitipJual, InquiryC2C,
     HasilChecklistInspeksiC2C, InspeksiC2C, PermintaanTitipJual,
     Produk, RiwayatTransaksiTitipJual, SerahTerimaUnit,
     TitipJual, TransaksiTitipJual, RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
@@ -132,9 +132,9 @@ class TitipJualPenggunaTests(TransactionTestCase):
             dicatat_oleh=self.admin,
         )
 
-    def _buat_pengajuan_tayang(self):
+    def _buat_pengajuan_tayang(self, pemilik=None):
         pengajuan = TitipJual.objects.create(
-            pengguna=self.pemilik,
+            pengguna=pemilik or self.pemilik,
             nama_pemilik='Pemilik MBG',
             no_whatsapp='081234567890',
             merek='Toyota',
@@ -250,6 +250,156 @@ class TitipJualPenggunaTests(TransactionTestCase):
             self.client.get(reverse('titip_jual_detail', args=[milik_pemilik.id + 1])).status_code,
             404,
         )
+
+    def test_inquiry_disimpan_sebelum_redirect_whatsapp(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        response = self.client.post(
+            reverse('kirim_inquiry_c2c', args=[pengajuan.produk_terkait_id]),
+            {
+                'nama_pembeli': '  Calon   Pembeli ',
+                'whatsapp': '0812-3456-7890',
+                'email': 'buyer@example.test',
+                'pesan': 'Apakah kilometer kendaraan masih sama?',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('https://wa.me/6281234567890?', response['Location'])
+        inquiry = InquiryC2C.objects.get()
+        self.assertEqual(inquiry.produk_id, pengajuan.produk_terkait_id)
+        self.assertEqual(inquiry.titip_jual_id, pengajuan.pk)
+        self.assertEqual(inquiry.pengguna_id, self.pemilik.pk)
+        self.assertEqual(inquiry.nama_pembeli, 'Calon Pembeli')
+        self.assertEqual(inquiry.whatsapp, '6281234567890')
+        self.assertEqual(inquiry.status, 'baru')
+
+    def test_inquiry_duplikat_24_jam_tidak_membuat_record_baru(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        url = reverse('kirim_inquiry_c2c', args=[pengajuan.produk_terkait_id])
+        data = {
+            'nama_pembeli': 'Calon Pembeli',
+            'whatsapp': '081234567890',
+            'email': '',
+            'pesan': 'Masih tersedia?',
+        }
+
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        self.assertEqual(InquiryC2C.objects.count(), 1)
+
+    def test_listing_tidak_layak_tidak_menerima_inquiry(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        produk = pengajuan.produk_terkait
+        produk.status_stok = 'in_review'
+        produk.save(update_fields=['status_stok'])
+
+        response = self.client.post(
+            reverse('kirim_inquiry_c2c', args=[produk.pk]),
+            {
+                'nama_pembeli': 'Calon Pembeli',
+                'whatsapp': '081234567890',
+                'email': '',
+                'pesan': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(InquiryC2C.objects.exists())
+
+    def test_listing_dengan_transaksi_aktif_tidak_menerima_inquiry(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        TransaksiTitipJual.objects.create(
+            titip_jual=pengajuan,
+            sumber='pemilik',
+            nama_pembeli='Pembeli Lain',
+            kontak_pembeli='628123456703',
+            harga_final=Decimal('200000000'),
+            tanggal_kesepakatan=timezone.localdate(),
+            dilaporkan_oleh=self.pemilik,
+            status='terverifikasi',
+        )
+
+        response = self.client.post(
+            reverse('kirim_inquiry_c2c', args=[pengajuan.produk_terkait_id]),
+            {
+                'nama_pembeli': 'Calon Pembeli',
+                'whatsapp': '081234567890',
+                'email': '',
+                'pesan': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(InquiryC2C.objects.exists())
+
+    def test_form_inquiry_menolak_nomor_whatsapp_tidak_valid(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        response = self.client.post(
+            reverse('kirim_inquiry_c2c', args=[pengajuan.produk_terkait_id]),
+            {
+                'nama_pembeli': 'Calon Pembeli',
+                'whatsapp': 'nomor salah',
+                'email': '',
+                'pesan': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(InquiryC2C.objects.exists())
+        self.assertIn('whatsapp', response.context['inquiry_form'].errors)
+
+    def test_dashboard_pemilik_hanya_memuat_inquiry_listing_sendiri(self):
+        milik_pemilik = self._buat_pengajuan_tayang()
+        milik_pengguna_lain = self._buat_pengajuan_tayang(pemilik=self.pengguna_lain)
+        inquiry_pemilik = InquiryC2C.objects.create(
+            produk=milik_pemilik.produk_terkait,
+            titip_jual=milik_pemilik,
+            nama_pembeli='Buyer Satu',
+            whatsapp='628123456700',
+            catatan_admin='Catatan internal rahasia',
+        )
+        InquiryC2C.objects.create(
+            produk=milik_pengguna_lain.produk_terkait,
+            titip_jual=milik_pengguna_lain,
+            nama_pembeli='Buyer Dua',
+            whatsapp='628123456701',
+        )
+
+        response = self.client.get(reverse('dashboard_user'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context['user_inquiry_c2c'].values_list('pk', flat=True)),
+            [inquiry_pemilik.pk],
+        )
+        self.assertNotContains(response, 'Catatan internal rahasia')
+
+    def test_admin_c2c_dapat_mencari_dan_memperbarui_inquiry(self):
+        pengajuan = self._buat_pengajuan_tayang()
+        inquiry = InquiryC2C.objects.create(
+            produk=pengajuan.produk_terkait,
+            titip_jual=pengajuan,
+            nama_pembeli='Calon Pembeli Admin',
+            whatsapp='628123456702',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('admin_inquiry_c2c'),
+            {'q': 'Calon Pembeli Admin', 'status': 'baru'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Calon Pembeli Admin')
+
+        response = self.client.post(
+            reverse('admin_inquiry_c2c_status', args=[inquiry.pk]),
+            {'status': 'dihubungi', 'catatan_admin': 'Sudah diteruskan ke pemilik.'},
+        )
+        self.assertEqual(response.status_code, 302)
+        inquiry.refresh_from_db()
+        self.assertEqual(inquiry.status, 'dihubungi')
+        self.assertEqual(inquiry.catatan_admin, 'Sudah diteruskan ke pemilik.')
+        self.assertEqual(inquiry.ditangani_oleh_id, self.admin.pk)
 
     def test_nomor_ktp_terenkripsi_di_database_dan_membutuhkan_kunci(self):
         nomor_ktp = '1234567890123456'

@@ -1094,6 +1094,74 @@ class RiwayatTransaksiTitipJual(models.Model):
         verbose_name = "Riwayat Transaksi Titip-Jual"
         verbose_name_plural = "Riwayat Transaksi Titip-Jual"
 
+
+class InquiryC2C(models.Model):
+    STATUS_CHOICES = [
+        ('baru', 'Baru'),
+        ('dihubungi', 'Sudah dihubungi'),
+        ('ditindaklanjuti', 'Ditindaklanjuti'),
+        ('selesai', 'Selesai'),
+        ('spam', 'Spam'),
+    ]
+
+    produk = models.ForeignKey(
+        Produk, on_delete=models.PROTECT, related_name='inquiry_c2c',
+        verbose_name='Produk C2C',
+    )
+    titip_jual = models.ForeignKey(
+        TitipJual, on_delete=models.PROTECT, related_name='inquiry_c2c',
+        verbose_name='Listing Titip-Jual',
+    )
+    pengguna = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inquiry_c2c',
+        verbose_name='Akun calon pembeli',
+    )
+    nama_pembeli = models.CharField(max_length=120, verbose_name='Nama calon pembeli')
+    whatsapp = models.CharField(max_length=15, verbose_name='WhatsApp calon pembeli')
+    email = models.EmailField(blank=True, verbose_name='Email calon pembeli')
+    pesan = models.TextField(blank=True, max_length=1000, verbose_name='Pesan')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='baru', db_index=True,
+        verbose_name='Status inquiry',
+    )
+    catatan_admin = models.TextField(blank=True, verbose_name='Catatan internal admin')
+    ditangani_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inquiry_c2c_ditangani',
+        verbose_name='Ditangani oleh',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [
+            models.Index(
+                fields=['produk', 'whatsapp', 'created_at'],
+                name='c2c_inquiry_dedupe_idx',
+            ),
+            models.Index(fields=['titip_jual', 'status']),
+        ]
+        verbose_name = 'Inquiry Pembeli C2C'
+        verbose_name_plural = 'Inquiry Pembeli C2C'
+
+    def clean(self):
+        super().clean()
+        if self.produk_id and self.titip_jual_id:
+            if (
+                self.produk.tipe_penjual != 'C2C'
+                or self.produk.titip_jual_sumber_id != self.titip_jual_id
+                or self.titip_jual.produk_terkait_id != self.produk_id
+            ):
+                raise ValidationError({
+                    'produk': 'Produk dan listing Titip-Jual harus saling terhubung.',
+                })
+
+    def __str__(self):
+        return f'{self.nama_pembeli} — {self.produk}'
+
+
 # 4. MODEL BOOKING CEK UNIT (ALUR O2O)
 
 class BookingCekUnit(models.Model):

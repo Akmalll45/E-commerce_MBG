@@ -1116,21 +1116,58 @@
                             </div>
                         {% endif %}
 
-                        <!-- CTA 1: Booking Cek Unit Langsung di Showroom Mannuruki -->
-                        <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20Booking%20Jadwal%20Cek%20Unit%20langsung%20di%20Garasi%20Mannuruki%20untuk%20mobil:%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }}%20-%20Harga:%20Rp%20{{ produk.harga|intcomma }})."
-                           target="_blank"
-                           class="btn-cta-booking">
-                            <i class="fa-solid fa-calendar-check"></i>
-                            <span>Jadwalkan Cek Unit (O2O)</span>
-                        </a>
+                        {% if produk.tipe_penjual == 'C2C' %}
+                            {% if inquiry_bisa_dikirim %}
+                            <form method="post" action="{% url 'kirim_inquiry_c2c' produk.pk %}" class="border rounded-3 bg-light p-3">
+                                {% csrf_token %}
+                                <h5 class="fw-bold mb-1"><i class="fa-solid fa-message text-primary me-2"></i>Tanya Pemilik</h5>
+                                <p class="small text-muted mb-3">Inquiry disimpan terlebih dahulu, lalu WhatsApp pemilik dibuka.</p>
+                                {{ inquiry_form.non_field_errors }}
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold" for="{{ inquiry_form.nama_pembeli.id_for_label }}">Nama</label>
+                                    {{ inquiry_form.nama_pembeli }}
+                                    {{ inquiry_form.nama_pembeli.errors }}
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold" for="{{ inquiry_form.whatsapp.id_for_label }}">Nomor WhatsApp</label>
+                                    {{ inquiry_form.whatsapp }}
+                                    {{ inquiry_form.whatsapp.errors }}
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold" for="{{ inquiry_form.email.id_for_label }}">Email (opsional)</label>
+                                    {{ inquiry_form.email }}
+                                    {{ inquiry_form.email.errors }}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold" for="{{ inquiry_form.pesan.id_for_label }}">Pesan (opsional)</label>
+                                    {{ inquiry_form.pesan }}
+                                    {{ inquiry_form.pesan.errors }}
+                                </div>
+                                <button type="submit" class="btn-cta-wa w-100 border-0">
+                                    <i class="fa-brands fa-whatsapp fs-5"></i>
+                                    <span>Kirim Inquiry &amp; Lanjut ke WhatsApp</span>
+                                </button>
+                            </form>
+                            {% else %}
+                            <div class="alert alert-secondary small mb-0">Inquiry untuk kendaraan ini sedang tidak tersedia.</div>
+                            {% endif %}
+                        {% else %}
+                            <!-- CTA 1: Booking Cek Unit Langsung di Showroom Mannuruki -->
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20Booking%20Jadwal%20Cek%20Unit%20langsung%20di%20Garasi%20Mannuruki%20untuk%20mobil:%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }}%20-%20Harga:%20Rp%20{{ produk.harga|intcomma }})."
+                               target="_blank"
+                               class="btn-cta-booking">
+                                <i class="fa-solid fa-calendar-check"></i>
+                                <span>Jadwalkan Cek Unit (O2O)</span>
+                            </a>
 
-                        <!-- CTA 2: Tanya CS WhatsApp -->
-                        <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20mobil%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }})%20masih%20tersedia?%20Bisa%20minta%20video%20detail%20unit%20dan%20simulasi%20kreditnya?"
-                           target="_blank"
-                           class="btn-cta-wa">
-                            <i class="fa-brands fa-whatsapp fs-5"></i>
-                            <span>Konsultasi via WhatsApp</span>
-                        </a>
+                            <!-- CTA 2: Tanya CS WhatsApp -->
+                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20mobil%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }})%20masih%20tersedia?%20Bisa%20minta%20video%20detail%20unit%20dan%20simulasi%20kreditnya?"
+                               target="_blank"
+                               class="btn-cta-wa">
+                                <i class="fa-brands fa-whatsapp fs-5"></i>
+                                <span>Konsultasi via WhatsApp</span>
+                            </a>
+                        {% endif %}
                     </div>
 
                     <!-- Fitur Keamanan & Kepastian MBG -->

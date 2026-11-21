@@ -6,6 +6,7 @@ urlpatterns = [
     path('', views.beranda, name='beranda'),
     path('katalog/', views.katalog, name='katalog'),
     path('mobil/<int:id>/', views.detail_produk, name='detail_produk'),
+    path('mobil/<int:id>/inquiry/', views.kirim_inquiry_c2c, name='kirim_inquiry_c2c'),
     path('mobil/<int:id>/status-ketersediaan/', views.status_ketersediaan_unit, name='status_ketersediaan_unit'),
 
     # Autentikasi
@@ -59,6 +60,12 @@ urlpatterns = [
         'panel/titip-jual/<int:pengajuan_id>/tindakan/',
         views.admin_titip_jual_tindakan,
         name='admin_titip_jual_tindakan',
+    ),
+    path('panel/inquiry-c2c/', views.admin_inquiry_c2c, name='admin_inquiry_c2c'),
+    path(
+        'panel/inquiry-c2c/<int:inquiry_id>/status/',
+        views.admin_inquiry_c2c_status,
+        name='admin_inquiry_c2c_status',
     ),
     path('panel/katalog/', views.admin_katalog, name='admin_katalog'),
     path('panel/katalog/tambah/', views.admin_katalog_tambah, name='admin_katalog_tambah'),

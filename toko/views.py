@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -31,7 +32,7 @@ from .midtrans_service import (
 )
 
 from .models import (
-    Produk, FotoMobil, TitipJual, FotoTitipJual, DokumenTitipJual,
+    Produk, FotoMobil, TitipJual, InquiryC2C, FotoTitipJual, DokumenTitipJual,
     RiwayatStatusTitipJual, PermintaanTitipJual, SerahTerimaUnit,
     ChecklistInspeksiC2C, InspeksiC2C, HasilChecklistInspeksiC2C,
     TransaksiTitipJual, RiwayatTransaksiTitipJual,
@@ -39,10 +40,12 @@ from .models import (
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
     PesananPembelian, PembayaranPesanan, PengaturanPembelian, RiwayatPesanan,
     RefundPesanan, PERSENTASE_DP_KREDIT, PERSENTASE_ANGSURAN_KREDIT_TAHUNAN,
+    normalisasi_whatsapp,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, UbahPasswordForm,
-    ProdukForm, PengajuanTitipJualForm, HasilInspeksiC2CForm,
+    ProdukForm, PengajuanTitipJualForm, InquiryPembeliC2CForm, AdminInquiryC2CForm,
+    HasilInspeksiC2CForm,
     LaporanPenjualanPemilikForm, LaporanPenjualanMBGForm,
     VerifikasiPenjualanC2CForm, SerahTerimaTitipJualForm,
     SelesaikanPenjualanC2CForm, validasi_foto_mobil,
@@ -372,7 +375,25 @@ def detail_produk(request, id):
                 pk=id, tipe_penjual='B2C', status_stok='in_review',
             )
         )
-    mobil_terkait = produk_tayang().exclude(id=id)[:3]
+    return render(request, 'detail_mobil.html', _konteks_detail_produk(request, produk))
+
+
+def _produk_c2c_menerima_inquiry(produk, titip_jual=None):
+    titip_jual = titip_jual or produk.titip_jual_sumber
+    return bool(
+        produk.tipe_penjual == 'C2C'
+        and produk.status_stok == 'ready'
+        and titip_jual
+        and titip_jual.status == 'tayang'
+        and titip_jual.produk_terkait_id == produk.pk
+        and not titip_jual.transaksi_penjualan.filter(
+            status__in=['menunggu_verifikasi', 'terverifikasi', 'selesai']
+        ).exists()
+    )
+
+
+def _konteks_detail_produk(request, produk, inquiry_form=None):
+    mobil_terkait = produk_tayang().exclude(id=produk.id)[:3]
     pesanan_aktif = None
     unit_dapat_dipesan = False
     pesanan_aktif_milik_pengguna = False
@@ -394,7 +415,11 @@ def detail_produk(request, id):
             and (pesanan_aktif or produk.status_stok == 'in_review')
         )
 
-    return render(request, 'detail_mobil.html', {
+    inquiry_bisa_dikirim = (
+        produk.tipe_penjual == 'C2C'
+        and _produk_c2c_menerima_inquiry(produk)
+    )
+    return {
         'produk': produk,
         'mobil': produk,
         'mobil_terkait': mobil_terkait,
@@ -404,7 +429,76 @@ def detail_produk(request, id):
         'unit_dipesan_pelanggan_lain': unit_dipesan_pelanggan_lain,
         'unit_memiliki_booking': unit_memiliki_booking,
         'url_status_ketersediaan': reverse('status_ketersediaan_unit', args=[produk.id]),
-    })
+        'inquiry_bisa_dikirim': inquiry_bisa_dikirim,
+        'inquiry_form': inquiry_form or (
+            InquiryPembeliC2CForm(user=request.user) if inquiry_bisa_dikirim else None
+        ),
+    }
+
+
+@require_POST
+def kirim_inquiry_c2c(request, id):
+    produk = get_object_or_404(
+        produk_tayang().select_related('titip_jual_sumber').filter(tipe_penjual='C2C'),
+        pk=id,
+    )
+    form = InquiryPembeliC2CForm(request.POST, user=request.user)
+    if not form.is_valid():
+        return render(
+            request, 'detail_mobil.html',
+            _konteks_detail_produk(request, produk, inquiry_form=form),
+        )
+
+    titip_jual = produk.titip_jual_sumber
+    if not titip_jual:
+        raise Http404
+    data = form.cleaned_data
+    with transaction.atomic():
+        titip_jual = get_object_or_404(
+            TitipJual.objects.select_for_update(), pk=titip_jual.pk,
+        )
+        produk = get_object_or_404(
+            Produk.objects.select_for_update(), pk=produk.pk, tipe_penjual='C2C',
+        )
+        if (
+            not produk_tayang().filter(pk=produk.pk).exists()
+            or not _produk_c2c_menerima_inquiry(produk, titip_jual)
+        ):
+            raise Http404
+
+        batas_duplikat = timezone.now() - timedelta(hours=24)
+        inquiry_ada = InquiryC2C.objects.filter(
+            produk=produk,
+            whatsapp=data['whatsapp'],
+            created_at__gte=batas_duplikat,
+        ).exists()
+        if inquiry_ada:
+            messages.info(
+                request,
+                'Inquiry untuk kendaraan ini sudah tercatat dalam 24 jam terakhir.',
+            )
+        else:
+            InquiryC2C.objects.create(
+                produk=produk,
+                titip_jual=titip_jual,
+                pengguna=request.user if request.user.is_authenticated else None,
+                nama_pembeli=data['nama_pembeli'],
+                whatsapp=data['whatsapp'],
+                email=data['email'],
+                pesan=data['pesan'],
+            )
+
+    pesan_whatsapp = (
+        f"Halo, saya {data['nama_pembeli']} ingin bertanya tentang "
+        f"{produk.nama} (SKU {produk.sku})."
+    )
+    if data['pesan']:
+        pesan_whatsapp += f"\nPertanyaan: {data['pesan']}"
+    pesan_whatsapp += f"\nWhatsApp saya: {data['whatsapp']}"
+    if data['email']:
+        pesan_whatsapp += f"\nEmail saya: {data['email']}"
+    nomor_pemilik = normalisasi_whatsapp(titip_jual.no_whatsapp)
+    return redirect(f'https://wa.me/{nomor_pemilik}?{urlencode({"text": pesan_whatsapp})}')
 
 
 @require_GET
@@ -552,6 +646,11 @@ def dashboard_user(request):
         user_transaksi = Transaksi.objects.none()
 
     user_titip_jual = TitipJual.objects.filter(pengguna=user).order_by('-created_at')
+    user_inquiry_c2c = (
+        InquiryC2C.objects.filter(titip_jual__pengguna=user)
+        .select_related('produk', 'titip_jual')
+        .order_by('-created_at', '-pk')
+    )
     user_pesanan_pembelian = (
         PesananPembelian.objects.filter(pelanggan=user)
         .select_related('produk')
@@ -564,6 +663,7 @@ def dashboard_user(request):
         'user': user,
         'user_bookings': user_bookings,
         'user_titip_jual': user_titip_jual,
+        'user_inquiry_c2c': user_inquiry_c2c,
         'user_transaksi': user_transaksi,
         'user_pesanan_pembelian': user_pesanan_pembelian,
         'user_booking_pembelian': user_booking_pembelian,
@@ -1376,6 +1476,67 @@ def admin_titip_jual_tahap(request, tahap):
     if tahap not in TAHAP_TITIP_JUAL_ADMIN:
         raise Http404
     return _halaman_admin_titip_jual(request, tahap)
+
+
+@c2c_permission_required('view')
+def admin_inquiry_c2c(request):
+    daftar = (
+        InquiryC2C.objects.select_related(
+            'produk', 'titip_jual', 'titip_jual__pengguna', 'ditangani_oleh',
+        )
+        .order_by('-created_at', '-pk')
+    )
+    q = ' '.join(request.GET.get('q', '').split())[:100]
+    if q:
+        for kata in q.split()[:5]:
+            daftar = daftar.filter(
+                Q(nama_pembeli__icontains=kata)
+                | Q(whatsapp__icontains=kata)
+                | Q(email__icontains=kata)
+                | Q(produk__nama__icontains=kata)
+                | Q(produk__sku__icontains=kata)
+                | Q(titip_jual__nama_pemilik__icontains=kata)
+                | Q(titip_jual__pengguna__username__icontains=kata)
+            )
+    status_filter = request.GET.get('status', '')
+    if status_filter in dict(InquiryC2C.STATUS_CHOICES):
+        daftar = daftar.filter(status=status_filter)
+
+    halaman = Paginator(daftar, 15).get_page(request.GET.get('page'))
+    return render(request, 'dashboard/admin/inquiry_c2c_list.html', {
+        'inquiry_list': halaman,
+        'q': q,
+        'status_filter': status_filter,
+        'status_choices': InquiryC2C.STATUS_CHOICES,
+        'can_manage_inquiry_c2c': (
+            request.user.is_superuser
+            or request.user.has_perm('toko.change_status_titipjual')
+        ),
+    })
+
+
+@c2c_permission_required('view')
+@require_POST
+def admin_inquiry_c2c_status(request, inquiry_id):
+    if (
+        not request.user.is_superuser
+        and not request.user.has_perm('toko.change_status_titipjual')
+    ):
+        raise PermissionDenied
+    inquiry = get_object_or_404(InquiryC2C, pk=inquiry_id)
+    form = AdminInquiryC2CForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Perubahan inquiry tidak valid: ' + form.errors.as_text())
+        return redirect('admin_inquiry_c2c')
+
+    inquiry.status = form.cleaned_data['status']
+    inquiry.catatan_admin = form.cleaned_data['catatan_admin'].strip()
+    inquiry.ditangani_oleh = request.user
+    inquiry.save(update_fields=[
+        'status', 'catatan_admin', 'ditangani_oleh', 'updated_at',
+    ])
+    messages.success(request, 'Inquiry calon pembeli berhasil diperbarui.')
+    return redirect('admin_inquiry_c2c')
 
 
 def _halaman_admin_titip_jual(request, tahap):

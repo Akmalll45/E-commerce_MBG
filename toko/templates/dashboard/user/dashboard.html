@@ -755,6 +755,48 @@
                     {% endif %}
                 </div>
 
+                <div class="content-card mb-4">
+                    <div class="card-header-clean">
+                        <div>
+                            <h5 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-user-tag text-primary me-2"></i>Inquiry Calon Pembeli</h5>
+                            <p class="text-muted small mb-0">Pertanyaan untuk kendaraan C2C milik Anda.</p>
+                        </div>
+                        <span class="badge bg-secondary rounded-pill px-3">{{ user_inquiry_c2c|length }} Inquiry</span>
+                    </div>
+                    {% if user_inquiry_c2c %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase text-secondary">
+                                <tr><th>Kendaraan</th><th>Calon pembeli</th><th>Pesan</th><th>Masuk</th><th>Status</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for inquiry in user_inquiry_c2c %}
+                                <tr>
+                                    <td>
+                                        <a class="fw-bold text-decoration-none" href="{% url 'titip_jual_detail' inquiry.titip_jual_id %}">{{ inquiry.produk.nama }}</a>
+                                        <small class="d-block text-muted">{{ inquiry.produk.sku }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>{{ inquiry.nama_pembeli }}</strong>
+                                        <a class="d-block small text-success text-decoration-none" href="https://wa.me/{{ inquiry.whatsapp }}" target="_blank" rel="noopener">{{ inquiry.whatsapp }}</a>
+                                        {% if inquiry.email %}<small class="d-block text-muted">{{ inquiry.email }}</small>{% endif %}
+                                    </td>
+                                    <td class="small">{{ inquiry.pesan|default:"—"|linebreaksbr }}</td>
+                                    <td class="small text-nowrap">{{ inquiry.created_at|date:"d M Y, H:i" }}</td>
+                                    <td><span class="badge text-bg-{% if inquiry.status == 'selesai' %}success{% elif inquiry.status == 'spam' %}secondary{% elif inquiry.status == 'baru' %}primary{% else %}warning{% endif %}">{{ inquiry.get_status_display }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fa-regular fa-comment-dots fs-2 text-muted mb-2"></i>
+                        <p class="text-muted small mb-0">Belum ada inquiry untuk listing Anda.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <!-- Riwayat pesanan pembelian, booking, pembayaran, dan transaksi booking cek unit -->
                 <div class="content-card">
                     <div class="card-header-clean">

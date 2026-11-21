@@ -13,7 +13,7 @@ from django.utils import timezone
 from decimal import Decimal
 
 from .models import (
-    Produk, TitipJual, SerahTerimaUnit, ChecklistInspeksiC2C,
+    Produk, TitipJual, InquiryC2C, SerahTerimaUnit, ChecklistInspeksiC2C,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
     PengaturanWebsite, PesananPembelian, PengaturanPembelian,
     RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
@@ -855,6 +855,71 @@ class SelesaikanPenjualanC2CForm(forms.Form):
 
     def clean_komisi_diperiksa_berdasarkan(self):
         return ' '.join(self.cleaned_data['komisi_diperiksa_berdasarkan'].split())
+
+
+class InquiryPembeliC2CForm(forms.Form):
+    nama_pembeli = forms.CharField(
+        max_length=120, label='Nama',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control', 'autocomplete': 'name',
+        }),
+    )
+    whatsapp = forms.CharField(
+        max_length=20, label='Nomor WhatsApp',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control', 'autocomplete': 'tel',
+            'placeholder': '081234567890',
+        }),
+    )
+    email = forms.EmailField(
+        required=False, max_length=254, label='Email (opsional)',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control', 'autocomplete': 'email',
+        }),
+    )
+    pesan = forms.CharField(
+        required=False, max_length=1000, label='Pesan (opsional)',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control', 'rows': 3,
+            'placeholder': 'Tulis pertanyaan Anda tentang kendaraan ini.',
+        }),
+    )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and user.is_authenticated:
+            self.initial.setdefault('nama_pembeli', user.get_full_name() or user.username)
+            self.initial.setdefault('whatsapp', user.no_whatsapp or '')
+            self.initial.setdefault('email', user.email or '')
+
+    def clean_nama_pembeli(self):
+        nama = ' '.join(self.cleaned_data['nama_pembeli'].split())
+        if not nama:
+            raise ValidationError('Nama wajib diisi.')
+        return nama
+
+    def clean_whatsapp(self):
+        whatsapp = normalisasi_whatsapp(self.cleaned_data.get('whatsapp'))
+        validasi_whatsapp(whatsapp)
+        return whatsapp
+
+    def clean_pesan(self):
+        return (self.cleaned_data.get('pesan') or '').strip()
+
+
+class AdminInquiryC2CForm(forms.Form):
+    status = forms.ChoiceField(
+        choices=InquiryC2C.STATUS_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+    catatan_admin = forms.CharField(
+        required=False, max_length=2000, label='Catatan internal',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control form-control-sm', 'rows': 2,
+            'placeholder': 'Catatan untuk tim admin (tidak ditampilkan ke pemilik).',
+        }),
+    )
 
 
 class ProdukForm(forms.ModelForm):
