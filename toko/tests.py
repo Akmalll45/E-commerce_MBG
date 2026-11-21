@@ -1846,3 +1846,50 @@ class TautanArtikelTests(TestCase):
         c.force_login(staf)
         self.assertEqual(c.get(reverse('admin_artikel')).status_code, 200)
         self.assertEqual(c.get(reverse('admin_artikel_preview', args=[self.artikel.id])).status_code, 200)
+
+
+class LandingTitipJualTests(TestCase):
+    def setUp(self):
+        self.url = reverse('jual_titip')
+        self.url_form = reverse('titip_jual_tambah')
+
+    def test_landing_menampilkan_layanan_proses_dan_persyaratan(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Dari pengajuan sampai penayangan')
+        self.assertContains(response, 'Lima foto wajib:')
+        self.assertContains(response, 'STNK, BPKB, dan identitas pemilik')
+        self.assertContains(response, 'tidak menjamin kendaraan akan terjual')
+
+    def test_cta_pengunjung_mengarah_ke_login_dan_mempertahankan_tujuan_form(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(
+            response,
+            f'href="{reverse("login")}?next=%2Fdashboard%2Ftitip-jual%2Ftambah%2F"',
+        )
+        self.assertContains(response, f'href="{reverse("register")}"')
+
+    def test_cta_pengguna_login_mengarah_ke_form_pengajuan_yang_ada(self):
+        user = get_user_model().objects.create_user(
+            'pemilik-titip-uji', 'pemilik-titip@example.test', 'Password123!',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{self.url_form}"')
+        self.assertNotContains(response, f'href="{reverse("login")}?next=')
+
+    def test_menu_jual_titip_tersedia_di_halaman_publik(self):
+        url_landing = reverse('jual_titip')
+        for url in (reverse('beranda'), reverse('katalog'), url_landing):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertGreaterEqual(
+                    response.content.decode().count(f'href="{url_landing}"'),
+                    3,
+                )

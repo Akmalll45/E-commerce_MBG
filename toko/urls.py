@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     # Publik
     path('', views.beranda, name='beranda'),
+    path('jual-titip/', views.jual_titip, name='jual_titip'),
     path('katalog/', views.katalog, name='katalog'),
     path('mobil/<int:id>/', views.detail_produk, name='detail_produk'),
     path('mobil/<int:id>/inquiry/', views.kirim_inquiry_c2c, name='kirim_inquiry_c2c'),

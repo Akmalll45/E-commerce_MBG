@@ -163,7 +163,7 @@
                 <ul class="navbar-nav mx-auto mb-0 align-items-center">
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a></li>
                     <li class="nav-item"><a class="nav-link {% block nav_katalog_aktif %}{% endblock %}" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a></li>
+                    <li class="nav-item"><a class="nav-link {% block nav_titip_jual_aktif %}{% endblock %}" href="{% url 'jual_titip' %}"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Titip Mobil</a></li>
                     <li class="nav-item"><a class="nav-link {% block nav_artikel_aktif %}{% endblock %}" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper"></i> Artikel</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -260,7 +260,7 @@
                 <ul class="nav flex-column gap-1 mb-4">
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house text-primary me-2"></i> Beranda</a></li>
                     <li class="nav-item"><a class="offcanvas-link {% block offcanvas_katalog_aktif %}{% endblock %}" href="{% url 'katalog' %}"><i class="fa-solid fa-car text-info me-2"></i> Katalog Mobil</a></li>
-                    <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Jual Mobil Saya (Titip-Jual)</a></li>
+                    <li class="nav-item"><a class="offcanvas-link {% block offcanvas_titip_jual_aktif %}{% endblock %}" href="{% url 'jual_titip' %}"><i class="fa-solid fa-hand-holding-dollar text-warning me-2"></i> Jual Titip Mobil</a></li>
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
                     <li class="nav-item"><a class="offcanvas-link" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
                     <li class="nav-item"><a class="offcanvas-link {% block offcanvas_artikel_aktif %}{% endblock %}" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper text-info me-2"></i> Artikel &amp; Berita</a></li>
@@ -314,7 +314,7 @@
                     <ul class="list-unstyled">
                         <li><a href="{% url 'beranda' %}" class="footer-link-item">Beranda</a></li>
                         <li><a href="{% url 'katalog' %}" class="footer-link-item">Katalog Mobil</a></li>
-                        <li><a href="{% url 'beranda' %}#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
+                        <li><a href="{% url 'jual_titip' %}" class="footer-link-item">Jual Titip Mobil</a></li>
                         <li><a href="{% url 'beranda' %}#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="{% url 'beranda' %}#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
                         <li><a href="{% url 'artikel_publik' %}" class="footer-link-item">Artikel &amp; Berita</a></li>

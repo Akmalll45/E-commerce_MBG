@@ -1091,7 +1091,7 @@
                         <a class="nav-link" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a>
+                        <a class="nav-link" href="{% url 'jual_titip' %}"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Titip Mobil</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper"></i> Artikel</a>
@@ -1242,8 +1242,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="offcanvas-link" href="#titip-jual" data-bs-dismiss="offcanvas">
-                            <i class="fa-solid fa-hand-holding-dollar text-warning me-2.5"></i> Jual Mobil Saya (Titip-Jual)
+                        <a class="offcanvas-link" href="{% url 'jual_titip' %}">
+                            <i class="fa-solid fa-hand-holding-dollar text-warning me-2.5"></i> Jual Titip Mobil
                         </a>
                     </li>
                     <li class="nav-item">
@@ -1587,14 +1587,14 @@
                         <span class="badge bg-warning text-dark fw-bold px-3 py-2 rounded-pill mb-3" style="font-size:.78rem;">
                             <i class="fa-solid fa-handshake-angle me-1"></i> Layanan Titip-Jual C2C Makassar
                         </span>
-                        <h3 class="fw-bold mb-3" style="font-size:1.75rem;line-height:1.25;">Jual Mobil Anda Tanpa Ribet di Garasi MBG</h3>
+                        <h3 class="fw-bold mb-3" style="font-size:1.75rem;line-height:1.25;">Titip Jual Mobil dengan Proses yang Terarah</h3>
                         <p style="color:#94A3B8;" class="mb-4">
-                            Dapatkan harga terbaik tanpa pusing meladeni calon pembeli yang tidak serius. Mobil Anda akan diinspeksi, difoto profesional, dan dipamerkan langsung di showroom Garasi Makassar serta website kami.
+                            Ajukan data kendaraan melalui akun MBG. Tim kami akan meninjau kelengkapan, mengatur pemeriksaan, dan membahas harga serta langkah penayangan bersama Anda. Penayangan mengikuti hasil verifikasi dan persetujuan pemilik.
                         </p>
                         <div class="d-flex flex-wrap gap-3">
-                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20MBG,%20saya%20ingin%20titip%20jual%20mobil%20saya%20di%20Garasi%20Makassar" target="_blank"
+                            <a href="{% url 'jual_titip' %}"
                                class="btn btn-warning fw-bold px-4 py-2.5 rounded-pill text-dark">
-                                <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Konsultasi Titip Jual Mobil
+                                <i class="fa-solid fa-arrow-right me-2"></i>Pelajari &amp; Mulai Titip Jual
                             </a>
                             <a href="#lokasi" class="btn btn-outline-light px-4 py-2.5 rounded-pill fw-medium">
                                 <i class="fa-solid fa-location-dot me-1"></i>Kunjungi Garasi Kami
@@ -1603,9 +1603,9 @@
                     </div>
                     <div class="col-lg-5" data-aos="zoom-in" data-aos-delay="150">
                         <div class="c2c-info-box">
-                            <i class="fa-solid fa-trophy text-warning" style="font-size:2.5rem;"></i>
-                            <h5 class="text-white fw-bold mt-3 mb-2">Cepat, Aman &amp; Transparan</h5>
-                            <p class="small mb-0" style="color:#94A3B8;">Ratusan pemilik mobil di Makassar &amp; Gowa telah mempercayakan penjualan mobilnya kepada tim MBG.</p>
+                            <i class="fa-solid fa-clipboard-check text-warning" style="font-size:2.5rem;"></i>
+                            <h5 class="text-white fw-bold mt-3 mb-2">Alur dan Keputusan Jelas</h5>
+                            <p class="small mb-0" style="color:#94A3B8;">Pengajuan ditinjau terlebih dahulu. Harga dan penayangan dibahas bersama pemilik sebelum kendaraan dipasarkan.</p>
                         </div>
                     </div>
                 </div>
@@ -1825,7 +1825,7 @@
                     <ul class="list-unstyled">
                         <li><a href="{% url 'beranda' %}" class="footer-link-item">Beranda</a></li>
                         <li><a href="{% url 'katalog' %}" class="footer-link-item">Katalog Mobil</a></li>
-                        <li><a href="#titip-jual" class="footer-link-item">Jual Mobil Saya</a></li>
+                        <li><a href="{% url 'jual_titip' %}" class="footer-link-item">Jual Titip Mobil</a></li>
                         <li><a href="#simulasi-kredit" class="footer-link-item">Simulasi Kredit</a></li>
                         <li><a href="#status-transaksi" class="footer-link-item">Cek Status Booking</a></li>
                         <li><a href="{% url 'artikel_publik' %}" class="footer-link-item">Artikel &amp; Berita</a></li>

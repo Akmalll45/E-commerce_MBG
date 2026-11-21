@@ -187,6 +187,19 @@ def beranda(request):
     })
 
 
+def jual_titip(request):
+    """Landing publik untuk layanan Titip-Jual, memakai pengajuan yang sudah ada."""
+    url_pengajuan = reverse('titip_jual_tambah')
+    if request.user.is_authenticated:
+        url_mulai = url_pengajuan
+    else:
+        url_mulai = f"{reverse('login')}?{urlencode({'next': url_pengajuan})}"
+
+    return render(request, 'jual_titip.html', {
+        'url_mulai_titip_jual': url_mulai,
+    })
+
+
 # ── Konfigurasi katalog (dipakai untuk validasi parameter GET) ───────────────
 PRESET_HARGA = {
     # kunci: (label, harga_min [>=], harga_max [<])
