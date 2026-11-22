@@ -292,6 +292,9 @@ MESSAGE_TAGS = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 _private_media_root = os.environ.get('TITIP_JUAL_PRIVATE_MEDIA_ROOT', '').strip()
+if not _private_media_root and bool(_deployment_hosts or os.environ.get('VERCEL') or os.environ.get('VERCEL_URL')):
+    _private_media_root = '/tmp/private_media'
+
 if not DEBUG and not _private_media_root:
     raise ImproperlyConfigured(
         'Set TITIP_JUAL_PRIVATE_MEDIA_ROOT to a persistent private storage directory in production.'
