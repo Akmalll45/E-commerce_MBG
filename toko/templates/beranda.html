@@ -1806,7 +1806,7 @@
         <div class="container">
             <div class="row g-4 mb-5">
                 <!-- Kolom 1: Logo & Slogan MBG -->
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-3 col-md-6">
                     <div class="d-flex align-items-center gap-2 mb-3">
                         {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:38px;width:auto;max-width:152px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon" style="width:38px;height:38px;font-size:1rem;border-radius:10px;">
                             <i class="fa-solid fa-car-side"></i>
@@ -1828,7 +1828,7 @@
                 </div>
 
                 <!-- Kolom 2: Navigasi Cepat -->
-                <div class="col-lg-2 col-md-6 col-6">
+                <div class="col-lg-2 col-md-4 col-6">
                     <h5>Navigasi</h5>
                     <ul class="list-unstyled">
                         <li><a href="{% url 'beranda' %}" class="footer-link-item">Beranda</a></li>
@@ -1840,8 +1840,21 @@
                     </ul>
                 </div>
 
-                <!-- Kolom 3: Layanan & Wilayah -->
-                <div class="col-lg-2 col-md-6 col-6">
+                <!-- Kolom 3: Informasi Halaman Admin -->
+                <div class="col-lg-2 col-md-4 col-6">
+                    <h5>Informasi</h5>
+                    <ul class="list-unstyled">
+                        {% for h in halaman_footer %}
+                        <li><a href="{% url 'halaman_detail' h.slug %}" class="footer-link-item">{{ h.judul }}</a></li>
+                        {% empty %}
+                        <li><a href="#" class="footer-link-item">Syarat &amp; Ketentuan</a></li>
+                        <li><a href="#" class="footer-link-item">Kebijakan Privasi</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <!-- Kolom 4: Layanan & Wilayah -->
+                <div class="col-lg-2 col-md-4 col-6">
                     <h5>Wilayah Layanan</h5>
                     <ul class="list-unstyled">
                         <li><span class="footer-link-item">Kota Makassar</span></li>
@@ -1852,8 +1865,8 @@
                     </ul>
                 </div>
 
-                <!-- Kolom 4: Alamat Showroom & CS WhatsApp -->
-                <div class="col-lg-4 col-md-6">
+                <!-- Kolom 5: Alamat Showroom & CS WhatsApp -->
+                <div class="col-lg-3 col-md-6">
                     <h5>Alamat &amp; Kontak</h5>
                     <ul class="list-unstyled small" style="color:#94A3B8;">
                         <li class="mb-2.5 d-flex align-items-start gap-2">
@@ -1876,19 +1889,10 @@
                 </div>
             </div>
 
-            <!-- Baris Bawah: Copyright & Link Cepat (Syarat & Ketentuan) -->
+            <!-- Baris Bawah: Copyright & CS WhatsApp -->
             <div class="pt-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 small" style="border-top:1px solid rgba(255,255,255,0.08);color:#94A3B8;">
                 <div>&copy; 2026 Mobil Bekas Garasi (MBG) Makassar. Seluruh Hak Cipta Dilindungi.</div>
                 <div class="d-flex gap-3">
-                    {% for h in halaman_footer %}
-                    <a href="{% url 'halaman_detail' h.slug %}" class="text-decoration-none text-secondary">{{ h.judul }}</a>
-                    <span>&middot;</span>
-                    {% empty %}
-                    <a href="#" class="text-decoration-none text-secondary">Syarat &amp; Ketentuan</a>
-                    <span>&middot;</span>
-                    <a href="#" class="text-decoration-none text-secondary">Kebijakan Privasi</a>
-                    <span>&middot;</span>
-                    {% endfor %}
                     <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="text-decoration-none text-success fw-semibold"><i class="fa-brands fa-whatsapp me-1"></i>Hubungi CS WhatsApp</a>
                 </div>
             </div>
