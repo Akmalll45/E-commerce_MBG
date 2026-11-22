@@ -45,8 +45,12 @@
         .nav-link { font-weight:600 !important; font-size:14.5px !important; color:#334155 !important; padding:.55rem .85rem !important; border-radius:10px; transition:all .2s ease; white-space:nowrap; text-decoration:none !important; display:inline-flex; align-items:center; gap:.35rem; }
         .nav-link:hover, .nav-link.active { color:var(--mbg-blue) !important; background:rgba(37,99,235,.07); }
         .navbar-mbg .dropdown-menu { border-radius:14px; box-shadow:0 10px 30px -4px rgba(8,13,26,.12); border:1px solid rgba(0,0,0,.06); padding:.5rem; }
-        .navbar-mbg .dropdown-item { font-size:.88rem; font-weight:600; border-radius:8px; padding:.55rem .85rem; }
-        .navbar-mbg .dropdown-item:hover { background:rgba(37,99,235,.06); color:var(--mbg-blue); }
+        .navbar-mbg .dropdown-item { font-size:.88rem; font-weight:600; border-radius:8px; padding:.55rem .85rem; transition:background .15s ease,color .15s ease; }
+        .navbar-mbg .dropdown-item:hover,
+        .navbar-mbg .dropdown-item:focus { background:rgba(37,99,235,.06); color:var(--mbg-blue); }
+        .navbar-mbg .layanan-dropdown-item { display:flex; align-items:center; gap:.55rem; min-width:230px; padding:.55rem .75rem; }
+        .navbar-mbg .layanan-dropdown-item > div:last-child { display:flex; flex-direction:column; }
+        .navbar-mbg .layanan-dropdown-item small { display:block; line-height:1.35; }
         .nav-actions-wrap { display:flex; align-items:center; gap:.65rem; flex-shrink:0; }
         .btn-nav-auth-login, .btn-nav-auth-register, .btn-nav-auth-user, .btn-nav-cta { height:46px; display:inline-flex; align-items:center; justify-content:center; gap:.45rem; font-size:.88rem; font-weight:700; border-radius:999px; text-decoration:none !important; white-space:nowrap; transition:all .2s ease; }
         .btn-nav-auth-login { padding:0 1.25rem; color:var(--mbg-blue) !important; background:rgba(37,99,235,.06); border:1.5px solid rgba(37,99,235,.25); }
@@ -64,6 +68,18 @@
         .offcanvas-link:hover, .offcanvas-link.active { color:#fff !important; background:rgba(37,99,235,.18); }
         .offcanvas-link i { width:24px; font-size:1rem; }
         .nav-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+
+        /* Flash message sebagai toast, bukan memengaruhi layout halaman */
+        .mbg-flash-container {
+            position:fixed; top:88px; right:24px; z-index:1080;
+            width:min(420px,calc(100vw - 32px)); margin:0; pointer-events:none;
+        }
+        .mbg-flash-container .alert { position:relative; margin:0 0 10px; min-height:48px; display:flex; align-items:center; gap:.55rem; pointer-events:auto; box-shadow:0 12px 32px rgba(8,13,26,.18) !important; }
+        .mbg-flash-container .alert .btn-close { position:absolute; top:50%; right:12px; transform:translateY(-50%); margin:0; }
+        .mbg-flash-container .alert .mbg-flash-text { padding-right:32px; }
+        @media (max-width:575.98px) {
+            .mbg-flash-container { top:82px; right:16px; width:calc(100vw - 32px); }
+        }
 
         /* Form & tombol */
         .filter-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748B; margin-bottom:.3rem; display:block; }
@@ -169,9 +185,26 @@
                         <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fa-solid fa-sliders"></i> Layanan &amp; Transaksi
                         </a>
-                        <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="desktopLayananDropdown" style="min-width:230px;">
-                            <li><a class="dropdown-item" href="{% url 'beranda' %}#simulasi-kredit"><i class="fa-solid fa-calculator text-success me-2"></i> Simulasi Kredit</a></li>
-                            <li><a class="dropdown-item" href="{% url 'beranda' %}#status-transaksi"><i class="fa-solid fa-receipt text-primary me-2"></i> Cek Status Transaksi</a></li>
+                        <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="desktopLayananDropdown" style="border-radius:14px;min-width:230px;padding:.5rem;">
+                            <li>
+                                <a class="dropdown-item layanan-dropdown-item rounded-3" href="{% url 'beranda' %}#simulasi-kredit">
+                                    <div class="bg-success bg-opacity-10 text-success rounded-2 p-1.5"><i class="fa-solid fa-calculator"></i></div>
+                                    <div>
+                                        <div class="fw-bold" style="font-size:.88rem;">Simulasi Kredit</div>
+                                        <small class="text-muted" style="font-size:.72rem;">Hitung estimasi cicilan OTR</small>
+                                    </div>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item layanan-dropdown-item rounded-3" href="{% url 'beranda' %}#status-transaksi">
+                                    <div class="bg-primary bg-opacity-10 text-primary rounded-2 p-1.5"><i class="fa-solid fa-receipt"></i></div>
+                                    <div>
+                                        <div class="fw-bold" style="font-size:.88rem;">Cek Status Transaksi</div>
+                                        <small class="text-muted" style="font-size:.72rem;">Pantau status booking &amp; DP</small>
+                                    </div>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -180,7 +213,11 @@
                     {% if user.is_authenticated %}
                         <div class="dropdown">
                             <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% if user.foto_profil %}
+                                    <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:28px;height:28px;">
+                                {% else %}
+                                    <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% endif %}
                                 <span>{{ user.first_name|default:user.username }}</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="font-size:.88rem;min-width:210px;">
@@ -275,10 +312,13 @@
     </div>
 
     {% if messages %}
-        <div class="container mt-3">
+        <div class="mbg-flash-container" aria-live="polite" aria-label="Notifikasi">
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm py-2 px-3 mb-2" role="alert" style="border-radius:12px;font-size:.90rem;">
-                    {{ message }}
+                    {% if message.tags == 'success' %}<i class="fa-solid fa-circle-check text-success"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}<i class="fa-solid fa-circle-exclamation text-danger"></i>
+                    {% else %}<i class="fa-solid fa-circle-info text-primary"></i>{% endif %}
+                    <span class="mbg-flash-text">{{ message }}</span>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             {% endfor %}

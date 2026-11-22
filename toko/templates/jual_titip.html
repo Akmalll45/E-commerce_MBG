@@ -9,10 +9,11 @@
 
 {% block extra_css %}
 <style>
-    .titip-page { padding:2.5rem 0 4.5rem; }
+    .titip-page { padding:4px 0 4.5rem; }
+    .titip-page > .container { max-width:1440px; }
     .titip-hero {
         position:relative; overflow:hidden; isolation:isolate;
-        min-height:490px; padding:clamp(2rem,5vw,4.25rem); border-radius:28px;
+        min-height:540px; padding:clamp(2.25rem,5vw,4.75rem); border-radius:28px;
         background:#080D1A; color:#fff; box-shadow:0 24px 60px -28px rgba(8,13,26,.55);
     }
     .titip-hero::before,.titip-hero::after {
@@ -29,11 +30,11 @@
             linear-gradient(0deg,rgba(8,13,26,.5) 0%,rgba(8,13,26,.08) 42%,rgba(8,13,26,.04) 100%),
             linear-gradient(90deg,#080D1A 0%,rgba(8,13,26,.98) 34%,rgba(8,13,26,.88) 49%,rgba(8,13,26,.38) 68%,rgba(8,13,26,.08) 100%);
     }
-    .titip-hero .row { position:relative; z-index:1; min-height:390px; }
-    .titip-hero .col-lg-7 { max-width:620px; }
+    .titip-hero .row { position:relative; z-index:1; min-height:440px; }
+    .titip-hero .col-lg-7 { max-width:680px; }
     .titip-eyebrow { color:#DBEAFE; font-size:.78rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-    .titip-eyebrow i,.titip-accent { color:#60A5FA; }
-    .titip-hero h1 { max-width:560px; margin-bottom:1.1rem !important; color:#fff; font-size:clamp(2.1rem,3.2vw,3rem); line-height:1.13; font-weight:800; text-wrap:balance; }
+    .titip-eyebrow i,.titip-accent { color:#60A5FA; font-size:1.6rem; font-weight:800; }
+    .titip-hero h1 { max-width:560px; margin-bottom:1.1rem !important; color:#fff; font-size:clamp(2rem,3.2vw,2.5rem); line-height:1.13; font-weight:800; text-wrap:balance; }
     .titip-hero-copy { max-width:520px; color:#F1F5F9; font-size:clamp(1rem,1.25vw,1.08rem); line-height:1.7; }
     .titip-primary-cta { min-height:50px; display:inline-flex; align-items:center; justify-content:center; gap:.6rem; padding:.8rem 1.3rem; border:1px solid rgba(191,219,254,.35); border-radius:12px; background:linear-gradient(135deg,#3B82F6,#1D4ED8); color:#fff; font-weight:800; text-decoration:none; box-shadow:0 8px 24px rgba(29,78,216,.34); transition:transform .2s ease,box-shadow .2s ease,background .2s ease; }
     .titip-primary-cta:hover { color:#fff; background:linear-gradient(135deg,#60A5FA,#2563EB); transform:translateY(-2px); box-shadow:0 12px 28px rgba(29,78,216,.45); }
@@ -48,7 +49,7 @@
     .titip-info-card h3 { color:#0F172A; font-size:1.08rem; font-weight:800; }
     .titip-info-card p { margin:0; color:#64748B; font-size:.92rem; line-height:1.7; }
     @media (max-width:767.98px) {
-        .titip-page { padding-top:1.25rem; }
+        .titip-page { padding-top:4px; }
         .titip-hero { min-height:0; padding:1.6rem 1.25rem; border-radius:20px; }
         .titip-hero::before { background-position:62% center; }
         .titip-hero::after {
@@ -83,9 +84,9 @@
             <div class="row align-items-center g-4 g-xl-5">
                 <div class="col-lg-7 col-xl-6">
                     <span class="titip-eyebrow d-inline-flex align-items-center gap-2 mb-3">
-                        <i class="fa-solid fa-handshake-angle"></i> Layanan Titip Jual MBG
+                        <i class="fa-solid fa-handshake-angle"></i> Layanan Titip Jual Mobil Bekas
                     </span>
-                    <h1 id="titip-title" class="mb-3">Ingin menjual mobil? <span class="titip-accent">Mulai dengan pengajuan yang jelas.</span></h1>
+                    <h1 id="titip-title" class="mb-3">Ingin menjual mobil? <br> <span class="titip-accent">Mulai dengan pengajuan yang jelas</span></h1>
                     <p class="titip-hero-copy mb-4">
                         Sampaikan informasi kendaraan dan dokumen pendukung melalui formulir. Tim MBG meninjau pengajuan dan menghubungi Anda untuk langkah pemeriksaan berikutnya.
                     </p>

@@ -258,6 +258,10 @@
         .user-avatar-badge { overflow: hidden; }
         .user-avatar-badge img { width: 100%; height: 100%; object-fit: cover; }
         .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+        .mbg-flash-container { position:fixed; top:88px; right:24px; z-index:1080; width:min(420px,calc(100vw - 32px)); pointer-events:none; }
+        .mbg-flash-container .alert { position:relative; display:flex; align-items:center; gap:.55rem; pointer-events:auto; box-shadow:0 12px 32px rgba(8,13,26,.18)!important; }
+        .mbg-flash-container .alert .btn-close { position:absolute; top:50%; right:12px; transform:translateY(-50%); margin:0; }
+        .mbg-flash-container .alert span { padding-right:32px; }
     </style>
     {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
@@ -344,6 +348,7 @@
     <main class="container py-4 flex-grow-1">
         <!-- Messages -->
         {% if messages %}
+            <div class="mbg-flash-container" aria-live="polite" aria-label="Notifikasi">
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2.5 px-3 mb-4 shadow-sm" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
                     {% if message.tags == 'success' %}
@@ -353,10 +358,11 @@
                     {% else %}
                         <i class="fa-solid fa-circle-info text-info me-2"></i>
                     {% endif %}
-                    {{ message }}
+                    <span>{{ message }}</span>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
+            </div>
         {% endif %}
 
         <div class="row g-4">

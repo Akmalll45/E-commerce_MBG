@@ -1058,6 +1058,10 @@
             padding: .18rem .6rem; border-radius: 999px;
         }
         .mitra-ket { font-size: .78rem; color: #64748B; line-height: 1.4; margin: 0; }
+        .mbg-flash-container { position:fixed; top:88px; right:24px; z-index:1080; width:min(420px,calc(100vw - 32px)); pointer-events:none; }
+        .mbg-flash-container .alert { position:relative; display:flex; align-items:center; gap:.55rem; pointer-events:auto; box-shadow:0 12px 32px rgba(8,13,26,.18)!important; }
+        .mbg-flash-container .alert .btn-close { position:absolute; top:50%; right:12px; transform:translateY(-50%); margin:0; }
+        .mbg-flash-container .alert span { padding-right:32px; }
     </style>
     {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
 </head>
@@ -1129,7 +1133,11 @@
                     {% if user.is_authenticated %}
                         <div class="dropdown">
                             <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% if user.foto_profil %}
+                                    <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:28px;height:28px;">
+                                {% else %}
+                                    <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% endif %}
                                 <span>{{ user.first_name|default:user.username }}</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius: 14px; font-size: 0.88rem; min-width: 210px;">
@@ -1291,7 +1299,7 @@
 
     <!-- Feedback Flash Messages -->
     {% if messages %}
-        <div class="container mt-3">
+        <div class="mbg-flash-container" aria-live="polite" aria-label="Notifikasi">
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm py-2.5 px-3 mb-2" role="alert" style="border-radius: 12px; font-size: 0.90rem;">
                     {% if message.tags == 'success' %}
@@ -1301,7 +1309,7 @@
                     {% else %}
                         <i class="fa-solid fa-circle-info text-info me-2"></i>
                     {% endif %}
-                    {{ message }}
+                    <span>{{ message }}</span>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}

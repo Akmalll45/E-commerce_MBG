@@ -268,11 +268,15 @@ class BerandaDanIntegrasiTests(TestCase):
 
     def test_navbar_pengguna_login_di_katalog(self):
         from django.contrib.auth import get_user_model
-        u = get_user_model().objects.create_user('budi', 'b@x.id', 'pw12345!x', first_name='Budi')
+        u = get_user_model().objects.create_user(
+            'budi', 'b@x.id', 'pw12345!x', first_name='Budi',
+            foto_profil='profil/1/foto-uji.jpg',
+        )
         self.client.force_login(u)
         r = self.client.get(reverse('katalog'))
         self.assertContains(r, 'Dashboard Pelanggan')
         self.assertContains(r, 'Budi')
+        self.assertContains(r, 'src="/media/profil/1/foto-uji.jpg"')
 
 
 # ═══════════════════════════════════════════════════════════════════

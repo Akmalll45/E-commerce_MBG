@@ -681,7 +681,11 @@
                     {% if user.is_authenticated %}
                         <div class="dropdown">
                             <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% if user.foto_profil %}
+                                    <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:28px;height:28px;">
+                                {% else %}
+                                    <i class="fa-solid fa-circle-user text-primary fs-5"></i>
+                                {% endif %}
                                 <span>{{ user.first_name|default:user.username }}</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius: 14px; font-size: 0.88rem; min-width: 210px;">

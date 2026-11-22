@@ -54,6 +54,10 @@
            Tanpa ini, kolom lain (judul, slug, badge) menyempitkan kolom Aksi sehingga tombol bertumpuk. */
         .table th.text-end.pe-3, .table td.text-end.pe-3 { white-space:nowrap; width:1%; }
         .table td.text-end.pe-3 > form { display:inline-block; margin:0; vertical-align:middle; }
+        .mbg-flash-container { position:fixed; top:88px; right:24px; z-index:1080; width:min(420px,calc(100vw - 32px)); pointer-events:none; }
+        .mbg-flash-container .alert { position:relative; display:flex; align-items:center; gap:.55rem; pointer-events:auto; box-shadow:0 12px 32px rgba(8,13,26,.18) !important; }
+        .mbg-flash-container .alert .btn-close { position:absolute; top:50%; right:12px; transform:translateY(-50%); margin:0; }
+        .mbg-flash-container .alert .mbg-flash-text { padding-right:32px; }
         @media (max-width:991.98px) {
             /* Di HP/tablet: menu samping menjadi baris yang bisa digeser, agar formulir tidak terdorong ke bawah */
             .admin-sidebar { display:flex; gap:.4rem; overflow-x:auto; padding:.6rem; -webkit-overflow-scrolling:touch; }
@@ -102,15 +106,17 @@
 
     <main class="container-fluid px-4 py-4 flex-grow-1">
         {% if messages %}
+            <div class="mbg-flash-container" aria-live="polite" aria-label="Notifikasi">
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2 px-3 mb-3 shadow-sm" role="alert" style="border-radius:12px;font-size:.90rem;">
                     {% if message.tags == 'success' %}<i class="fa-solid fa-circle-check text-success me-2"></i>
                     {% elif message.tags == 'danger' or message.tags == 'error' %}<i class="fa-solid fa-circle-exclamation text-danger me-2"></i>
                     {% else %}<i class="fa-solid fa-circle-info text-info me-2"></i>{% endif %}
-                    {{ message }}
+                    <span class="mbg-flash-text">{{ message }}</span>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             {% endfor %}
+            </div>
         {% endif %}
 
         <div class="row g-4">
