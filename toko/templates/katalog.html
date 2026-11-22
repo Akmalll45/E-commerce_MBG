@@ -27,11 +27,15 @@
     .katalog-slide-img-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #080D1A 0%, #1E293B 50%, #1E3A8A 100%); z-index: 1; }
     .katalog-slide-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,13,26,0.92) 0%, rgba(8,13,26,0.76) 55%, rgba(8,13,26,0.42) 100%); z-index: 2; }
     .katalog-slide-title { font-size: clamp(1.15rem, 2.2vw, 1.7rem); letter-spacing: -0.02em; }
-    .katalog-slider .carousel-indicators { margin-bottom: .6rem; }
-    .katalog-slider .carousel-indicators [data-bs-target] { width: 24px; height: 4px; border-radius: 4px; margin: 0 3px; background-color: rgba(255,255,255,0.45); border: none; }
-    .katalog-slider .carousel-indicators .active { background-color: var(--mbg-blue); width: 34px; }
-    .katalog-slider .carousel-control-prev, .katalog-slider .carousel-control-next { width: 5%; opacity: 0.6; z-index: 3; }
-    .katalog-slider:hover .carousel-control-prev, .katalog-slider:hover .carousel-control-next { opacity: 0.95; }
+    .katalog-slider .carousel-indicators { margin-bottom: .75rem; z-index: 4; }
+    .katalog-slider .carousel-indicators [data-bs-target] {
+        width: 26px; height: 5px; border-radius: 999px; margin: 0 4px;
+        background-color: rgba(255,255,255,0.45); border: none;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer;
+    }
+    .katalog-slider .carousel-indicators [data-bs-target]:hover { background-color: rgba(255,255,255,0.9); }
+    .katalog-slider .carousel-indicators .active { background-color: var(--mbg-blue); width: 42px; }
+    .katalog-slider .carousel-control-prev, .katalog-slider .carousel-control-next { display: none !important; }
     .search-bar { background:rgba(255,255,255,.92); backdrop-filter:saturate(180%) blur(18px); -webkit-backdrop-filter:saturate(180%) blur(18px); border:1px solid rgba(255,255,255,.7); border-radius:var(--radius-xl); box-shadow:0 16px 48px -8px rgba(8,13,26,.14); padding:.7rem; }
     .search-bar .form-control { border:none; background:transparent; font-size:1rem; padding:.7rem .5rem; box-shadow:none; }
     .search-bar .search-icon { color:#94A3B8; padding-left:.9rem; display:flex; align-items:center; }
@@ -87,7 +91,7 @@
         {% if hero_slides %}
         {# ── BANNER PROMO KATALOG (Dikelola langsung dari Admin Panel: Hero Slide) ── #}
         <div class="katalog-banner-box mb-4" data-aos="fade-down" data-aos-duration="600">
-            <div id="katalogHeroSlider" class="carousel slide carousel-fade katalog-slider" data-bs-ride="carousel" data-bs-interval="6500">
+            <div id="katalogHeroSlider" class="carousel slide carousel-fade katalog-slider" data-bs-ride="carousel" data-bs-interval="4000" data-bs-pause="hover">
                 <div class="carousel-inner rounded-4 overflow-hidden border border-white border-opacity-10 shadow-lg">
                     {% for slide in hero_slides %}
                     <div class="carousel-item {% if forloop.first %}active{% endif %} katalog-slide-item position-relative">
@@ -138,12 +142,6 @@
                     <button type="button" data-bs-target="#katalogHeroSlider" data-bs-slide-to="{{ forloop.counter0 }}" class="{% if forloop.first %}active{% endif %}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}" aria-label="Slide {{ forloop.counter }}"></button>
                     {% endfor %}
                 </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#katalogHeroSlider" data-bs-slide="prev" aria-label="Sebelumnya">
-                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#katalogHeroSlider" data-bs-slide="next" aria-label="Selanjutnya">
-                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                </button>
                 {% endif %}
             </div>
         </div>
@@ -440,6 +438,60 @@
 {% block extra_js %}
 <script>
     (function () {
+        // ── Auto-play Banner Promo Slider Katalog ──
+        const bannerSlider = document.getElementById('katalogHeroSlider');
+        if (bannerSlider) {
+            let carouselInstance = null;
+            if (window.bootstrap && bootstrap.Carousel) {
+                carouselInstance = bootstrap.Carousel.getOrCreateInstance(bannerSlider, {
+                    interval: 4000,
+                    ride: 'carousel',
+                    pause: 'hover',
+                    wrap: true
+                });
+                carouselInstance.cycle();
+            } else {
+                // Fallback auto-slide jika bootstrap instance belum terpasang
+                const slides = bannerSlider.querySelectorAll('.carousel-item');
+                const dots = bannerSlider.querySelectorAll('.carousel-indicators [data-bs-slide-to]');
+                if (slides.length > 1) {
+                    let currentSlide = 0;
+                    let autoTimer = null;
+                    const goToSlide = (idx) => {
+                        slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+                        dots.forEach((d, i) => {
+                            d.classList.toggle('active', i === idx);
+                            d.setAttribute('aria-current', i === idx ? 'true' : 'false');
+                        });
+                        currentSlide = idx;
+                    };
+                    const startSlide = () => {
+                        if (!autoTimer) {
+                            autoTimer = setInterval(() => {
+                                goToSlide((currentSlide + 1) % slides.length);
+                            }, 4000);
+                        }
+                    };
+                    const stopSlide = () => {
+                        if (autoTimer) {
+                            clearInterval(autoTimer);
+                            autoTimer = null;
+                        }
+                    };
+                    bannerSlider.addEventListener('mouseenter', stopSlide);
+                    bannerSlider.addEventListener('mouseleave', startSlide);
+                    dots.forEach((dot, idx) => {
+                        dot.addEventListener('click', () => {
+                            stopSlide();
+                            goToSlide(idx);
+                            startSlide();
+                        });
+                    });
+                    startSlide();
+                }
+            }
+        }
+
         const form = document.getElementById('filterForm');
         if (!form) return;
 
