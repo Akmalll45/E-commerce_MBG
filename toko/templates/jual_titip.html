@@ -1,4 +1,6 @@
 {% extends "base_publik.html" %}
+{% load static %}
+{% get_static_prefix as STATIC_PREFIX %}
 
 {% block title %}Jual Titip Mobil — MBG Makassar{% endblock %}
 {% block meta_description %}Pelajari alur Titip Jual Mobil MBG Makassar, persyaratan pengajuan, dan mulai pengajuan melalui akun Anda.{% endblock %}
@@ -10,26 +12,33 @@
     .titip-page { padding:2.5rem 0 4.5rem; }
     .titip-hero {
         position:relative; overflow:hidden; isolation:isolate;
-        padding:clamp(2rem,6vw,5rem); border-radius:28px;
-        background:radial-gradient(circle at 85% 15%,rgba(56,189,248,.24),transparent 30%),linear-gradient(125deg,#080D1A 0%,#102752 62%,#1D4ED8 130%);
-        color:#fff; box-shadow:0 24px 60px -28px rgba(8,13,26,.55);
+        min-height:490px; padding:clamp(2rem,5vw,4.25rem); border-radius:28px;
+        background:#080D1A; color:#fff; box-shadow:0 24px 60px -28px rgba(8,13,26,.55);
+    }
+    .titip-hero::before,.titip-hero::after {
+        content:""; position:absolute; inset:0; pointer-events:none;
+    }
+    .titip-hero::before {
+        z-index:-2;
+        background-image:url("/static/toko/images/titip-jual-showroom.png");
+        background-size:cover; background-position:center 54%;
     }
     .titip-hero::after {
-        content:""; position:absolute; z-index:-1; width:380px; height:380px;
-        right:-150px; bottom:-240px; border:1px solid rgba(255,255,255,.16);
-        border-radius:50%; box-shadow:0 0 0 36px rgba(255,255,255,.035),0 0 0 72px rgba(255,255,255,.025);
+        z-index:-1;
+        background:
+            linear-gradient(0deg,rgba(8,13,26,.5) 0%,rgba(8,13,26,.08) 42%,rgba(8,13,26,.04) 100%),
+            linear-gradient(90deg,#080D1A 0%,rgba(8,13,26,.98) 34%,rgba(8,13,26,.88) 49%,rgba(8,13,26,.38) 68%,rgba(8,13,26,.08) 100%);
     }
-    .titip-eyebrow { color:#BFDBFE; font-size:.78rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-    .titip-hero h1 { max-width:760px; font-size:clamp(2.15rem,5vw,4rem); line-height:1.08; font-weight:800; }
-    .titip-hero-copy { max-width:650px; color:#CBD5E1; font-size:clamp(1rem,1.5vw,1.12rem); line-height:1.8; }
-    .titip-primary-cta { min-height:50px; display:inline-flex; align-items:center; justify-content:center; gap:.55rem; padding:.8rem 1.25rem; border-radius:12px; background:#fff; color:#1D4ED8; font-weight:800; text-decoration:none; box-shadow:0 8px 24px rgba(0,0,0,.16); transition:transform .2s ease,box-shadow .2s ease; }
-    .titip-primary-cta:hover { color:#1D4ED8; transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.22); }
-    .titip-register-link { color:#DBEAFE; font-weight:700; text-decoration:none; }
+    .titip-hero .row { position:relative; z-index:1; min-height:390px; }
+    .titip-hero .col-lg-7 { max-width:620px; }
+    .titip-eyebrow { color:#DBEAFE; font-size:.78rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .titip-eyebrow i,.titip-accent { color:#60A5FA; }
+    .titip-hero h1 { max-width:560px; margin-bottom:1.1rem !important; color:#fff; font-size:clamp(2.1rem,3.2vw,3rem); line-height:1.13; font-weight:800; text-wrap:balance; }
+    .titip-hero-copy { max-width:520px; color:#F1F5F9; font-size:clamp(1rem,1.25vw,1.08rem); line-height:1.7; }
+    .titip-primary-cta { min-height:50px; display:inline-flex; align-items:center; justify-content:center; gap:.6rem; padding:.8rem 1.3rem; border:1px solid rgba(191,219,254,.35); border-radius:12px; background:linear-gradient(135deg,#3B82F6,#1D4ED8); color:#fff; font-weight:800; text-decoration:none; box-shadow:0 8px 24px rgba(29,78,216,.34); transition:transform .2s ease,box-shadow .2s ease,background .2s ease; }
+    .titip-primary-cta:hover { color:#fff; background:linear-gradient(135deg,#60A5FA,#2563EB); transform:translateY(-2px); box-shadow:0 12px 28px rgba(29,78,216,.45); }
+    .titip-register-link { color:#F1F5F9; font-weight:700; text-decoration:none; }
     .titip-register-link:hover { color:#fff; text-decoration:underline; }
-    .titip-flow-card { padding:1.4rem; border:1px solid rgba(255,255,255,.16); border-radius:18px; background:rgba(255,255,255,.09); backdrop-filter:blur(8px); }
-    .titip-flow-card .flow-step { display:flex; align-items:center; gap:.8rem; color:#F8FAFC; font-weight:700; }
-    .titip-flow-card .flow-step + .flow-step { margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,.13); }
-    .titip-flow-card .flow-number { width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; border-radius:10px; background:rgba(147,197,253,.16); color:#BFDBFE; }
     .titip-section { padding-top:4.5rem; }
     .titip-section-heading { max-width:690px; margin:0 auto 2rem; text-align:center; }
     .titip-section-heading h2 { color:#0F172A; font-size:clamp(1.7rem,3vw,2.4rem); font-weight:800; }
@@ -38,21 +47,28 @@
     .titip-icon { width:48px; height:48px; display:grid; place-items:center; margin-bottom:1.1rem; border-radius:14px; background:#EFF6FF; color:#2563EB; font-size:1.15rem; }
     .titip-info-card h3 { color:#0F172A; font-size:1.08rem; font-weight:800; }
     .titip-info-card p { margin:0; color:#64748B; font-size:.92rem; line-height:1.7; }
-    .titip-requirements { padding:clamp(1.4rem,4vw,2.5rem); border:1px solid #DBEAFE; border-radius:22px; background:linear-gradient(135deg,#EFF6FF,#fff 72%); }
-    .titip-requirements h2 { color:#0F172A; font-size:clamp(1.55rem,3vw,2rem); font-weight:800; }
-    .titip-checklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; padding:0; margin:1.4rem 0 0; list-style:none; }
-    .titip-checklist li { display:flex; align-items:flex-start; gap:.7rem; color:#334155; line-height:1.6; }
-    .titip-checklist i { margin-top:.28rem; color:#2563EB; }
-    .titip-note { color:#64748B; font-size:.84rem; line-height:1.65; }
-    .titip-bottom-cta { padding:clamp(1.7rem,4vw,2.7rem); border-radius:22px; background:#0F172A; color:#fff; }
-    .titip-bottom-cta h2 { font-size:clamp(1.5rem,3vw,2rem); font-weight:800; }
-    .titip-bottom-cta p { max-width:690px; color:#CBD5E1; line-height:1.7; }
     @media (max-width:767.98px) {
         .titip-page { padding-top:1.25rem; }
-        .titip-hero { border-radius:20px; }
+        .titip-hero { min-height:0; padding:1.6rem 1.25rem; border-radius:20px; }
+        .titip-hero::before { background-position:62% center; }
+        .titip-hero::after {
+            background:
+                linear-gradient(0deg,rgba(8,13,26,.82) 0%,rgba(8,13,26,.68) 65%,rgba(8,13,26,.62) 100%),
+                linear-gradient(90deg,rgba(8,13,26,.92),rgba(8,13,26,.68));
+        }
+        .titip-hero .row { min-height:0; }
+        .titip-hero h1 { max-width:540px; font-size:clamp(2rem,8vw,2.7rem); line-height:1.14; }
+        .titip-hero-copy { font-size:1rem; line-height:1.7; }
         .titip-section { padding-top:3rem; }
-        .titip-checklist { grid-template-columns:1fr; }
         .titip-primary-cta { width:100%; }
+    }
+    @media (min-width:768px) and (max-width:991.98px) {
+        .titip-hero { min-height:0; }
+        .titip-hero::after {
+            background:
+                linear-gradient(0deg,rgba(8,13,26,.9),rgba(8,13,26,.22)),
+                linear-gradient(90deg,rgba(8,13,26,.97),rgba(8,13,26,.8) 64%,rgba(8,13,26,.5));
+        }
     }
     @media (prefers-reduced-motion:reduce) {
         .titip-primary-cta { transition:none; }
@@ -65,31 +81,22 @@
     <div class="container">
         <section class="titip-hero" aria-labelledby="titip-title">
             <div class="row align-items-center g-4 g-xl-5">
-                <div class="col-lg-7">
+                <div class="col-lg-7 col-xl-6">
                     <span class="titip-eyebrow d-inline-flex align-items-center gap-2 mb-3">
                         <i class="fa-solid fa-handshake-angle"></i> Layanan Titip Jual MBG
                     </span>
-                    <h1 id="titip-title" class="mb-3">Ingin menjual mobil? Mulai dengan pengajuan yang jelas.</h1>
+                    <h1 id="titip-title" class="mb-3">Ingin menjual mobil? <span class="titip-accent">Mulai dengan pengajuan yang jelas.</span></h1>
                     <p class="titip-hero-copy mb-4">
                         Sampaikan informasi kendaraan dan dokumen pendukung melalui formulir. Tim MBG meninjau pengajuan dan menghubungi Anda untuk langkah pemeriksaan berikutnya.
                     </p>
                     <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-3">
                         <a class="titip-primary-cta" href="{{ url_mulai_titip_jual }}">
-                            {% if user.is_authenticated %}Mulai Pengajuan Titip Jual{% else %}Masuk untuk Mulai Pengajuan{% endif %}
+                            Mulai Pengajuan
                             <i class="fa-solid fa-arrow-right"></i>
                         </a>
                         {% if not user.is_authenticated %}
                             <a class="titip-register-link" href="{% url 'register' %}">Belum punya akun? Daftar</a>
                         {% endif %}
-                    </div>
-                </div>
-                <div class="col-lg-5">
-                    <div class="titip-flow-card" aria-label="Ringkasan alur pengajuan">
-                        <div class="small text-uppercase fw-bold mb-3" style="color:#BFDBFE;letter-spacing:.08em;">Ringkasan alur</div>
-                        <div class="flow-step"><span class="flow-number">01</span><span>Isi data kendaraan dan unggah foto</span></div>
-                        <div class="flow-step"><span class="flow-number">02</span><span>Peninjauan dan pemeriksaan kendaraan</span></div>
-                        <div class="flow-step"><span class="flow-number">03</span><span>Bahas harga dan persetujuan bersama</span></div>
-                        <div class="flow-step"><span class="flow-number">04</span><span>Penayangan setelah proses disetujui</span></div>
                     </div>
                 </div>
             </div>
@@ -138,41 +145,13 @@
                 <div class="col-sm-6 col-lg-3"><article class="titip-info-card"><div class="titip-icon">3</div><h3>Sepakati ketentuan</h3><p>Hasil pemeriksaan, harga, dan persetujuan dibahas sebelum kendaraan ditayangkan.</p></article></div>
                 <div class="col-sm-6 col-lg-3"><article class="titip-info-card"><div class="titip-icon">4</div><h3>Pantau pengajuan</h3><p>Lihat status dan permintaan tindak lanjut melalui dashboard pengguna.</p></article></div>
             </div>
-        </section>
-
-        <section class="titip-section" aria-labelledby="titip-requirements-title">
-            <div class="titip-requirements">
-                <div class="row g-4 align-items-start">
-                    <div class="col-lg-5">
-                        <span class="section-label mb-2"><i class="fa-solid fa-list-check"></i> Persiapan pengajuan</span>
-                        <h2 id="titip-requirements-title" class="mb-3">Siapkan informasi dan foto kendaraan</h2>
-                        <p class="text-secondary mb-0" style="line-height:1.75;">Data yang lengkap membantu tim meninjau pengajuan. Dokumen kepemilikan dapat disertakan melalui formulir dan akan diperiksa dalam proses verifikasi.</p>
-                    </div>
-                    <div class="col-lg-7">
-                        <ul class="titip-checklist">
-                            <li><i class="fa-solid fa-check"></i><span>Data pemilik dan nomor WhatsApp yang dapat dihubungi.</span></li>
-                            <li><i class="fa-solid fa-check"></i><span>Informasi kendaraan, kondisi, dan harga harapan.</span></li>
-                            <li><i class="fa-solid fa-check"></i><span>Lima foto wajib: depan, belakang, sisi kiri, sisi kanan, dan ruang mesin.</span></li>
-                            <li><i class="fa-solid fa-check"></i><span>Siapkan STNK, BPKB, dan identitas pemilik untuk pemeriksaan.</span></li>
-                        </ul>
-                    </div>
-                </div>
-                <p class="titip-note mt-3 mb-0">Pengajuan tidak menjamin kendaraan akan terjual atau harga harapan disetujui. Penayangan dilakukan setelah verifikasi dan persetujuan harga bersama pemilik.</p>
-            </div>
-        </section>
-
-        <section class="titip-section" aria-labelledby="titip-start-title">
-            <div class="titip-bottom-cta d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-                <div>
-                    <h2 id="titip-start-title" class="mb-2">Siap memulai pengajuan?</h2>
-                    <p class="mb-0">Gunakan formulir Titip-Jual yang sudah tersedia. Lima foto wajib dan validasi dokumen tetap mengikuti ketentuan pada formulir.</p>
-                </div>
-                <a class="titip-primary-cta flex-shrink-0" href="{{ url_mulai_titip_jual }}">
-                    {% if user.is_authenticated %}Mulai Titip Jual{% else %}Masuk / Daftar{% endif %}
-                    <i class="fa-solid fa-arrow-right"></i>
+            <div class="text-center mt-4">
+                <a class="titip-primary-cta" href="{{ url_mulai_titip_jual }}">
+                    Mulai Titip Jual <i class="fa-solid fa-arrow-right"></i>
                 </a>
             </div>
         </section>
+
     </div>
 </main>
 {% endblock %}

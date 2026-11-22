@@ -1853,14 +1853,19 @@ class LandingTitipJualTests(TestCase):
         self.url = reverse('jual_titip')
         self.url_form = reverse('titip_jual_tambah')
 
-    def test_landing_menampilkan_layanan_proses_dan_persyaratan(self):
+    def test_landing_hanya_menampilkan_layanan_dan_proses_tanpa_form(self):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Apa yang dibantu dalam proses Titip Jual?')
         self.assertContains(response, 'Dari pengajuan sampai penayangan')
-        self.assertContains(response, 'Lima foto wajib:')
-        self.assertContains(response, 'STNK, BPKB, dan identitas pemilik')
-        self.assertContains(response, 'tidak menjamin kendaraan akan terjual')
+        self.assertContains(response, 'Ajukan kendaraan')
+        self.assertContains(response, 'Tinjau dan periksa')
+        self.assertContains(response, 'Sepakati ketentuan')
+        self.assertContains(response, 'Pantau pengajuan')
+        self.assertNotContains(response, '<form')
+        self.assertNotContains(response, 'Persiapan pengajuan')
+        self.assertNotContains(response, 'Siapkan informasi dan foto kendaraan')
 
     def test_cta_pengunjung_mengarah_ke_login_dan_mempertahankan_tujuan_form(self):
         response = self.client.get(self.url)
@@ -1868,6 +1873,7 @@ class LandingTitipJualTests(TestCase):
         self.assertContains(
             response,
             f'href="{reverse("login")}?next=%2Fdashboard%2Ftitip-jual%2Ftambah%2F"',
+            count=2,
         )
         self.assertContains(response, f'href="{reverse("register")}"')
 
@@ -1880,8 +1886,23 @@ class LandingTitipJualTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f'href="{self.url_form}"')
+        self.assertContains(response, f'href="{self.url_form}"', count=2)
         self.assertNotContains(response, f'href="{reverse("login")}?next=')
+
+    def test_form_pengajuan_memakai_layout_publik_tanpa_sidebar_akun(self):
+        user = get_user_model().objects.create_user(
+            'pemilik-form-uji', 'pemilik-form@example.test', 'Password123!',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(self.url_form)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<form method="post" enctype="multipart/form-data"')
+        self.assertContains(response, 'Lima foto wajib')
+        self.assertContains(response, 'Dokumen kepemilikan')
+        self.assertNotContains(response, 'Ringkasan Akun')
+        self.assertNotContains(response, 'Akun MBG')
 
     def test_menu_jual_titip_tersedia_di_halaman_publik(self):
         url_landing = reverse('jual_titip')

@@ -1,15 +1,35 @@
-{% extends 'dashboard/user/titip_jual_base.html' %}
-{% block title %}{% if pengajuan %}Perbaiki{% else %}Ajukan{% endif %} Titip-Jual{% endblock %}
+{% extends "base_publik.html" %}
+{% block title %}{% if pengajuan %}Perbaiki{% else %}Ajukan{% endif %} Titip-Jual — MBG Makassar{% endblock %}
+{% block meta_description %}Lengkapi formulir pengajuan Titip Jual Mobil MBG Makassar.{% endblock %}
+{% block nav_titip_jual_aktif %}active{% endblock %}
+{% block offcanvas_titip_jual_aktif %}active{% endblock %}
+{% block extra_css %}
+<style>
+    .titip-form-page { padding:2.5rem 0 4rem; }
+    .titip-form-wrap { max-width:980px; margin:0 auto; }
+    .titip-form-heading { margin-bottom:1.5rem; }
+    .titip-form-card { padding:clamp(1.1rem,3vw,1.5rem); margin-bottom:1.25rem; background:#fff; border:1px solid #E2E8F0; border-radius:16px; box-shadow:0 4px 20px -2px rgba(8,13,26,.06); }
+    .titip-form-card h2 { color:#0F172A; }
+    .titip-form-page .form-label { font-size:.78rem; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:.04em; }
+    .titip-form-page .form-control,.titip-form-page .form-select { border-radius:12px; border:1.5px solid #E2E8F0; padding:.65rem .85rem; }
+    .titip-form-page .form-control:focus,.titip-form-page .form-select:focus { border-color:#2563EB; box-shadow:0 0 0 4px rgba(37,99,235,.12); }
+    .preview-thumb { width:100%; max-height:220px; object-fit:cover; border-radius:12px; background:#F1F5F9; }
+    @media (max-width:767.98px) { .titip-form-page { padding:1.25rem 0 3rem; } }
+</style>
+{% endblock %}
 {% block content %}
-<div class="mb-4">
-    <a class="text-decoration-none small" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'titip_jual_daftar' %}{% endif %}"><i class="fa-solid fa-arrow-left me-1"></i> Kembali</a>
+<main class="titip-form-page">
+<div class="container">
+<div class="titip-form-wrap">
+<div class="titip-form-heading">
+    <a class="text-decoration-none small" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'jual_titip' %}{% endif %}"><i class="fa-solid fa-arrow-left me-1"></i> Kembali</a>
     <h1 class="h3 fw-bold text-dark mt-2">{% if pengajuan %}Perbaiki pengajuan{% else %}Jual Mobil Saya{% endif %}</h1>
     <p class="text-muted mb-0">Isi informasi kendaraan dan unggah lima foto wajib. Dokumen kepemilikan disimpan privat.</p>
 </div>
 <form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-    <div class="content-card">
+    <div class="titip-form-card">
         <h2 class="h5 fw-bold mb-3">Data pemilik dan kendaraan</h2>
         <div class="row g-3">
             {% for field in form %}
@@ -24,7 +44,7 @@
             {% endfor %}
         </div>
     </div>
-    <div class="content-card">
+    <div class="titip-form-card">
         <h2 class="h5 fw-bold mb-1">Lima foto wajib</h2>
         <p class="text-muted small">Format JPG, PNG, atau WEBP; maksimal 5 MB per foto. Pilih file baru untuk mengganti foto yang sudah ada.</p>
         <div class="row g-3">
@@ -39,14 +59,14 @@
             {% endfor %}
         </div>
     </div>
-    <div class="content-card">
+    <div class="titip-form-card">
         <h2 class="h5 fw-bold mb-1">Foto tambahan <span class="text-muted fw-normal">(opsional)</span></h2>
         <p class="text-muted small">Interior, dashboard, odometer, jok, bagasi, velg, ban, kerusakan, dan lainnya.</p>
         {{ form.foto_tambahan }}
         {% for error in form.foto_tambahan.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
         <div id="preview-foto-tambahan" class="row g-2 mt-1"></div>
     </div>
-    <div class="content-card">
+    <div class="titip-form-card">
         <h2 class="h5 fw-bold mb-1">Dokumen kepemilikan <span class="text-muted fw-normal">(opsional)</span></h2>
         <p class="text-muted small">Unggah PDF/JPG/PNG/WEBP, maksimal 10 MB per dokumen. File hanya dapat diunduh oleh pemilik dan staf MBG.</p>
         <div class="row g-3">
@@ -56,10 +76,13 @@
         </div>
     </div>
     <div class="d-flex justify-content-end gap-2 mb-4">
-        <a class="btn btn-outline-secondary rounded-pill px-4" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'titip_jual_daftar' %}{% endif %}">Batal</a>
+        <a class="btn btn-outline-secondary rounded-pill px-4" href="{% if pengajuan %}{% url 'titip_jual_detail' pengajuan.pk %}{% else %}{% url 'jual_titip' %}{% endif %}">Batal</a>
         <button class="btn btn-primary rounded-pill px-4" type="submit"><i class="fa-solid fa-paper-plane me-1"></i> Kirim pengajuan</button>
     </div>
 </form>
+</div>
+</div>
+</main>
 {% endblock %}
 {% block extra_js %}
 <script>
