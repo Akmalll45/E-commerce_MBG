@@ -3905,6 +3905,9 @@ def konfirmasi_transfer_pesanan(request, nomor_pesanan):
             request,
             'Nomor referensi dan bukti transfer wajib diisi dengan format yang valid.',
         )
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'berhasil' in referer:
+            return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
         return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
 
     try:
@@ -3937,6 +3940,9 @@ def konfirmasi_transfer_pesanan(request, nomor_pesanan):
             request,
             'Konfirmasi transfer tercatat. Pembayaran akan ditinjau admin sebelum unit dikunci.',
         )
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'berhasil' in referer:
+        return redirect('pesanan_berhasil', nomor_pesanan=pesanan.nomor_pesanan)
     return redirect('pesanan_detail', nomor_pesanan=pesanan.nomor_pesanan)
 
 

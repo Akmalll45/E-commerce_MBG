@@ -20,10 +20,10 @@
             </div>
             <div>
                 {% if pesanan.status == 'menunggu_booking_fee' and pesanan.saluran_pembayaran == 'midtrans' %}
-                    <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
+                    <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
                         {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
-                            <i class="fa-solid fa-circle-check me-1"></i>
-                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Diterima — Perlu Tindak Lanjut Admin{% else %}Booking Fee Diterima — Menunggu Verifikasi{% endif %}
+                            <i class="fa-solid fa-clock me-1"></i>
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Diterima — Menunggu Verifikasi Admin{% else %}Booking Fee Diterima — Menunggu Verifikasi{% endif %}
                         {% else %}
                             <i class="fa-solid fa-clock me-1"></i>{% if pesanan.jenis_pembelian == 'beli_langsung' %} Menunggu Pembayaran Penuh{% else %} Menunggu Booking Fee{% endif %}
                         {% endif %}
@@ -427,16 +427,16 @@
             }
             if (data.payment_status === 'menunggu_verifikasi') {
                 if (orderBadge) {
-                    orderBadge.className = 'badge bg-success px-3 py-2 rounded-pill fw-bold fs-6';
+                    orderBadge.className = 'badge bg-info text-dark px-3 py-2 rounded-pill fw-bold fs-6';
                     orderBadge.textContent = data.purchase_type === 'beli_langsung'
-                        ? 'Pembayaran Diterima — Perlu Tindak Lanjut Admin'
-                        : 'Booking Fee Diterima — Perlu Tinjauan Admin';
+                        ? 'Pembayaran Diterima — Menunggu Verifikasi Admin'
+                        : 'Booking Fee Diterima — Menunggu Verifikasi Admin';
                 }
                 if (paymentState) {
-                    paymentState.className = 'fw-bold text-success';
+                    paymentState.className = 'fw-bold text-info';
                     paymentState.textContent = data.purchase_type === 'beli_langsung'
-                        ? 'Pembayaran diterima — perlu tindak lanjut admin'
-                        : 'Diterima — perlu tinjauan admin';
+                        ? 'Pembayaran diterima — menunggu verifikasi admin'
+                        : 'Diterima — menunggu verifikasi admin';
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Menunggu Verifikasi Booking Fee';
