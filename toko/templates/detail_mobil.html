@@ -1400,7 +1400,6 @@
             const checkoutUrl = form.dataset.checkoutUrl;
             const bookingCheckoutUrl = bookingForm ? bookingForm.dataset.checkoutUrl : null;
             const availabilityUrl = form.dataset.availabilityUrl;
-            let submissionChecked = false;
             let modalShown = false;
             let requestInFlight = false;
 
@@ -1487,23 +1486,26 @@
                     applyAvailability(data);
                     return data;
                 }).catch(function(error) {
-                    button.disabled = true;
-                    if (message) message.textContent = error.message;
+                    console.warn('Gagal memeriksa status ketersediaan unit:', error);
                     return null;
                 }).finally(function() {
                     requestInFlight = false;
                 });
             }
 
-            form.addEventListener('submit', function(event) {
-                if (submissionChecked) return;
-                event.preventDefault();
-                checkAvailability().then(function(data) {
-                    if (!data) return;
-                    submissionChecked = true;
-                    form.requestSubmit();
-                });
+            form.addEventListener('submit', function() {
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span>Memuat Checkout...</span>';
+                button.style.pointerEvents = 'none';
+                button.style.opacity = '0.85';
             });
+
+            if (bookingForm && bookingButton) {
+                bookingForm.addEventListener('submit', function() {
+                    bookingButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span>Memuat Booking...</span>';
+                    bookingButton.style.pointerEvents = 'none';
+                    bookingButton.style.opacity = '0.85';
+                });
+            }
 
             checkAvailability();
             window.setInterval(function() {
