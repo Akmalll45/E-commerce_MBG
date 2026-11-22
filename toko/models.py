@@ -1920,7 +1920,7 @@ class PesananPembelian(models.Model):
                 nama_kendaraan=produk.nama,
                 sku_kendaraan=produk.sku,
                 plat_nomor=produk.plat_nomor,
-                harga_kendaraan=produk.harga,
+                harga_kendaraan=produk.harga_promo if produk.harga_promo else produk.harga,
                 harga_promo=produk.harga_promo,
                 persentase_booking_fee=pengaturan.persentase_booking_fee,
                 nominal_booking_fee=pengaturan.hitung_booking_fee(produk.harga),

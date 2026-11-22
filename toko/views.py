@@ -3643,7 +3643,8 @@ def checkout_pembelian(request, id):
         'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
-        'nominal_pembelian_langsung': produk.harga,
+        'nominal_pembelian_langsung': produk.harga_promo if produk.harga_promo else produk.harga,
+        'diskon_subsidi': (produk.harga - produk.harga_promo) if produk.harga_promo else None,
         'jenis_pembelian': jenis_pembelian,
         'rincian_kredit': rincian_kredit,
     })
@@ -3754,7 +3755,8 @@ def konfirmasi_pembelian(request, id):
         'persentase_booking_fee': pengaturan_pembelian.persentase_booking_fee,
         'nominal_booking_fee': nominal_booking_fee,
         'sisa_estimasi': sisa_estimasi,
-        'nominal_pembelian_langsung': produk.harga,
+        'nominal_pembelian_langsung': produk.harga_promo if produk.harga_promo else produk.harga,
+        'diskon_subsidi': (produk.harga - produk.harga_promo) if produk.harga_promo else None,
         'rincian_kredit': rincian_kredit,
         'form_kanal': form_kanal,
     })

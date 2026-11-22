@@ -297,7 +297,7 @@
                         {% if produk.harga_promo %}
                         <div class="d-flex justify-content-between align-items-center mb-2 small text-danger">
                             <span><i class="fa-solid fa-tag me-1"></i> Subsidi DP Khusus</span>
-                            <span class="fw-bold">- Rp {{ produk.harga_promo|intcomma }}</span>
+                            <span class="fw-bold">- Rp {{ diskon_subsidi|intcomma }}</span>
                         </div>
                         {% endif %}
 
@@ -319,7 +319,7 @@
                         <div class="payment-total-row pt-2 border-top mb-2">
                             <div>
                                 <span class="fw-bold text-success d-block">Total pembayaran</span>
-                                <small class="text-muted">100% harga OTR</small>
+                                <small class="text-muted">{% if produk.harga_promo %}Harga setelah Subsidi DP{% else %}100% harga OTR{% endif %}</small>
                             </div>
                             <span class="payment-total-value h5 fw-bold text-success mb-0 font-heading">Rp {{ nominal_pembelian_langsung|intcomma }}</span>
                         </div>
