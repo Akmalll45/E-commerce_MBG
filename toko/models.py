@@ -1166,35 +1166,74 @@ class InquiryC2C(models.Model):
 
 class BookingCekUnit(models.Model):
     OPSI_DELIVERY = [
-        ('showroom', 'Ambil / Cek di Showroom MBG Makassar (Gratis)'),
-        ('towing', 'Diantar via Truk Towing ke Rumah (Makassar)'),
+        ('showroom', 'Cek di Showroom MBG Mannuruki Makassar (Gratis)'),
+        ('towing', 'Diantar via Truk Towing ke Rumah (Area Makassar)'),
     ]
 
     STATUS_BOOKING = [
-        ('menunggu_dp', 'Menunggu DP / Booking Fee'),
-        ('terkonfirmasi', 'Jadwal Terkonfirmasi'),
-        ('selesai', 'Selesai / Pelunasan'),
+        ('menunggu', 'Menunggu Verifikasi Admin'),
+        ('menunggu_dp', 'Menunggu Verifikasi Admin'),  # legacy alias
+        ('terkonfirmasi', 'Jadwal Disetujui'),
+        ('disetujui', 'Jadwal Disetujui'),            # alias
+        ('ditolak', 'Jadwal Ditolak'),
+        ('selesai', 'Selesai (Sudah Dikunjungi)'),
         ('batal', 'Dibatalkan'),
     ]
 
-    produk = models.ForeignKey(Produk, on_delete=models.CASCADE)
-    nama_pemesan = models.CharField(max_length=100)
-    no_whatsapp = models.CharField(max_length=20)
-    email = models.EmailField()
+    produk = models.ForeignKey(Produk, on_delete=models.CASCADE, verbose_name="Kendaraan")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='booking_cek_unit',
+        verbose_name="Akun Pelanggan",
+    )
+    nama_pemesan = models.CharField(max_length=100, verbose_name="Nama Pemesan")
+    no_whatsapp = models.CharField(max_length=20, verbose_name="No. WhatsApp")
+    email = models.EmailField(verbose_name="Email")
     
-    tanggal_cek_unit = models.DateField()
-    jam_cek_unit = models.TimeField()
-    opsi_delivery = models.CharField(max_length=10, choices=OPSI_DELIVERY, default='showroom')
-    alamat_pengantaran = models.TextField(blank=True, null=True, help_text="Wajib diisi jika memilih Towing")
+    tanggal_cek_unit = models.DateField(verbose_name="Tanggal Cek Unit")
+    jam_cek_unit = models.TimeField(verbose_name="Jam Cek Unit")
+    opsi_delivery = models.CharField(max_length=10, choices=OPSI_DELIVERY, default='showroom', verbose_name="Pilihan Layanan")
+    alamat_pengantaran = models.TextField(blank=True, null=True, help_text="Wajib diisi jika memilih Towing ke Rumah", verbose_name="Alamat Pengantaran")
+    catatan = models.TextField(blank=True, default='', verbose_name="Catatan Pelanggan", help_text="Catatan atau permintaan khusus saat cek unit")
     
-    status = models.CharField(max_length=20, choices=STATUS_BOOKING, default='menunggu_dp')
-    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_BOOKING, default='menunggu', verbose_name="Status Jadwal")
+    catatan_admin = models.TextField(blank=True, default='', verbose_name="Catatan Admin", help_text="Catatan atau respon admin saat verifikasi jadwal")
+    diverifikasi_oleh = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='booking_diverifikasi',
+        verbose_name="Diverifikasi Oleh",
+    )
+    tanggal_verifikasi = models.DateTimeField(null=True, blank=True, verbose_name="Tanggal Verifikasi")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Dibuat Pada")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Diperbarui Pada")
 
     class Meta:
-        verbose_name_plural = "Booking Cek Unit (O2O)"
+        verbose_name = "Jadwal Cek Unit (O2O)"
+        verbose_name_plural = "Jadwal Cek Unit (O2O)"
+        ordering = ['-created_at', '-id']
 
     def __str__(self):
-        return f"Booking #{self.id} - {self.produk.nama} oleh {self.nama_pemesan}"
+        return f"Jadwal #{self.id} - {self.produk.nama} oleh {self.nama_pemesan} ({self.get_status_display()})"
+
+    def setujui(self, oleh_user, catatan=''):
+        """Verifikasi dan setujui jadwal kunjungan cek unit oleh admin/staf."""
+        _pastikan_staf(oleh_user)
+        self.status = 'terkonfirmasi'
+        self.diverifikasi_oleh = oleh_user
+        self.tanggal_verifikasi = timezone.now()
+        if catatan:
+            self.catatan_admin = catatan
+        self.save(update_fields=['status', 'diverifikasi_oleh', 'tanggal_verifikasi', 'catatan_admin', 'updated_at'])
+
+    def tolak(self, oleh_user, catatan=''):
+        """Tolak pengajuan jadwal cek unit oleh admin/staf."""
+        _pastikan_staf(oleh_user)
+        self.status = 'ditolak'
+        self.diverifikasi_oleh = oleh_user
+        self.tanggal_verifikasi = timezone.now()
+        if catatan:
+            self.catatan_admin = catatan
+        self.save(update_fields=['status', 'diverifikasi_oleh', 'tanggal_verifikasi', 'catatan_admin', 'updated_at'])
 
 
 

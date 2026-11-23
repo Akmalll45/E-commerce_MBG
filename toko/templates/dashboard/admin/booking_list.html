@@ -68,20 +68,25 @@
         align-items: center;
         gap: .35rem;
     }
-    .badge-booking-menunggu_dp {
+    .badge-booking-menunggu, .badge-booking-menunggu_dp {
         background: rgba(245, 158, 11, 0.12);
         color: #B45309;
         border-color: rgba(245, 158, 11, 0.35);
     }
-    .badge-booking-terkonfirmasi {
-        background: rgba(37, 99, 235, 0.10);
-        color: #1D4ED8;
-        border-color: rgba(37, 99, 235, 0.30);
-    }
-    .badge-booking-selesai {
+    .badge-booking-disetujui, .badge-booking-terkonfirmasi {
         background: rgba(16, 185, 129, 0.12);
         color: #047857;
         border-color: rgba(16, 185, 129, 0.35);
+    }
+    .badge-booking-ditolak {
+        background: rgba(239, 68, 68, 0.12);
+        color: #B91C1C;
+        border-color: rgba(239, 68, 68, 0.35);
+    }
+    .badge-booking-selesai {
+        background: rgba(37, 99, 235, 0.10);
+        color: #1D4ED8;
+        border-color: rgba(37, 99, 235, 0.30);
     }
     .badge-booking-batal {
         background: rgba(100, 116, 139, 0.12);
@@ -294,12 +299,14 @@
                             <!-- Status Booking -->
                             <td>
                                 <span class="badge-status-booking badge-booking-{{ b.status }}">
-                                    {% if b.status == 'menunggu_dp' %}
+                                    {% if b.status == 'menunggu' or b.status == 'menunggu_dp' %}
                                         <i class="fa-solid fa-hourglass-half"></i>
-                                    {% elif b.status == 'terkonfirmasi' %}
+                                    {% elif b.status == 'terkonfirmasi' or b.status == 'disetujui' %}
                                         <i class="fa-solid fa-circle-check"></i>
                                     {% elif b.status == 'selesai' %}
                                         <i class="fa-solid fa-flag-checkered"></i>
+                                    {% elif b.status == 'ditolak' %}
+                                        <i class="fa-solid fa-circle-xmark"></i>
                                     {% else %}
                                         <i class="fa-solid fa-ban"></i>
                                     {% endif %}

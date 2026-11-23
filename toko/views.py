@@ -54,7 +54,7 @@ from .forms import (
     KategoriArtikelForm, ArtikelForm, HalamanWebsiteForm, HeroSlideForm, MitraForm, PengaturanWebsiteForm,
     CheckoutPembelianForm, PembayaranManualPesananForm,
     KanalPembayaranPembelianForm, KonfirmasiTransferPesananForm,
-    PermintaanPembatalanPesananForm,
+    PermintaanPembatalanPesananForm, BookingCekUnitForm,
 )
 
 User = get_user_model()
@@ -406,7 +406,7 @@ def _produk_c2c_menerima_inquiry(produk, titip_jual=None):
     )
 
 
-def _konteks_detail_produk(request, produk, inquiry_form=None):
+def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None):
     mobil_terkait = produk_tayang().exclude(id=produk.id)[:3]
     pesanan_aktif = None
     unit_dapat_dipesan = False
@@ -447,7 +447,56 @@ def _konteks_detail_produk(request, produk, inquiry_form=None):
         'inquiry_form': inquiry_form or (
             InquiryPembeliC2CForm(user=request.user) if inquiry_bisa_dikirim else None
         ),
+        'booking_form': booking_form or BookingCekUnitForm(user=request.user),
+        'booking_sukses_data': request.session.pop('booking_sukses_data', None),
     }
+
+
+def ajukan_jadwal_cek_unit(request, id):
+    """
+    Pengajuan Jadwal Cek Unit (O2O) oleh pelanggan untuk mobil tertentu.
+    Status awal selalu 'menunggu' (Menunggu Konfirmasi Admin), tidak otomatis disetujui.
+    Admin yang akan memverifikasi dan menyetujui jadwal tersebut di panel admin.
+    """
+    produk = get_object_or_404(Produk, pk=id)
+    if produk.status_stok not in ('ready', 'in_review'):
+        messages.error(request, 'Maaf, unit mobil ini sedang tidak dapat dijadwalkan untuk cek unit.')
+        return redirect('detail_produk', id=produk.id)
+
+    if request.method == 'POST':
+        form = BookingCekUnitForm(request.POST, user=request.user)
+        if form.is_valid():
+            booking = form.save(commit=False)
+            booking.produk = produk
+            if request.user.is_authenticated:
+                booking.user = request.user
+            booking.status = 'menunggu'
+            booking.save()
+
+            request.session['booking_sukses_data'] = {
+                'id': booking.id,
+                'mobil': produk.nama,
+                'sku': produk.sku,
+                'tanggal': booking.tanggal_cek_unit.strftime('%d %B %Y'),
+                'jam': str(booking.jam_cek_unit)[:5],
+                'opsi': booking.get_opsi_delivery_display(),
+                'nama': booking.nama_pemesan,
+                'whatsapp': booking.no_whatsapp,
+            }
+            messages.success(
+                request,
+                f"Pengajuan jadwal cek unit #{booking.id} berhasil dikirim! "
+                "Jadwal Anda sedang menunggu verifikasi admin Garasi MBG."
+            )
+            return redirect(f"{reverse('detail_produk', args=[produk.id])}#jadwal-sukses")
+        else:
+            messages.error(request, 'Terdapat kesalahan pada isian formulir jadwal. Silakan periksa kembali.')
+            return render(
+                request, 'detail_mobil.html',
+                _konteks_detail_produk(request, produk, booking_form=form)
+            )
+
+    return redirect('detail_produk', id=produk.id)
 
 
 @require_POST
@@ -646,7 +695,7 @@ def dashboard_user(request):
     user = request.user
 
     # Booking lama tetap dicari lewat kontak; pengajuan C2C hanya lewat FK pemilik.
-    filter_q = Q()
+    filter_q = Q(user=user)
     if user.email:
         filter_q |= Q(email__iexact=user.email)
     if user.no_whatsapp:
@@ -2495,7 +2544,13 @@ def admin_booking(request):
 
     # 2. Filter Status Booking
     status = request.GET.get('status', '').strip()
-    if status in dict(BookingCekUnit.STATUS_BOOKING):
+    if status == 'menunggu':
+        params['status'] = status
+        daftar = daftar.filter(status__in=['menunggu', 'menunggu_dp'])
+    elif status in ('terkonfirmasi', 'disetujui'):
+        params['status'] = status
+        daftar = daftar.filter(status__in=['terkonfirmasi', 'disetujui'])
+    elif status in dict(BookingCekUnit.STATUS_BOOKING):
         params['status'] = status
         daftar = daftar.filter(status=status)
 
@@ -2528,8 +2583,18 @@ def admin_booking(request):
     # 7. Statistik & Tab Status
     total_booking = BookingCekUnit.objects.count()
     hitung_status = dict(BookingCekUnit.objects.values_list('status').annotate(n=Count('id')))
-    tab_status = [('', 'Semua', total_booking)] + [
-        (kode, label, hitung_status.get(kode, 0)) for kode, label in BookingCekUnit.STATUS_BOOKING
+    jml_menunggu = hitung_status.get('menunggu', 0) + hitung_status.get('menunggu_dp', 0)
+    jml_disetujui = hitung_status.get('terkonfirmasi', 0) + hitung_status.get('disetujui', 0)
+    jml_ditolak = hitung_status.get('ditolak', 0)
+    jml_selesai = hitung_status.get('selesai', 0)
+    jml_batal = hitung_status.get('batal', 0)
+
+    tab_status = [
+        ('', 'Semua', total_booking),
+        ('menunggu', 'Menunggu Verifikasi', jml_menunggu),
+        ('terkonfirmasi', 'Disetujui', jml_disetujui),
+        ('selesai', 'Selesai', jml_selesai),
+        ('ditolak', 'Ditolak', jml_ditolak),
     ]
 
     context = {
@@ -2539,14 +2604,22 @@ def admin_booking(request):
         'querystring': urlencode(params),
         'nilai': params,
         'tab_status': tab_status,
-        'pilihan_status': BookingCekUnit.STATUS_BOOKING,
+        'pilihan_status': [
+            ('menunggu', 'Menunggu Verifikasi Admin'),
+            ('terkonfirmasi', 'Jadwal Disetujui'),
+            ('ditolak', 'Jadwal Ditolak'),
+            ('selesai', 'Selesai (Sudah Dikunjungi)'),
+            ('batal', 'Dibatalkan'),
+        ],
         'pilihan_opsi': BookingCekUnit.OPSI_DELIVERY,
         'pilihan_pembayaran': Transaksi.STATUS_PEMBAYARAN,
         'total_booking': total_booking,
-        'booking_menunggu_dp': hitung_status.get('menunggu_dp', 0),
-        'booking_terkonfirmasi': hitung_status.get('terkonfirmasi', 0),
-        'booking_selesai': hitung_status.get('selesai', 0),
-        'booking_batal': hitung_status.get('batal', 0),
+        'booking_menunggu': jml_menunggu,
+        'booking_menunggu_dp': jml_menunggu,
+        'booking_terkonfirmasi': jml_disetujui,
+        'booking_selesai': jml_selesai,
+        'booking_ditolak': jml_ditolak,
+        'booking_batal': jml_batal,
         'jumlah_booking_kendaraan': PesananPembelian.objects.filter(
             jenis_pembelian='booking',
         ).count(),
@@ -2851,27 +2924,34 @@ def admin_booking_detail(request, id):
 def admin_booking_status(request, id):
     """
     Update Status Booking Cek Unit oleh Administrator:
-    Validasi pilihan status di backend, POST-only, CSRF-protected.
-    Tidak mengubah status pembayaran secara otomatis.
+    Admin memverifikasi jadwal (setujui, tolak, selesai, dll.) disertai catatan admin.
     """
     booking = get_object_or_404(BookingCekUnit, id=id)
     status_baru = request.POST.get('status', '').strip()
+    catatan_admin = request.POST.get('catatan_admin', '').strip()
     status_dict = dict(BookingCekUnit.STATUS_BOOKING)
 
     if status_baru not in status_dict:
         messages.error(request, f"Status '{status_baru}' tidak valid.")
         return redirect('admin_booking_detail', id=booking.id)
 
-    status_lama = booking.status
-    if status_baru != status_lama:
-        booking.status = status_baru
-        booking.save(update_fields=['status'])
-        messages.success(
-            request,
-            f"Status Booking #{booking.id} berhasil diperbarui dari '{status_dict.get(status_lama)}' menjadi '{status_dict.get(status_baru)}'."
-        )
-    else:
-        messages.info(request, "Status tidak mengalami perubahan.")
+    booking.status = status_baru
+    if catatan_admin:
+        booking.catatan_admin = catatan_admin
+
+    if status_baru in ('terkonfirmasi', 'disetujui', 'ditolak'):
+        booking.diverifikasi_oleh = request.user
+        booking.tanggal_verifikasi = timezone.now()
+
+    fields_to_update = ['status', 'catatan_admin', 'updated_at']
+    if booking.diverifikasi_oleh:
+        fields_to_update.extend(['diverifikasi_oleh', 'tanggal_verifikasi'])
+    booking.save(update_fields=list(set(fields_to_update)))
+
+    messages.success(
+        request,
+        f"Status Jadwal Cek Unit #{booking.id} berhasil diperbarui menjadi '{status_dict.get(status_baru)}'."
+    )
 
     next_url = request.POST.get('next')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):

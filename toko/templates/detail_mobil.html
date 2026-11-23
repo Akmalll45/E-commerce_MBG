@@ -1157,12 +1157,13 @@
                             {% endif %}
                         {% else %}
                             <!-- CTA 1: Booking Cek Unit Langsung di Showroom Mannuruki -->
-                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG%20Makassar,%20saya%20ingin%20Booking%20Jadwal%20Cek%20Unit%20langsung%20di%20Garasi%20Mannuruki%20untuk%20mobil:%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }}%20-%20Harga:%20Rp%20{{ produk.harga|intcomma }})."
-                               target="_blank"
-                               class="btn-cta-booking">
+                            <button type="button"
+                                    class="btn-cta-booking w-100 border-0"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalJadwalCekUnit">
                                 <i class="fa-solid fa-calendar-check"></i>
                                 <span>Jadwalkan Cek Unit (O2O)</span>
-                            </a>
+                            </button>
 
                             <!-- CTA 2: Tanya CS WhatsApp -->
                             <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20mobil%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }})%20masih%20tersedia?%20Bisa%20minta%20video%20detail%20unit%20dan%20simulasi%20kreditnya?"
@@ -1514,5 +1515,265 @@
         });
     </script>
     {% endif %}
+    <!-- Modal Jadwalkan Cek Unit (O2O) -->
+    <div class="modal fade" id="modalJadwalCekUnit" tabindex="-1" aria-labelledby="modalJadwalCekUnitLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header border-0 bg-primary text-white p-4">
+                    <div>
+                        <h5 class="modal-title fw-bold" id="modalJadwalCekUnitLabel">
+                            <i class="fa-solid fa-calendar-check me-2"></i> Jadwalkan Cek Unit Mobil (O2O)
+                        </h5>
+                        <p class="small mb-0 text-white-50">Ajukan tanggal & waktu inspeksi unit di showroom atau via towing. Jadwal akan ditinjau dan dikonfirmasi langsung oleh admin MBG.</p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <form method="post" action="{% url 'ajukan_jadwal_cek_unit' produk.id %}" id="formJadwalCekUnit">
+                    {% csrf_token %}
+                    <div class="modal-body p-4">
+                        <!-- Kartu Ringkasan Mobil -->
+                        <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 border mb-3">
+                            {% if produk.gambar_utama %}
+                                <img src="{{ produk.gambar_utama.url }}" alt="{{ produk.nama }}" class="rounded-3 object-fit-cover" style="width: 80px; height: 60px;">
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold text-dark mb-0 font-heading">{{ produk.nama }}</h6>
+                                <div class="small text-muted">
+                                    <span>Tahun {{ produk.tahun }} &bull; {{ produk.get_transmisi_display }} &bull; Plat: {{ produk.plat_nomor }}</span>
+                                </div>
+                                <div class="fw-bold text-primary small">
+                                    Harga OTR: Rp {{ produk.harga|intcomma }}
+                                    {% if produk.harga_promo %}
+                                        <span class="badge bg-danger ms-1">Subsidi DP: Rp {{ produk.harga_promo|intcomma }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Info Prosedur Verifikasi -->
+                        <div class="alert alert-warning border-0 rounded-3 small mb-4 py-2.5 px-3 d-flex align-items-start gap-2" style="background-color: #FEF3C7; color: #92400E;">
+                            <i class="fa-solid fa-clock mt-1 text-warning"></i>
+                            <div>
+                                <strong>Penting:</strong> Pengajuan jadwal cek unit <u>tidak langsung terkonfirmasi otomatis</u>. Admin MBG akan memverifikasi ketersediaan slot showroom/teknisi dan menghubungi Anda via WhatsApp untuk persetujuan jadwal.
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <!-- Tanggal Cek Unit -->
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-dark">
+                                    <i class="fa-regular fa-calendar me-1 text-primary"></i> Tanggal Kunjungan Cek Unit <span class="text-danger">*</span>
+                                </label>
+                                {{ booking_form.tanggal_cek_unit }}
+                                {% if booking_form.tanggal_cek_unit.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.tanggal_cek_unit.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted d-block mt-1">Showroom MBG buka setiap hari s/d 18.00 WITA.</small>
+                            </div>
+
+                            <!-- Jam Kunjungan -->
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-dark">
+                                    <i class="fa-regular fa-clock me-1 text-primary"></i> Jam Kunjungan <span class="text-danger">*</span>
+                                </label>
+                                {{ booking_form.jam_cek_unit }}
+                                {% if booking_form.jam_cek_unit.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.jam_cek_unit.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted d-block mt-1">Pilih perkiraan waktu kedatangan Anda.</small>
+                            </div>
+
+                            <!-- Opsi Layanan -->
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-dark mb-2">
+                                    <i class="fa-solid fa-location-dot me-1 text-primary"></i> Pilihan Lokasi Cek Unit <span class="text-danger">*</span>
+                                </label>
+                                <div class="row g-2">
+                                    {% for radio in booking_form.opsi_delivery %}
+                                    <div class="col-md-6">
+                                        <label class="d-flex align-items-center gap-2 p-3 border rounded-3 h-100" style="cursor: pointer; background: #fafafa;">
+                                            {{ radio.tag }}
+                                            <span class="small fw-semibold text-dark">{{ radio.choice_label }}</span>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Alamat Pengantaran (Jika Towing) -->
+                            <div class="col-12 d-none" id="containerAlamatTowing">
+                                <label class="form-label small fw-bold text-dark">
+                                    <i class="fa-solid fa-truck me-1 text-primary"></i> Alamat Lengkap Pengantaran Towing <span class="text-danger">*</span>
+                                </label>
+                                {{ booking_form.alamat_pengantaran }}
+                                {% if booking_form.alamat_pengantaran.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.alamat_pengantaran.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">Masukkan nama jalan, perumahan/nomor rumah, kelurahan, dan kecamatan di area Makassar.</small>
+                            </div>
+
+                            <div class="col-12"><hr class="my-1 text-muted"></div>
+
+                            <!-- Data Kontak Pemesan -->
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-dark">Nama Pemesan <span class="text-danger">*</span></label>
+                                {{ booking_form.nama_pemesan }}
+                                {% if booking_form.nama_pemesan.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.nama_pemesan.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-dark">No. WhatsApp <span class="text-danger">*</span></label>
+                                {{ booking_form.no_whatsapp }}
+                                {% if booking_form.no_whatsapp.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.no_whatsapp.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-dark">Alamat Email <span class="text-danger">*</span></label>
+                                {{ booking_form.email }}
+                                {% if booking_form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ booking_form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Catatan Tambahan -->
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-dark">Catatan / Permintaan Khusus (Opsional)</label>
+                                {{ booking_form.catatan }}
+                                <small class="text-muted">Contoh: Ingin ajak mekanik pribadi, cek kolong di lift hidrolik, test drive rute Pettarani, dll.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-0 bg-light p-3 px-4 d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2.5 fw-bold shadow-sm d-flex align-items-center gap-2" id="btnSubmitJadwal">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Kirim Pengajuan Jadwal</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if booking_sukses_data %}
+    <!-- Modal Sukses Pengajuan Jadwal Cek Unit -->
+    <div class="modal fade show" id="modalBookingSukses" tabindex="-1" style="display: block; background: rgba(0,0,0,0.6);" aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+            <div class="modal-content border-0 rounded-4 shadow-lg text-center p-4">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-warning bg-opacity-10 text-warning d-inline-flex align-items-center justify-content-center" style="width: 72px; height: 72px; font-size: 2rem;">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark mb-1 font-heading">Pengajuan Jadwal Terkirim!</h4>
+                <div class="mb-3">
+                    <span class="badge bg-warning text-dark px-3 py-1.5 rounded-pill fw-bold">Status: Menunggu Verifikasi Admin</span>
+                </div>
+                
+                <p class="text-muted small mb-4">
+                    Terima kasih, <strong>{{ booking_sukses_data.nama }}</strong>. Pengajuan jadwal cek unit Anda telah kami terima dan tercatat dengan status <strong>Menunggu Verifikasi Admin</strong>. Admin MBG akan segera memeriksa dan mengonfirmasi jadwal Anda.
+                </p>
+
+                <div class="p-3 bg-light rounded-3 text-start small mb-4">
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Kode Pengajuan:</span>
+                        <strong class="font-monospace text-dark">#BK-{{ booking_sukses_data.id }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Mobil Pilihan:</span>
+                        <strong class="text-dark">{{ booking_sukses_data.mobil }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Tanggal Kunjungan:</span>
+                        <strong class="text-dark">{{ booking_sukses_data.tanggal }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Jam Kunjungan:</span>
+                        <strong class="text-dark">{{ booking_sukses_data.jam }} WITA</strong>
+                    </div>
+                    <div class="d-flex justify-content-between py-1">
+                        <span class="text-muted">Lokasi Cek Unit:</span>
+                        <strong class="text-primary">{{ booking_sukses_data.opsi }}</strong>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column gap-2">
+                    <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20saya%20sudah%20mengajukan%20Jadwal%20Cek%20Unit%20%23BK-{{ booking_sukses_data.id }}%20untuk%20mobil%20{{ booking_sukses_data.mobil|urlencode }}%20pada%20tanggal%20{{ booking_sukses_data.tanggal|urlencode }}%20jam%20{{ booking_sukses_data.jam|urlencode }}%20WITA.%20Mohon%20informasi%20konfirmasi%20jadwalnya." 
+                       target="_blank" rel="noopener" 
+                       class="btn btn-success rounded-pill fw-bold py-2.5 shadow-sm d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-brands fa-whatsapp fs-5"></i>
+                        <span>Konfirmasi ke Admin via WhatsApp</span>
+                    </a>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard_user' %}" class="btn btn-outline-primary rounded-pill py-2">
+                        <i class="fa-solid fa-table-columns me-1"></i> Lihat di Dashboard Saya
+                    </a>
+                    {% endif %}
+                    <button type="button" class="btn btn-light rounded-pill py-2 text-muted" onclick="document.getElementById('modalBookingSukses').remove();">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Pengaturan input tanggal min = hari ini
+            const dateInput = document.querySelector('#modalJadwalCekUnit input[type="date"]');
+            if (dateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.min = today;
+                if (!dateInput.value) {
+                    dateInput.value = today;
+                }
+            }
+
+            // Opsi delivery toggle towing address
+            const radiosDelivery = document.querySelectorAll('#modalJadwalCekUnit input[name="opsi_delivery"]');
+            const containerAlamat = document.getElementById('containerAlamatTowing');
+            const textareaAlamat = containerAlamat ? containerAlamat.querySelector('textarea') : null;
+
+            function updateDeliveryUI() {
+                const checked = document.querySelector('#modalJadwalCekUnit input[name="opsi_delivery"]:checked');
+                if (checked && checked.value === 'towing') {
+                    if (containerAlamat) containerAlamat.classList.remove('d-none');
+                    if (textareaAlamat) textareaAlamat.required = true;
+                } else {
+                    if (containerAlamat) containerAlamat.classList.add('d-none');
+                    if (textareaAlamat) textareaAlamat.required = false;
+                }
+            }
+
+            radiosDelivery.forEach(function(r) {
+                r.addEventListener('change', updateDeliveryUI);
+            });
+            updateDeliveryUI();
+
+            // Submit loading spinner
+            const formJadwal = document.getElementById('formJadwalCekUnit');
+            const btnSubmit = document.getElementById('btnSubmitJadwal');
+            if (formJadwal && btnSubmit) {
+                formJadwal.addEventListener('submit', function() {
+                    btnSubmit.disabled = true;
+                    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span><span>Mengirim Pengajuan...</span>';
+                });
+            }
+
+            {% if booking_form.errors %}
+            // Tampilkan modal jadwal jika ada error validasi
+            const modalEl = document.getElementById('modalJadwalCekUnit');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                const modalInstance = new bootstrap.Modal(modalEl);
+                modalInstance.show();
+            }
+            {% endif %}
+        });
+    </script>
 </body>
 </html>

@@ -52,20 +52,25 @@
         align-items: center;
         gap: .5rem;
     }
-    .badge-booking-menunggu_dp {
+    .badge-booking-menunggu, .badge-booking-menunggu_dp {
         background: rgba(245, 158, 11, 0.14);
         color: #B45309;
         border: 1.5px solid rgba(245, 158, 11, 0.35);
     }
-    .badge-booking-terkonfirmasi {
-        background: rgba(37, 99, 235, 0.12);
-        color: #1D4ED8;
-        border: 1.5px solid rgba(37, 99, 235, 0.30);
-    }
-    .badge-booking-selesai {
+    .badge-booking-disetujui, .badge-booking-terkonfirmasi {
         background: rgba(16, 185, 129, 0.14);
         color: #047857;
         border: 1.5px solid rgba(16, 185, 129, 0.35);
+    }
+    .badge-booking-ditolak {
+        background: rgba(239, 68, 68, 0.14);
+        color: #B91C1C;
+        border: 1.5px solid rgba(239, 68, 68, 0.35);
+    }
+    .badge-booking-selesai {
+        background: rgba(37, 99, 235, 0.12);
+        color: #1D4ED8;
+        border: 1.5px solid rgba(37, 99, 235, 0.30);
     }
     .badge-booking-batal {
         background: rgba(100, 116, 139, 0.14);
@@ -100,12 +105,14 @@
         <div class="d-flex align-items-center gap-3">
             <h3 class="fw-bold text-dark mb-0">Booking #{{ booking.id }}</h3>
             <span class="badge-status-lg badge-booking-{{ booking.status }}">
-                {% if booking.status == 'menunggu_dp' %}
+                {% if booking.status == 'menunggu' or booking.status == 'menunggu_dp' %}
                     <i class="fa-solid fa-hourglass-half"></i>
-                {% elif booking.status == 'terkonfirmasi' %}
+                {% elif booking.status == 'terkonfirmasi' or booking.status == 'disetujui' %}
                     <i class="fa-solid fa-circle-check"></i>
                 {% elif booking.status == 'selesai' %}
                     <i class="fa-solid fa-flag-checkered"></i>
+                {% elif booking.status == 'ditolak' %}
+                    <i class="fa-solid fa-circle-xmark"></i>
                 {% else %}
                     <i class="fa-solid fa-ban"></i>
                 {% endif %}
@@ -220,6 +227,22 @@
                         </div>
                     {% endif %}
                 </div>
+                {% if booking.catatan %}
+                <div class="col-12">
+                    <div class="detail-label">Catatan dari Pelanggan</div>
+                    <div class="p-3 rounded-3 bg-light border small text-dark fst-italic">
+                        <i class="fa-regular fa-comment-dots text-primary me-1"></i> "{{ booking.catatan }}"
+                    </div>
+                </div>
+                {% endif %}
+                {% if booking.catatan_admin %}
+                <div class="col-12">
+                    <div class="detail-label">Catatan Admin</div>
+                    <div class="p-3 rounded-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 small text-dark">
+                        <i class="fa-solid fa-note-sticky text-warning me-1"></i> {{ booking.catatan_admin }}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -284,17 +307,89 @@
         <div class="detail-card border-primary border-opacity-25">
             <div class="detail-card-header">
                 <h5 class="fw-bold text-dark mb-0">
-                    <i class="fa-solid fa-sliders text-primary me-2"></i> Kelola Status Booking
+                    <i class="fa-solid fa-sliders text-primary me-2"></i> Verifikasi Jadwal Cek Unit
                 </h5>
             </div>
 
+            {% if booking.status == 'menunggu' or booking.status == 'menunggu_dp' %}
+                <!-- Verifikasi Cepat oleh Admin -->
+                <div class="p-3 rounded-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 mb-3">
+                    <div class="fw-bold text-dark small mb-1">
+                        <i class="fa-solid fa-triangle-exclamation text-warning me-1"></i> Pengajuan Perlu Diverifikasi
+                    </div>
+                    <p class="small text-muted mb-3">
+                        Pelanggan mengajukan kunjungan cek unit. Pastikan unit dan tim teknisi siap, lalu putuskan persetujuan jadwal.
+                    </p>
+                    <div class="d-flex flex-column gap-2">
+                        <!-- Form Setujui -->
+                        <form method="post" action="{% url 'admin_booking_status' booking.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="terkonfirmasi">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <div class="mb-2">
+                                <input type="text" name="catatan_admin" class="form-control form-control-sm" placeholder="Catatan persetujuan admin (opsional)...">
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">
+                                <i class="fa-solid fa-check me-1"></i> Setujui Jadwal Cek Unit
+                            </button>
+                        </form>
+
+                        <!-- Form Tolak -->
+                        <form method="post" action="{% url 'admin_booking_status' booking.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="ditolak">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <div class="mb-2">
+                                <input type="text" name="catatan_admin" class="form-control form-control-sm" placeholder="Alasan penolakan / tawaran jadwal lain...">
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger w-100 fw-bold rounded-pill btn-sm">
+                                <i class="fa-solid fa-xmark me-1"></i> Tolak Pengajuan Jadwal
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% elif booking.status == 'terkonfirmasi' or booking.status == 'disetujui' %}
+                <div class="alert alert-success small mb-3">
+                    <i class="fa-solid fa-circle-check me-1"></i> <strong>Jadwal Cek Unit ini telah DISETUJUI.</strong>
+                    {% if booking.diverifikasi_oleh %}
+                        <div class="mt-1">Diverifikasi oleh: <strong>{{ booking.diverifikasi_oleh.get_full_name|default:booking.diverifikasi_oleh.username }}</strong></div>
+                    {% endif %}
+                    {% if booking.tanggal_verifikasi %}
+                        <div class="text-muted">Pada: {{ booking.tanggal_verifikasi|date:"l, d F Y — H:i" }} WITA</div>
+                    {% endif %}
+                </div>
+                <form method="post" action="{% url 'admin_booking_status' booking.id %}" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="selesai">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold rounded-pill">
+                        <i class="fa-solid fa-flag-checkered me-1"></i> Tandai Selesai Dikunjungi
+                    </button>
+                </form>
+            {% elif booking.status == 'ditolak' %}
+                <div class="alert alert-danger small mb-3">
+                    <i class="fa-solid fa-circle-xmark me-1"></i> <strong>Pengajuan jadwal ini telah DITOLAK.</strong>
+                    {% if booking.catatan_admin %}
+                        <div class="mt-1">Catatan: <em>"{{ booking.catatan_admin }}"</em></div>
+                    {% endif %}
+                    {% if booking.diverifikasi_oleh %}
+                        <div class="text-muted mt-1">Oleh: {{ booking.diverifikasi_oleh.get_full_name|default:booking.diverifikasi_oleh.username }}</div>
+                    {% endif %}
+                </div>
+            {% elif booking.status == 'selesai' %}
+                <div class="alert alert-primary small mb-3">
+                    <i class="fa-solid fa-flag-checkered me-1"></i> <strong>Kunjungan Cek Unit Selesai.</strong>
+                </div>
+            {% endif %}
+
+            <!-- Dropdown Ubah Status Manual -->
             <form method="post" action="{% url 'admin_booking_status' booking.id %}" id="formStatusBooking">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
 
-                <div class="mb-3">
-                    <label class="form-label">Pilih Status Baru</label>
-                    <select name="status" class="form-select" id="selectStatusBooking">
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-dark">Ubah Status Manual</label>
+                    <select name="status" class="form-select form-select-sm" id="selectStatusBooking">
                         {% for kode, label in pilihan_status %}
                             <option value="{{ kode }}" {% if booking.status == kode %}selected{% endif %}>
                                 {{ label }}
@@ -302,14 +397,11 @@
                         {% endfor %}
                     </select>
                 </div>
-
-                <div class="alert alert-warning py-2 px-3 small mb-3 border-0" style="border-radius: 10px;">
-                    <i class="fa-solid fa-circle-exclamation me-1"></i>
-                    <strong>Perhatian:</strong> Perubahan status booking tidak mengubah status pembayaran secara otomatis.
+                <div class="mb-3">
+                    <input type="text" name="catatan_admin" class="form-control form-control-sm" placeholder="Catatan admin..." value="{{ booking.catatan_admin }}">
                 </div>
-
-                <button type="button" class="btn btn-primary w-100 fw-bold py-2 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalKonfirmasiStatus">
-                    <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan Status
+                <button type="submit" class="btn btn-outline-secondary w-100 btn-sm rounded-pill">
+                    <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Status Manual
                 </button>
             </form>
         </div>

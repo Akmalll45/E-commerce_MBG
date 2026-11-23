@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from .models import (
     Produk, TitipJual, InquiryC2C, SerahTerimaUnit, ChecklistInspeksiC2C,
+    BookingCekUnit,
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra,
     PengaturanWebsite, PesananPembelian, PengaturanPembelian,
     RINGKASAN_INSPEKSI_DEFAULT_LEGACY,
@@ -2051,3 +2052,100 @@ class PermintaanPembatalanPesananForm(forms.Form):
         if not alasan:
             raise ValidationError('Alasan pembatalan wajib diisi.')
         return alasan
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. FORM JADWAL CEK UNIT (O2O)
+# ═══════════════════════════════════════════════════════════════════
+
+PILIHAN_JAM_CEK_UNIT = [
+    ('09:00', '09:00 WITA (Pagi)'),
+    ('10:00', '10:00 WITA (Pagi)'),
+    ('11:00', '11:00 WITA (Siang)'),
+    ('13:00', '13:00 WITA (Siang)'),
+    ('14:00', '14:00 WITA (Siang)'),
+    ('15:00', '15:00 WITA (Sore)'),
+    ('16:00', '16:00 WITA (Sore)'),
+    ('17:00', '17:00 WITA (Sore)'),
+]
+
+
+class BookingCekUnitForm(forms.ModelForm):
+    jam_cek_unit = forms.ChoiceField(
+        choices=PILIHAN_JAM_CEK_UNIT,
+        label="Waktu / Jam Kunjungan",
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    class Meta:
+        model = BookingCekUnit
+        fields = [
+            'nama_pemesan', 'no_whatsapp', 'email',
+            'tanggal_cek_unit', 'jam_cek_unit',
+            'opsi_delivery', 'alamat_pengantaran', 'catatan',
+        ]
+        widgets = {
+            'nama_pemesan': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nama lengkap Anda',
+                'required': True,
+            }),
+            'no_whatsapp': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0812-3456-7890',
+                'required': True,
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'nama@email.com',
+                'required': True,
+            }),
+            'tanggal_cek_unit': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True,
+            }),
+            'opsi_delivery': forms.RadioSelect(attrs={
+                'class': 'form-check-input',
+            }),
+            'alamat_pengantaran': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Alamat lengkap pengantaran towing di area Makassar...',
+            }),
+            'catatan': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Contoh: Mau cek kolong mobil di lift hidrolik, ajak mekanik pribadi, dll.',
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and user.is_authenticated:
+            if not self.initial.get('nama_pemesan'):
+                self.initial['nama_pemesan'] = user.get_full_name() or user.username
+            if not self.initial.get('email'):
+                self.initial['email'] = user.email
+            if not self.initial.get('no_whatsapp') and getattr(user, 'no_whatsapp', None):
+                self.initial['no_whatsapp'] = user.no_whatsapp
+
+    def clean_no_whatsapp(self):
+        nomor = self.cleaned_data.get('no_whatsapp')
+        nomor_norm = normalisasi_whatsapp(nomor)
+        validasi_whatsapp(nomor_norm)
+        return nomor_norm
+
+    def clean_tanggal_cek_unit(self):
+        tanggal = self.cleaned_data.get('tanggal_cek_unit')
+        if tanggal and tanggal < timezone.localdate():
+            raise ValidationError('Tanggal cek unit tidak boleh di masa lalu.')
+        return tanggal
+
+    def clean(self):
+        cleaned_data = super().clean()
+        opsi = cleaned_data.get('opsi_delivery')
+        alamat = (cleaned_data.get('alamat_pengantaran') or '').strip()
+        if opsi == 'towing' and not alamat:
+            self.add_error('alamat_pengantaran', 'Alamat pengantaran wajib diisi jika memilih layanan Towing ke Rumah.')
+        return cleaned_data

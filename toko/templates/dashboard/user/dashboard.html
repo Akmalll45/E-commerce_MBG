@@ -678,14 +678,24 @@
                                             <span class="small">{{ b.get_opsi_delivery_display }}</span>
                                         </td>
                                         <td>
-                                            {% if b.status == 'terkonfirmasi' %}
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">Terkonfirmasi</span>
-                                            {% elif b.status == 'menunggu_dp' %}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">Menunggu DP</span>
+                                            {% if b.status == 'terkonfirmasi' or b.status == 'disetujui' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill">
+                                                    <i class="fa-solid fa-circle-check me-1"></i> Jadwal Disetujui
+                                                </span>
+                                            {% elif b.status == 'menunggu' or b.status == 'menunggu_dp' %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill">
+                                                    <i class="fa-solid fa-clock me-1"></i> Menunggu Verifikasi Admin
+                                                </span>
                                             {% elif b.status == 'selesai' %}
-                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill">Selesai</span>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill">
+                                                    <i class="fa-solid fa-flag-checkered me-1"></i> Selesai Dikunjungi
+                                                </span>
+                                            {% elif b.status == 'ditolak' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">
+                                                    <i class="fa-solid fa-circle-xmark me-1"></i> Jadwal Ditolak
+                                                </span>
                                             {% else %}
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill">{{ b.get_status_display }}</span>
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2.5 py-1 rounded-pill">{{ b.get_status_display }}</span>
                                             {% endif %}
                                         </td>
                                     </tr>
