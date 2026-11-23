@@ -433,6 +433,14 @@ def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None
         produk.tipe_penjual == 'C2C'
         and _produk_c2c_menerima_inquiry(produk)
     )
+    booking_saya = None
+    if request.user.is_authenticated:
+        booking_saya = BookingCekUnit.objects.filter(
+            produk=produk,
+            user=request.user,
+            status__in=['menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui']
+        ).first()
+
     return {
         'produk': produk,
         'mobil': produk,
@@ -442,6 +450,7 @@ def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None
         'pesanan_aktif_milik_pengguna': pesanan_aktif_milik_pengguna,
         'unit_dipesan_pelanggan_lain': unit_dipesan_pelanggan_lain,
         'unit_memiliki_booking': unit_memiliki_booking,
+        'booking_saya': booking_saya,
         'url_status_ketersediaan': reverse('status_ketersediaan_unit', args=[produk.id]),
         'inquiry_bisa_dikirim': inquiry_bisa_dikirim,
         'inquiry_form': inquiry_form or (
@@ -457,10 +466,16 @@ def ajukan_jadwal_cek_unit(request, id):
     Pengajuan Jadwal Cek Unit (O2O) oleh pelanggan untuk mobil tertentu.
     Status awal selalu 'menunggu' (Menunggu Konfirmasi Admin), tidak otomatis disetujui.
     Admin yang akan memverifikasi dan menyetujui jadwal tersebut di panel admin.
+    Hanya unit berstatus 'ready' dan tanpa pesanan aktif yang dapat dijadwalkan cek unit.
     """
     produk = get_object_or_404(Produk, pk=id)
-    if produk.status_stok not in ('ready', 'in_review'):
-        messages.error(request, 'Maaf, unit mobil ini sedang tidak dapat dijadwalkan untuk cek unit.')
+    pesanan_aktif = PesananPembelian.pesanan_aktif_unit(produk) if produk.tipe_penjual == 'B2C' else None
+    if produk.status_stok != 'ready' or pesanan_aktif is not None:
+        messages.error(
+            request,
+            'Maaf, unit mobil ini sedang di-booking/dipesan oleh pelanggan lain. '
+            'Pengajuan jadwal cek unit ditutup sementara sampai status unit kembali Ready oleh admin.'
+        )
         return redirect('detail_produk', id=produk.id)
 
     if request.method == 'POST':
@@ -2939,7 +2954,14 @@ def admin_booking_status(request, id):
     if catatan_admin:
         booking.catatan_admin = catatan_admin
 
-    if status_baru in ('terkonfirmasi', 'disetujui', 'ditolak'):
+    if status_baru in ('terkonfirmasi', 'disetujui'):
+        booking.diverifikasi_oleh = request.user
+        booking.tanggal_verifikasi = timezone.now()
+        # Otomatis kunci unit mobil menjadi 'in_review' jika saat ini 'ready'
+        if booking.produk.status_stok == 'ready':
+            booking.produk.status_stok = 'in_review'
+            booking.produk.save(update_fields=['status_stok', 'updated_at'])
+    elif status_baru == 'ditolak':
         booking.diverifikasi_oleh = request.user
         booking.tanggal_verifikasi = timezone.now()
 

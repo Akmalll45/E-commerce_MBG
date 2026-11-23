@@ -457,6 +457,32 @@
                         {% endif %}
                     </span>
                 </li>
+                {% if produk.status_stok == 'in_review' %}
+                <li class="list-group-item px-0 py-2 border-0">
+                    <form method="post" action="{% url 'admin_katalog_status' produk.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status_stok" value="ready">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm btn-outline-success w-100 rounded-pill fw-semibold py-1">
+                            <i class="fa-solid fa-unlock me-1"></i> Buka Kunci (Set ke Ready Stock)
+                        </button>
+                    </form>
+                    <div class="small text-muted mt-1" style="font-size: 0.73rem;">
+                        <i class="fa-solid fa-circle-info me-1"></i>Buka kembali jadwal cek unit &amp; pembelian mobil ini untuk pelanggan lain.
+                    </div>
+                </li>
+                {% elif produk.status_stok == 'ready' %}
+                <li class="list-group-item px-0 py-2 border-0">
+                    <form method="post" action="{% url 'admin_katalog_status' produk.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status_stok" value="in_review">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm btn-outline-warning w-100 rounded-pill fw-semibold py-1">
+                            <i class="fa-solid fa-lock me-1"></i> Kunci Unit (Set ke In Review)
+                        </button>
+                    </form>
+                </li>
+                {% endif %}
                 {% if produk.has_inspection_result %}
                 <li class="list-group-item d-flex justify-content-between px-0 py-2">
                     <span class="text-muted">Inspeksi MBG</span>

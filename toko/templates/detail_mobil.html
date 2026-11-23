@@ -1157,13 +1157,45 @@
                             {% endif %}
                         {% else %}
                             <!-- CTA 1: Booking Cek Unit Langsung di Showroom Mannuruki -->
-                            <button type="button"
-                                    class="btn-cta-booking w-100 border-0"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalJadwalCekUnit">
-                                <i class="fa-solid fa-calendar-check"></i>
-                                <span>Jadwalkan Cek Unit (O2O)</span>
-                            </button>
+                            {% if unit_dapat_dipesan %}
+                                <button type="button"
+                                        class="btn-cta-booking w-100 border-0"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalJadwalCekUnit">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <span>Jadwalkan Cek Unit (O2O)</span>
+                                </button>
+                            {% elif booking_saya %}
+                                <button type="button"
+                                        class="btn-cta-booking w-100 border-0"
+                                        disabled
+                                        style="background: #e0f2fe; color: #0369a1; cursor: default; border: 1px solid #bae6fd;">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <span>Jadwal Anda: {{ booking_saya.get_status_display }}</span>
+                                </button>
+                                <div class="small text-info-emphasis text-center mt-1">
+                                    <i class="fa-solid fa-circle-info me-1"></i>Anda telah mengajukan cek unit untuk mobil ini ({{ booking_saya.tanggal_cek_unit|date:"d M Y" }} &bull; {{ booking_saya.jam_cek_unit|time:"H:i" }} WITA).
+                                </div>
+                            {% else %}
+                                <button type="button"
+                                        class="btn-cta-booking w-100 border-0"
+                                        disabled
+                                        style="background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border: 1px solid #e2e8f0;">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <span>
+                                        {% if unit_dipesan_pelanggan_lain or unit_memiliki_booking %}
+                                            Unit Sedang Di-booking
+                                        {% elif produk.status_stok == 'sold' %}
+                                            Unit Sudah Terjual
+                                        {% else %}
+                                            Cek Unit Tidak Tersedia
+                                        {% endif %}
+                                    </span>
+                                </button>
+                                <div class="small text-muted text-center mt-1">
+                                    <i class="fa-solid fa-circle-info me-1"></i>Penjadwalan cek unit ditutup sementara karena unit sedang di-booking/dipesan pelanggan lain.
+                                </div>
+                            {% endif %}
 
                             <!-- CTA 2: Tanya CS WhatsApp -->
                             <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20mobil%20{{ produk.nama|urlencode }}%20(SKU:%20{{ produk.sku }})%20masih%20tersedia?%20Bisa%20minta%20video%20detail%20unit%20dan%20simulasi%20kreditnya?"
@@ -1529,6 +1561,21 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 
+                {% if not unit_dapat_dipesan %}
+                    <div class="modal-body p-4 text-center">
+                        <div class="py-4">
+                            <div class="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                                <i class="fa-solid fa-lock fs-2"></i>
+                            </div>
+                            <h5 class="fw-bold text-dark font-heading">Penjadwalan Cek Unit Ditutup</h5>
+                            <p class="text-muted small mb-3">
+                                Mobil <strong>{{ produk.nama }}</strong> saat ini sedang di-booking atau dalam proses transaksi oleh pelanggan lain.
+                                Pengajuan jadwal cek unit tidak dapat dilakukan sampai status unit dibuka kembali dengan status Ready oleh admin MBG.
+                            </p>
+                            <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Tutup</button>
+                        </div>
+                    </div>
+                {% else %}
                 <form method="post" action="{% url 'ajukan_jadwal_cek_unit' produk.id %}" id="formJadwalCekUnit">
                     {% csrf_token %}
                     <div class="modal-body p-4">
@@ -1655,6 +1702,7 @@
                         </button>
                     </div>
                 </form>
+                {% endif %}
             </div>
         </div>
     </div>

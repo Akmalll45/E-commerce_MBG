@@ -1224,6 +1224,9 @@ class BookingCekUnit(models.Model):
         if catatan:
             self.catatan_admin = catatan
         self.save(update_fields=['status', 'diverifikasi_oleh', 'tanggal_verifikasi', 'catatan_admin', 'updated_at'])
+        if self.produk.status_stok == 'ready':
+            self.produk.status_stok = 'in_review'
+            self.produk.save(update_fields=['status_stok', 'updated_at'])
 
     def tolak(self, oleh_user, catatan=''):
         """Tolak pengajuan jadwal cek unit oleh admin/staf."""
