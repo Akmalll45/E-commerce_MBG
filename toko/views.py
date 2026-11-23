@@ -161,8 +161,8 @@ def mitra_tayang():
 
 def beranda(request):
     """
-    Beranda: menampilkan seluruh unit yang tayang di carousel.
-    Unit dengan pesanan atau booking aktif tetap ditampilkan dengan statusnya.
+    Beranda: menampilkan unit yang tayang dan belum terbooking di carousel.
+    Unit dengan pesanan atau booking aktif tidak ditampilkan kepada calon pembeli lain.
     """
     pesanan_aktif_unit = PesananPembelian.objects.filter(
         produk_id=OuterRef('pk'),
@@ -170,11 +170,11 @@ def beranda(request):
     )
     booking_unit = BookingCekUnit.objects.filter(
         produk_id=OuterRef('pk'),
-        status__in=('menunggu_dp', 'terkonfirmasi', 'selesai'),
+        status__in=('menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui'),
     )
     unit_tayang = produk_tayang().annotate(
         sedang_dipesan=Exists(pesanan_aktif_unit) | Exists(booking_unit),
-    )
+    ).filter(sedang_dipesan=False)
     katalog_mobil = unit_tayang.order_by('-created_at', '-id')
 
     return render(request, 'beranda.html', {
@@ -243,10 +243,20 @@ def _param_int(request, kunci, minimum, maksimum):
 
 def katalog(request):
     """
-    Katalog publik: seluruh unit tayang + pencarian, filter, pengurutan, pagination.
+    Katalog publik: seluruh unit tayang yang belum terbooking + pencarian, filter, pengurutan, pagination.
     Semua parameter GET divalidasi; nilai tidak valid diabaikan (tidak error).
     """
-    dasar = produk_tayang()
+    pesanan_aktif_unit = PesananPembelian.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=PesananPembelian.STATUS_AKTIF,
+    )
+    booking_unit = BookingCekUnit.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=('menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui'),
+    )
+    dasar = produk_tayang().annotate(
+        sedang_dipesan=Exists(pesanan_aktif_unit) | Exists(booking_unit),
+    ).filter(sedang_dipesan=False)
     hasil = dasar
 
     # Opsi pilihan untuk dropdown berasal dari data tayang yang sebenarnya
@@ -407,7 +417,22 @@ def _produk_c2c_menerima_inquiry(produk, titip_jual=None):
 
 
 def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None):
-    mobil_terkait = produk_tayang().exclude(id=produk.id)[:3]
+    pesanan_aktif_terkait = PesananPembelian.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=PesananPembelian.STATUS_AKTIF,
+    )
+    booking_terkait = BookingCekUnit.objects.filter(
+        produk_id=OuterRef('pk'),
+        status__in=('menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui'),
+    )
+    mobil_terkait = (
+        produk_tayang()
+        .exclude(id=produk.id)
+        .annotate(
+            sedang_dipesan=Exists(pesanan_aktif_terkait) | Exists(booking_terkait)
+        )
+        .filter(sedang_dipesan=False)[:3]
+    )
     pesanan_aktif = None
     unit_dapat_dipesan = False
     pesanan_aktif_milik_pengguna = False
