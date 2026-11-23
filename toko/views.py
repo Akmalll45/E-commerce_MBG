@@ -441,6 +441,36 @@ def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None
             status__in=['menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui']
         ).first()
 
+    # Kumpulkan seluruh galeri foto kendaraan (mendukung C2C dari TitipJual & B2C dari FotoMobil)
+    galeri_foto_list = []
+    if produk.tipe_penjual == 'C2C' and getattr(produk, 'titip_jual_sumber_id', None) and produk.titip_jual_sumber:
+        for f in produk.titip_jual_sumber.galeri_foto.all().order_by('urutan', 'id'):
+            if f.gambar:
+                galeri_foto_list.append({
+                    'url': f.gambar.url,
+                    'label': f.get_jenis_foto_display(),
+                })
+        # Pastikan gambar_utama terdaftar jika belum masuk
+        if produk.gambar_utama and not any(item['url'] == produk.gambar_utama.url for item in galeri_foto_list):
+            galeri_foto_list.insert(0, {
+                'url': produk.gambar_utama.url,
+                'label': 'Tampak Depan',
+            })
+    else:
+        if produk.gambar_utama:
+            galeri_foto_list.append({
+                'url': produk.gambar_utama.url,
+                'label': 'Foto Utama',
+            })
+        for f in produk.galeri_foto.all():
+            if f.gambar:
+                url_f = f.gambar.url
+                if not any(item['url'] == url_f for item in galeri_foto_list):
+                    galeri_foto_list.append({
+                        'url': url_f,
+                        'label': f.keterangan or 'Detail Kendaraan',
+                    })
+
     return {
         'produk': produk,
         'mobil': produk,
@@ -451,6 +481,7 @@ def _konteks_detail_produk(request, produk, inquiry_form=None, booking_form=None
         'unit_dipesan_pelanggan_lain': unit_dipesan_pelanggan_lain,
         'unit_memiliki_booking': unit_memiliki_booking,
         'booking_saya': booking_saya,
+        'galeri_foto_list': galeri_foto_list,
         'url_status_ketersediaan': reverse('status_ketersediaan_unit', args=[produk.id]),
         'inquiry_bisa_dikirim': inquiry_bisa_dikirim,
         'inquiry_form': inquiry_form or (
