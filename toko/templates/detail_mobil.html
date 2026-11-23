@@ -1765,14 +1765,15 @@
                 });
             }
 
-            {% if booking_form.errors %}
-            // Tampilkan modal jadwal jika ada error validasi
-            const modalEl = document.getElementById('modalJadwalCekUnit');
-            if (modalEl && typeof bootstrap !== 'undefined') {
-                const modalInstance = new bootstrap.Modal(modalEl);
-                modalInstance.show();
+            // Tampilkan modal jadwal jika ada error validasi (set dari Django)
+            const hasBookingErrors = "{{ booking_form.errors|yesno:'true,false' }}";
+            if (hasBookingErrors === 'true') {
+                const modalEl = document.getElementById('modalJadwalCekUnit');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    const modalInstance = new bootstrap.Modal(modalEl);
+                    modalInstance.show();
+                }
             }
-            {% endif %}
         });
     </script>
 </body>
