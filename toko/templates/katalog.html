@@ -336,6 +336,14 @@
                         </div>
 
                         <div class="card-body-content">
+                            {% if mobil.sedang_dipesan %}
+                            <div class="mb-2">
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                    <i class="fa-solid fa-clock me-1"></i>Unit sedang diproses
+                                </span>
+                            </div>
+                            {% endif %}
+
                             <h2 class="card-car-title mb-2" title="{{ mobil.nama }}">
                                 <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">{{ mobil.nama }}</a>
                             </h2>
@@ -370,9 +378,15 @@
                             </div>
 
                             <div class="d-flex flex-column gap-2 mt-auto">
+                                {% if mobil.sedang_dipesan %}
+                                <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking" style="background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; box-shadow: none;">
+                                    <i class="fa-solid fa-clock"></i><span>Unit Sedang Diproses</span>
+                                </a>
+                                {% else %}
                                 <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking">
                                     <i class="fa-solid fa-circle-info"></i><span>Lihat Detail &amp; Booking</span>
                                 </a>
+                                {% endif %}
                                 <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma|urlencode }})%20masih%20tersedia?"
                                    target="_blank" rel="noopener" class="btn-cta-wa">
                                     <i class="fa-brands fa-whatsapp"></i><span>Tanya via WhatsApp</span>

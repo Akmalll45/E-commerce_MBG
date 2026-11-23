@@ -15,7 +15,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import FileResponse, Http404, JsonResponse
 from django.core.paginator import Paginator
 from django.db import DatabaseError, connection, transaction
-from django.db.models import Count, Exists, OuterRef, Q, Subquery
+from django.db.models import BooleanField, Case, Count, Exists, OuterRef, Q, Subquery, Value, When
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.text import get_valid_filename
@@ -75,8 +75,14 @@ STATUS_TAYANG_PUBLIK = 'ready'
 DOKUMEN_TITIP_JUAL_ADMIN_UPLOAD = ('perjanjian', 'hasil_inspeksi')
 
 
-def produk_tayang():
-    """Only ready B2C units and fully verified, current C2C listings are public."""
+def produk_tayang(termasuk_in_review=False):
+    """
+    Unit tayang untuk publik:
+    - Default (termasuk_in_review=False): hanya unit berstatus 'ready' yang tayang (dipakai untuk Beranda).
+    - Jika termasuk_in_review=True: menyertakan unit berstatus 'in_review' (sedang di-booking),
+      namun unit terjual ('sold') atau dikembalikan ('returned') tetap tidak ditampilkan (dipakai untuk Katalog).
+    """
+    status_filter = ['ready', 'in_review'] if termasuk_in_review else ['ready']
     tabel_c2c = {
         TitipJual._meta.db_table,
         FotoTitipJual._meta.db_table,
@@ -85,7 +91,7 @@ def produk_tayang():
     }
     if not tabel_c2c.issubset(set(connection.introspection.table_names())):
         return Produk.objects.filter(
-            status_stok=STATUS_TAYANG_PUBLIK,
+            status_stok__in=status_filter,
             tipe_penjual='B2C',
         )
 
@@ -123,7 +129,7 @@ def produk_tayang():
         status_inspeksi_terakhir=Subquery(inspeksi_terakhir.values('status')[:1])
     ).filter(status_inspeksi_terakhir='lulus')
     return (
-        Produk.objects.filter(status_stok=STATUS_TAYANG_PUBLIK)
+        Produk.objects.filter(status_stok__in=status_filter)
         .annotate(c2c_layak=Exists(pengajuan_layak))
         .filter(Q(tipe_penjual='B2C') | Q(tipe_penjual='C2C', c2c_layak=True))
     )
@@ -161,8 +167,8 @@ def mitra_tayang():
 
 def beranda(request):
     """
-    Beranda: menampilkan unit yang tayang dan belum terbooking di carousel.
-    Unit dengan pesanan atau booking aktif tidak ditampilkan kepada calon pembeli lain.
+    Beranda: hanya menampilkan unit yang berstatus Ready Stock dan belum terbooking di carousel.
+    Unit dengan pesanan/booking aktif maupun unit terjual/dikembalikan kedua-duanya WAJIB TIDAK TAMPIL.
     """
     pesanan_aktif_unit = PesananPembelian.objects.filter(
         produk_id=OuterRef('pk'),
@@ -172,14 +178,21 @@ def beranda(request):
         produk_id=OuterRef('pk'),
         status__in=('menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui'),
     )
-    unit_tayang = produk_tayang().annotate(
-        sedang_dipesan=Exists(pesanan_aktif_unit) | Exists(booking_unit),
-    ).filter(sedang_dipesan=False)
+    unit_tayang = produk_tayang(termasuk_in_review=False).annotate(
+        sedang_dipesan=Case(
+            When(status_stok='in_review', then=Value(True)),
+            default=Exists(pesanan_aktif_unit) | Exists(booking_unit),
+            output_field=BooleanField(),
+        ),
+    ).filter(status_stok='ready', sedang_dipesan=False)
     katalog_mobil = unit_tayang.order_by('-created_at', '-id')
+
+    # Total unit di katalog (termasuk unit yang sedang di-booking) untuk tombol navigasi ke katalog
+    total_katalog = produk_tayang(termasuk_in_review=True).count()
 
     return render(request, 'beranda.html', {
         'katalog_mobil': katalog_mobil,
-        'total_unit_tayang': unit_tayang.count(),
+        'total_unit_tayang': total_katalog,
         'hero_slides': hero_slide_tayang(),
         'mitra_list': mitra_tayang(),
         'persentase_dp_kredit': PERSENTASE_DP_KREDIT,
@@ -243,7 +256,9 @@ def _param_int(request, kunci, minimum, maksimum):
 
 def katalog(request):
     """
-    Katalog publik: seluruh unit tayang yang belum terbooking + pencarian, filter, pengurutan, pagination.
+    Katalog publik: seluruh unit tayang (ready maupun yang sedang di-booking) + pencarian, filter, pengurutan, pagination.
+    Unit yang sedang di-booking tetap ditampilkan (dengan penanda 'Unit sedang diproses'),
+    sedangkan unit yang sudah terjual ('sold') atau dikembalikan ('returned') tidak ditampilkan.
     Semua parameter GET divalidasi; nilai tidak valid diabaikan (tidak error).
     """
     pesanan_aktif_unit = PesananPembelian.objects.filter(
@@ -254,9 +269,13 @@ def katalog(request):
         produk_id=OuterRef('pk'),
         status__in=('menunggu', 'menunggu_dp', 'terkonfirmasi', 'disetujui'),
     )
-    dasar = produk_tayang().annotate(
-        sedang_dipesan=Exists(pesanan_aktif_unit) | Exists(booking_unit),
-    ).filter(sedang_dipesan=False)
+    dasar = produk_tayang(termasuk_in_review=True).annotate(
+        sedang_dipesan=Case(
+            When(status_stok='in_review', then=Value(True)),
+            default=Exists(pesanan_aktif_unit) | Exists(booking_unit),
+            output_field=BooleanField(),
+        ),
+    )
     hasil = dasar
 
     # Opsi pilihan untuk dropdown berasal dari data tayang yang sebenarnya
@@ -391,14 +410,9 @@ def detail_produk(request, id):
     """
     Menampilkan halaman detail spesifikasi lengkap mobil MBG.
     """
-    produk = produk_tayang().filter(id=id).first()
+    produk = produk_tayang(termasuk_in_review=True).filter(id=id).first()
     if produk is None:
-        # Keep a previously public B2C detail URL informative while its unit is locked.
-        produk = get_object_or_404(
-            Produk.objects.filter(
-                pk=id, tipe_penjual='B2C', status_stok='in_review',
-            )
-        )
+        produk = get_object_or_404(Produk, pk=id)
     return render(request, 'detail_mobil.html', _konteks_detail_produk(request, produk))
 
 
