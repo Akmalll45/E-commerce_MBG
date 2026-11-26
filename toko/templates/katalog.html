@@ -40,6 +40,11 @@
     .search-bar .form-control { border:none; background:transparent; font-size:1rem; padding:.7rem .5rem; box-shadow:none; }
     .search-bar .search-icon { color:#94A3B8; padding-left:.9rem; display:flex; align-items:center; }
     .search-bar .btn-filter-apply { padding:.7rem 1.6rem; }
+    @media (min-width:1200px) {
+        .katalog-hero > .container, .search-wrap.container, main#katalog.container { max-width:1360px; }
+    }
+    #katalog .card-car-title { min-height:2.85rem; }
+    #katalog .car-desc { min-height:3.8rem; }
 
     /* ── Panel filter ── */
     .filter-sticky { position:relative; }
@@ -333,17 +338,14 @@
                             <div class="badge-seller-floating">
                                 <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display }}
                             </div>
+                            {% if mobil.sedang_dipesan %}
+                            <div class="badge-booked-floating">
+                                <i class="fa-solid fa-clock"></i> Unit sedang diproses
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div class="card-body-content">
-                            {% if mobil.sedang_dipesan %}
-                            <div class="mb-2">
-                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                    <i class="fa-solid fa-clock me-1"></i>Unit sedang diproses
-                                </span>
-                            </div>
-                            {% endif %}
-
                             <h2 class="card-car-title mb-2" title="{{ mobil.nama }}">
                                 <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">{{ mobil.nama }}</a>
                             </h2>
@@ -379,7 +381,7 @@
 
                             <div class="d-flex flex-column gap-2 mt-auto">
                                 {% if mobil.sedang_dipesan %}
-                                <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking" style="background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; box-shadow: none;">
+                                <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking is-booked">
                                     <i class="fa-solid fa-clock"></i><span>Unit Sedang Diproses</span>
                                 </a>
                                 {% else %}

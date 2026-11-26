@@ -478,7 +478,7 @@
             100% { background-position: 0% 50%; }
         }
         .hero-subtitle {
-            font-size: clamp(0.3rem, 1vw, 1.10rem); line-height: 1.6;
+            font-size: clamp(0.95rem, 1.15vw, 1.12rem); line-height: 1.6;
             color: #E2E8F0; max-width: 540px;
         }
         .hero-btn-cta {
@@ -544,12 +544,11 @@
         .form-control, .form-select {
             border-radius: var(--radius-md);
             border: 1.5px solid #E2E8F0;
-            padding: .32rem .75rem;
-            font-size: .80rem; font-weight: 500;
+            padding: .62rem .9rem;
+            font-size: .88rem; font-weight: 500;
             color: #1E293B;
-            background-color: rgba(255, 255, 255, 0.85);
+            background-color: #fff;
             transition: all .2s ease;
-            height: 34px;
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--mbg-blue);
@@ -609,7 +608,7 @@
         }
         .featured-carousel-slide {
             display: flex;
-            flex: 0 0 25.5%;
+            flex: 0 0 calc((100% - 3rem) / 3);
             min-width: 0;
         }
         .featured-carousel-slide .card-product-premium { width: 100%; }
@@ -628,7 +627,7 @@
         /* Foto Mobil: Rasio Proporsional & Sudut Melengkung Halus Atas */
         .card-product-img-wrapper {
             position: relative;
-            width: 100%; height: 170px;
+            width: 100%; height: 215px;
             overflow: hidden;
             border-top-left-radius: var(--radius-lg);
             border-top-right-radius: var(--radius-lg);
@@ -719,19 +718,23 @@
 
         /* Konten Card */
         .card-body-content {
-            padding: 1rem;
+            padding: 1.25rem;
             display: flex; flex-direction: column; flex-grow: 1;
         }
         .card-car-title {
             font-family: 'Montserrat', sans-serif;
             font-size: 1.1rem; font-weight: 800;
             color: var(--mbg-navy); line-height: 1.3;
+            min-height: 2.85rem;
             display: -webkit-box; -webkit-line-clamp: 2;
             -webkit-box-orient: vertical; overflow: hidden;
         }
         .car-desc {
             font-size: .82rem; line-height: 1.55;
             color: #64748B; flex-grow: 1;
+            min-height: 3.8rem;
+            display: -webkit-box; -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
         }
 
         /* Info Singkat Baris: Tahun, Transmisi, Jarak Tempuh */
@@ -802,8 +805,8 @@
             background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
             color: #FFFFFF !important;
             font-weight: 700;
-            font-size: 0.92rem;
-            padding: 0.72rem 1.25rem;
+            font-size: 0.9rem;
+            padding: 0.72rem 1rem;
             border-radius: var(--radius-md);
             border: none;
             box-shadow: 0 4px 14px var(--mbg-blue-glow);
@@ -814,15 +817,19 @@
             gap: 0.5rem;
             text-decoration: none;
             width: 100%;
+            white-space: nowrap;
         }
         .btn-cta-booking:hover {
-            transform: scale(1.03);
+            transform: scale(1.02);
             background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
             box-shadow: 0 8px 22px var(--mbg-blue-glow);
             color: #FFFFFF !important;
         }
         .btn-cta-booking:disabled {
-            opacity: .7;
+            background: #F1F5F9;
+            color: #475569 !important;
+            border: 1.5px solid #CBD5E1;
+            opacity: 1;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;

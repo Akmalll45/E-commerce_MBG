@@ -99,6 +99,7 @@
         .no-photo-placeholder { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(135deg,#1E293B,#0F172A); color:#64748B; }
         .badge-promo-floating { position:absolute; top:14px; left:14px; background:linear-gradient(135deg,#DC2626,#B91C1C); color:#fff; font-size:.72rem; font-weight:700; padding:5px 11px; border-radius:8px; box-shadow:0 4px 12px rgba(220,38,38,.35); z-index:5; display:inline-flex; align-items:center; gap:5px; }
         .badge-seller-floating { position:absolute; top:14px; right:14px; background:rgba(8,13,26,.75); backdrop-filter:blur(8px); color:#F1F5F9; font-size:.68rem; font-weight:600; padding:5px 9px; border-radius:8px; border:1px solid rgba(255,255,255,.15); z-index:5; display:inline-flex; align-items:center; gap:4px; }
+        .badge-booked-floating { position:absolute; bottom:12px; left:14px; background:rgba(254,243,199,.96); color:#92400E; border:1px solid rgba(245,158,11,.45); font-size:.72rem; font-weight:700; padding:5px 10px; border-radius:8px; box-shadow:0 4px 12px rgba(8,13,26,.22); z-index:5; display:inline-flex; align-items:center; gap:5px; }
         .badge-inspeksi-exclusive { background:linear-gradient(135deg,#ECFDF5,#FFFBEB); color:#065F46; border:1px solid rgba(16,185,129,.35); font-size:.75rem; font-weight:700; padding:5px 12px; border-radius:9999px; display:inline-flex; align-items:center; gap:6px; }
         .badge-inspeksi-exclusive i { color:#D97706; }
         .inspection-badge-slot { min-height:1.75rem; display:flex; align-items:flex-start; flex-shrink:0; }
@@ -124,8 +125,10 @@
         .card-promo-slot { min-height:1.1rem; display:flex; align-items:center; justify-content:flex-start; gap:.5rem; line-height:1.2; }
         .card-promo-label { color:#DC2626; font-size:.66rem; font-weight:700; white-space:nowrap; }
         .card-promo-value { color:#DC2626; font-size:.72rem; font-weight:800; white-space:nowrap; }
-        .btn-cta-booking { background:linear-gradient(135deg,#2563EB,#1D4ED8); color:#fff !important; font-weight:700; font-size:.92rem; padding:.72rem 1.25rem; border-radius:var(--radius-md); border:none; box-shadow:0 4px 14px var(--mbg-blue-glow); transition:transform .25s var(--transition-snappy), box-shadow .25s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; text-decoration:none; width:100%; }
-        .btn-cta-booking:hover { transform:scale(1.03); box-shadow:0 8px 22px var(--mbg-blue-glow); color:#fff !important; }
+        .btn-cta-booking { background:linear-gradient(135deg,#2563EB,#1D4ED8); color:#fff !important; font-weight:700; font-size:.9rem; padding:.72rem 1rem; border-radius:var(--radius-md); border:none; box-shadow:0 4px 14px var(--mbg-blue-glow); transition:transform .25s var(--transition-snappy), box-shadow .25s ease; display:flex; align-items:center; justify-content:center; gap:.5rem; text-decoration:none; width:100%; white-space:nowrap; }
+        .btn-cta-booking:hover { transform:scale(1.02); box-shadow:0 8px 22px var(--mbg-blue-glow); color:#fff !important; }
+        .btn-cta-booking.is-booked { background:#F1F5F9; color:#475569 !important; border:1.5px solid #CBD5E1; box-shadow:none; font-size:.86rem; }
+        .btn-cta-booking.is-booked:hover { transform:translateY(-1px); background:#E2E8F0; color:#1E293B !important; box-shadow:0 4px 12px rgba(15,23,42,.08); }
         .btn-cta-wa { background:rgba(16,185,129,.08); border:1.5px solid rgba(16,185,129,.30); color:var(--mbg-emerald) !important; font-weight:600; border-radius:var(--radius-md); padding:.52rem 1rem; font-size:.84rem; transition:all .25s var(--transition-snappy); display:flex; align-items:center; justify-content:center; gap:.4rem; text-decoration:none; }
         .btn-cta-wa:hover { background:var(--mbg-emerald); color:#fff !important; border-color:var(--mbg-emerald); transform:translateY(-1px); }
 

@@ -507,8 +507,11 @@
         #formBookingUnit { margin: 0; }
         .btn-cta-beli:disabled,
         .btn-cta-booking:disabled {
+            background: #F1F5F9;
+            color: #475569 !important;
+            border: 1.5px solid #CBD5E1;
             cursor: not-allowed;
-            opacity: 0.62;
+            opacity: 1;
             transform: none;
             box-shadow: none;
         }
@@ -639,7 +642,7 @@
                 {% if pengaturan.logo %}<img src="{{ pengaturan.logo.url }}" alt="Logo MBG" class="brand-logo-img" style="height:44px;width:auto;max-width:176px;object-fit:contain;flex-shrink:0;">{% else %}<div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>{% endif %}
                 <div class="brand-text">
                     <div class="brand-name">MBG</div>
-                    <div class="brand-sub">Mobil Bekas Garasi · Makassar</div>
+                    <div class="brand-sub">Mobil Bekas Garasi</div>
                 </div>
             </a>
 
@@ -648,7 +651,7 @@
                 <ul class="navbar-nav mx-auto mb-0 align-items-center">
                     <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}"><i class="fa-solid fa-house"></i> Beranda</a></li>
                     <li class="nav-item"><a class="nav-link active" href="{% url 'katalog' %}"><i class="fa-solid fa-car"></i> Katalog Mobil</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'beranda' %}#titip-jual"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Mobil (Titip-Jual)</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'jual_titip' %}"><i class="fa-solid fa-hand-holding-dollar"></i> Jual Titip Mobil</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'artikel_publik' %}"><i class="fa-solid fa-newspaper"></i> Artikel</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="desktopLayananDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
