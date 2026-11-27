@@ -12,7 +12,7 @@ from django.contrib.auth import login, logout, update_session_auth_hash, get_use
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db import DatabaseError, connection, transaction
 from django.db.models import BooleanField, Case, Count, Exists, OuterRef, Q, Subquery, Value, When
@@ -4264,3 +4264,66 @@ def midtrans_webhook(request):
         status_code = 404
 
     return JsonResponse(hasil, status=status_code)
+
+
+@require_GET
+def robots_txt(request):
+    """Instruksi crawler search engine dan lokasi sitemap.xml."""
+    base_url = f"{request.scheme}://{request.get_host()}"
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /panel/",
+        "Disallow: /admin/",
+        "Disallow: /dashboard/",
+        "Disallow: /pembelian/",
+        "Disallow: /login/",
+        "Disallow: /register/",
+        f"Sitemap: {base_url}/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
+
+
+@require_GET
+def sitemap_xml(request):
+    """Sitemap XML dinamis berisi halaman publik, unit mobil aktif, artikel, dan halaman CMS."""
+    from xml.sax.saxutils import escape
+
+    base_url = f"{request.scheme}://{request.get_host()}"
+    urls = [
+        (f"{base_url}{reverse('beranda')}", "1.0", "daily", None),
+        (f"{base_url}{reverse('katalog')}", "0.9", "daily", None),
+        (f"{base_url}{reverse('jual_titip')}", "0.8", "weekly", None),
+        (f"{base_url}{reverse('artikel_publik')}", "0.8", "daily", None),
+    ]
+
+    for produk in produk_tayang(termasuk_in_review=True).only('id', 'updated_at'):
+        lastmod = produk.updated_at.strftime('%Y-%m-%d') if produk.updated_at else None
+        urls.append((f"{base_url}{reverse('detail_produk', args=[produk.id])}", "0.8", "daily", lastmod))
+
+    for art in Artikel.objects.filter(status='published').only('slug', 'updated_at', 'created_at'):
+        dt = art.updated_at or art.created_at
+        lastmod = dt.strftime('%Y-%m-%d') if dt else None
+        urls.append((f"{base_url}{reverse('artikel_detail', args=[art.slug])}", "0.7", "weekly", lastmod))
+
+    for hal in HalamanWebsite.objects.filter(status='published').only('slug', 'updated_at'):
+        lastmod = hal.updated_at.strftime('%Y-%m-%d') if hal.updated_at else None
+        urls.append((f"{base_url}{reverse('halaman_detail', args=[hal.slug])}", "0.6", "monthly", lastmod))
+
+    items = []
+    for loc, priority, changefreq, lastmod in urls:
+        entry = [f"  <url>", f"    <loc>{escape(loc)}</loc>"]
+        if lastmod:
+            entry.append(f"    <lastmod>{lastmod}</lastmod>")
+        entry.append(f"    <changefreq>{changefreq}</changefreq>")
+        entry.append(f"    <priority>{priority}</priority>")
+        entry.append("  </url>")
+        items.append("\n".join(entry))
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(items)
+        + "\n</urlset>"
+    )
+    return HttpResponse(xml, content_type="application/xml; charset=utf-8")

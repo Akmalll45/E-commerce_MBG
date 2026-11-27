@@ -1,11 +1,34 @@
 <!DOCTYPE html>
 {% load humanize static %}
 {% get_static_prefix as STATIC_PREFIX %}
+{% static 'toko/images/mbg-logo.png' as mbg_logo_default %}
+{% static 'toko/images/hero-mbg-latest.png' as mbg_hero_default %}
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive</title>
+    <meta name="description" content="Showroom mobil bekas berkualitas di Makassar. Seluruh unit 100% lulus 150 titik inspeksi transparan, bergaransi, bebas banjir &amp; tabrak, siap test drive dan kredit DP ringan di Garasi MBG Makassar.">
+    <meta name="keywords" content="mobil bekas makassar, jual beli mobil bekas makassar, showroom mobil bekas makassar, mobil bekas bergaransi makassar, kredit mobil bekas makassar, titip jual mobil makassar, MBG Makassar">
+    <meta name="author" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#080D1A">
+    <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta property="og:title" content="MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive">
+    <meta property="og:description" content="Showroom mobil bekas berkualitas di Makassar. 100% lulus 150 titik inspeksi transparan, harga jujur tanpa mark-up, bergaransi &amp; siap test drive.">
+    <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}">
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_hero_default }}{% endif %}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive">
+    <meta name="twitter:description" content="Showroom mobil bekas berkualitas di Makassar. 100% lulus 150 titik inspeksi transparan, harga jujur &amp; bergaransi.">
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_hero_default }}{% endif %}">
 
     <!-- Google Fonts: Montserrat (Heading) & Inter (Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1070,7 +1093,33 @@
         .mbg-flash-container .alert .btn-close { position:absolute; top:50%; right:12px; transform:translateY(-50%); margin:0; }
         .mbg-flash-container .alert span { padding-right:32px; }
     </style>
-    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
+    {% if pengaturan.favicon %}
+        <link rel="icon" href="{{ pengaturan.favicon.url }}">
+        <link rel="apple-touch-icon" href="{{ pengaturan.favicon.url }}">
+    {% else %}
+        <link rel="icon" type="image/png" href="{{ mbg_logo_default }}">
+        <link rel="apple-touch-icon" href="{{ mbg_logo_default }}">
+    {% endif %}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "AutoDealer",
+        "name": "{{ pengaturan.nama_toko|default:'MBG — Mobil Bekas Garasi Makassar'|escapejs }}",
+        "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}",
+        "logo": "{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_logo_default }}{% endif %}",
+        "image": "{{ request.scheme }}://{{ request.get_host }}{{ mbg_hero_default }}",
+        "description": "Showroom mobil bekas terpercaya di Makassar, 100% lulus 150 titik inspeksi, harga transparan, bergaransi, tersedia pembelian cash, kredit, dan titip-jual.",
+        "telephone": "{{ pengaturan.whatsapp|default:''|escapejs }}",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "{{ pengaturan.alamat_singkat|default:'Makassar'|escapejs }}",
+            "addressLocality": "Makassar",
+            "addressRegion": "Sulawesi Selatan",
+            "addressCountry": "ID"
+        },
+        "priceRange": "Rp 100.000.000 - Rp 1.000.000.000"
+    }
+    </script>
 </head>
 <body>
 
@@ -1326,7 +1375,7 @@
     <!-- 3. HERO -->
     <header class="hero position-relative">
         <div class="hero-image-container" aria-hidden="true">
-            <img src="{{ STATIC_PREFIX }}toko/images/hero-mbg-latest.png" alt="" class="hero-image-bg" fetchpriority="high">
+            <img src="{{ STATIC_PREFIX }}toko/images/hero-mbg-latest.png" alt="Showroom Mobil Bekas Garasi Makassar — Unit Berkualitas Lulus Inspeksi" class="hero-image-bg" fetchpriority="high">
             <div class="hero-image-overlay"></div>
         </div>
 

@@ -1,11 +1,32 @@
 <!DOCTYPE html>
-{% load humanize %}
+{% load humanize static %}
+{% static 'toko/images/mbg-logo.png' as mbg_logo_default %}
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MBG — Mobil Bekas Garasi Makassar{% endblock %}</title>
-    <meta name="description" content="{% block meta_description %}Mobil bekas berkualitas di Makassar, 100% lulus 150 titik inspeksi.{% endblock %}">
+    <meta name="description" content="{% block meta_description %}Mobil bekas berkualitas di Makassar, 100% lulus 150 titik inspeksi. Harga transparan, garansi mesin & transmisi, siap test drive di Garasi MBG Makassar.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}mobil bekas makassar, jual beli mobil bekas makassar, showroom mobil bekas makassar, mobil bekas bergaransi, titip jual mobil makassar, kredit mobil bekas makassar, MBG Makassar{% endblock %}">
+    <meta name="author" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
+    <meta name="theme-color" content="#080D1A">
+    <link rel="canonical" href="{% block canonical_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:site_name" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta property="og:title" content="{% block og_title %}MBG — Mobil Bekas Garasi Makassar{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Mobil bekas berkualitas di Makassar, 100% lulus 150 titik inspeksi. Harga transparan & bergaransi.{% endblock %}">
+    <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+    <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_logo_default }}{% endif %}{% endblock %}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}MBG — Mobil Bekas Garasi Makassar{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Mobil bekas berkualitas di Makassar, 100% lulus 150 titik inspeksi. Harga transparan & bergaransi.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_logo_default }}{% endif %}{% endblock %}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -163,7 +184,14 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
-    {% if pengaturan.favicon %}<link rel="icon" href="{{ pengaturan.favicon.url }}">{% endif %}
+    {% if pengaturan.favicon %}
+        <link rel="icon" href="{{ pengaturan.favicon.url }}">
+        <link rel="apple-touch-icon" href="{{ pengaturan.favicon.url }}">
+    {% else %}
+        <link rel="icon" type="image/png" href="{{ mbg_logo_default }}">
+        <link rel="apple-touch-icon" href="{{ mbg_logo_default }}">
+    {% endif %}
+    {% block schema_jsonld %}{% endblock %}
 </head>
 <body>
 

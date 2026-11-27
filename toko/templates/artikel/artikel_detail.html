@@ -7,6 +7,36 @@
 {% block title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
 
 {% block meta_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+{% block og_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
+{% block twitter_title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+{% block twitter_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
+{% if artikel.gambar_utama %}
+{% block og_image %}{{ artikel.gambar_utama.url }}{% endblock %}
+{% block twitter_image %}{{ artikel.gambar_utama.url }}{% endblock %}
+{% endif %}
+{% block schema_jsonld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "{{ artikel.judul|escapejs }}",
+    "description": "{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160|escapejs }}",
+    {% if artikel.gambar_utama %}"image": "{{ artikel.gambar_utama.url|escapejs }}",{% endif %}
+    "datePublished": "{{ artikel.created_at|date:'c' }}",
+    "dateModified": "{{ artikel.updated_at|default:artikel.created_at|date:'c' }}",
+    "author": {
+        "@type": "Person",
+        "name": "{% firstof artikel.penulis.get_full_name artikel.penulis.username 'Tim Redaksi MBG' %}"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "MBG — Mobil Bekas Garasi Makassar"
+    }
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>
