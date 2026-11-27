@@ -1190,7 +1190,7 @@
                         <div class="dropdown">
                             <button class="btn btn-nav-auth-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 {% if user.foto_profil %}
-                                    <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:28px;height:28px;">
+                                    <img src="{{ user.foto_profil.url }}" alt="Foto profil {{ user.first_name|default:user.username }}" class="nav-avatar" style="width:28px;height:28px;">
                                 {% else %}
                                     <i class="fa-solid fa-circle-user text-primary fs-5"></i>
                                 {% endif %}
@@ -1264,7 +1264,7 @@
                     <div class="p-3 rounded-3 mb-3" style="background: rgba(37, 99, 235, 0.14); border: 1px solid rgba(37, 99, 235, 0.3);">
                         <div class="d-flex align-items-center gap-2.5 mb-2.5">
                             {% if user.foto_profil %}
-                                <img src="{{ user.foto_profil.url }}" alt="" class="nav-avatar" style="width:40px;height:40px;">
+                                <img src="{{ user.foto_profil.url }}" alt="Foto profil {{ user.first_name|default:user.username }}" class="nav-avatar" style="width:40px;height:40px;">
                             {% else %}
                                 <i class="fa-solid fa-circle-user text-primary fs-3"></i>
                             {% endif %}

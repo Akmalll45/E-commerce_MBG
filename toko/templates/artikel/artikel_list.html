@@ -11,6 +11,31 @@
 {% block meta_description %}
 {% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}
 {% endblock %}
+{% block og_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}{% endblock %}
+{% block og_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}{% endblock %}
+{% block twitter_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}{% endblock %}
+{% block twitter_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari MBG Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari MBG Makassar.{% endif %}{% endblock %}
+{% block schema_jsonld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "Artikel & Tips Otomotif MBG Makassar",
+    "description": "Artikel, panduan memilih mobil bekas, dan tips kredit dari Mobil Bekas Garasi Makassar.",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'artikel_publik' %}"
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Beranda", "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}" },
+        { "@type": "ListItem", "position": 2, "name": "Artikel", "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'artikel_publik' %}" }
+    ]
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>

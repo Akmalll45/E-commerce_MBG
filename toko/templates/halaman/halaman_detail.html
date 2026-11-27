@@ -3,6 +3,31 @@
 {% block title %}{{ halaman.meta_title|default:halaman.judul }} — MBG{% endblock %}
 
 {% block meta_description %}{{ halaman.meta_description|default:halaman.ringkasan|default:halaman.judul|truncatechars:160 }}{% endblock %}
+{% block og_title %}{{ halaman.meta_title|default:halaman.judul }} — MBG{% endblock %}
+{% block og_description %}{{ halaman.meta_description|default:halaman.ringkasan|default:halaman.judul|truncatechars:160 }}{% endblock %}
+{% block twitter_title %}{{ halaman.meta_title|default:halaman.judul }} — MBG{% endblock %}
+{% block twitter_description %}{{ halaman.meta_description|default:halaman.ringkasan|default:halaman.judul|truncatechars:160 }}{% endblock %}
+{% block schema_jsonld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "{{ halaman.judul|escapejs }}",
+    "description": "{{ halaman.meta_description|default:halaman.ringkasan|default:halaman.judul|truncatechars:160|escapejs }}",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}"
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Beranda", "item": "{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}" },
+        { "@type": "ListItem", "position": 2, "name": "{{ halaman.judul|escapejs }}", "item": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}" }
+    ]
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>
