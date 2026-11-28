@@ -23,31 +23,17 @@
 
     <!-- AOS.js -->
     <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    {% include 'partials/_design_tokens.html' %}
 
     <style>
-        :root {
-            --mbg-navy:        #080D1A;
-            --mbg-deep:        #0C1222;
-            --mbg-slate:       #131B2E;
-            --mbg-blue:        #2563EB;
-            --mbg-blue-glow:   rgba(37, 99, 235, 0.35);
-            --mbg-sky:         #38BDF8;
-            --mbg-gold:        #F59E0B;
-            --mbg-emerald:     #10B981;
-            --radius-xl:       20px;
-            --radius-lg:       16px;
-            --radius-md:       12px;
-        }
-
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: linear-gradient(165deg, #080D1A 0%, #0F1B38 50%, #131B2E 100%);
             color: #E2E8F0;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 2rem 1rem;
+            padding: 1.5rem 1rem;
             position: relative;
             overflow-x: hidden;
         }
@@ -55,8 +41,8 @@
         body::before {
             content: '';
             position: absolute;
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, transparent 70%);
+            width: 460px; height: 460px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, transparent 70%);
             top: -10%; right: -5%;
             pointer-events: none;
         }
@@ -64,26 +50,26 @@
         body::after {
             content: '';
             position: absolute;
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+            width: 380px; height: 380px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
             bottom: -10%; left: -5%;
             pointer-events: none;
         }
 
         .auth-container {
             width: 100%;
-            max-width: 460px;
+            max-width: 420px;
             position: relative;
             z-index: 10;
         }
 
         .auth-card {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-radius: var(--radius-xl);
-            padding: 2.5rem 2rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+            padding: 1.75rem 1.65rem;
+            box-shadow: 0 20px 44px -12px rgba(0, 0, 0, 0.42);
             color: #1E293B;
             border: 1px solid rgba(255, 255, 255, 0.4);
         }

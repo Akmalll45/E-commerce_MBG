@@ -47,75 +47,75 @@
 
 {% block extra_css %}
 <style>
-    /* ── Header halaman katalog ── */
-    .katalog-hero { position:relative; background:linear-gradient(165deg,#080D1A 0%,#0F1B38 45%,#131B2E 100%); padding:2.75rem 0 4.25rem; overflow:hidden; }
-    .katalog-hero::before { content:''; position:absolute; width:520px; height:520px; background:radial-gradient(circle,rgba(37,99,235,.20) 0%,transparent 70%); top:-45%; right:-6%; pointer-events:none; }
-    .katalog-hero .breadcrumb { --bs-breadcrumb-divider-color:#64748B; margin-bottom:1rem; font-size:.82rem; }
+    /* ── Header halaman katalog (compact 100% zoom) ── */
+    .katalog-hero { position:relative; background:linear-gradient(165deg,#080D1A 0%,#0F1B38 50%,#131B2E 100%); padding:1.6rem 0 2.75rem; overflow:hidden; }
+    .katalog-hero::before { content:''; position:absolute; width:460px; height:460px; background:radial-gradient(circle,rgba(37,99,235,.18) 0%,transparent 70%); top:-45%; right:-6%; pointer-events:none; }
+    .katalog-hero .breadcrumb { --bs-breadcrumb-divider-color:#64748B; margin-bottom:.65rem; font-size:.78rem; }
     .katalog-hero .breadcrumb a { color:#94A3B8; text-decoration:none; }
     .katalog-hero .breadcrumb a:hover { color:#fff; }
     .katalog-hero .breadcrumb-item.active { color:#E2E8F0; }
-    .katalog-title { font-size:clamp(1.1rem,3vw,1.5rem); font-weight:900; color:#fff; line-height:1.15; }
-    .katalog-sub { color:#94A3B8; max-width:620px; font-size:.98rem; }
-    .search-wrap { position:relative; z-index:20; margin-top:-2.1rem; }
+    .katalog-title { font-size:clamp(1.25rem,2.2vw,1.65rem); font-weight:800; color:#fff; line-height:1.2; }
+    .katalog-sub { color:#94A3B8; max-width:580px; font-size:.9rem; }
+    .search-wrap { position:relative; z-index:20; margin-top:-1.6rem; }
 
-    /* ── Banner Promo Katalog (Pindahan Hero Slide MBG) ── */
+    /* ── Banner Promo Katalog ── */
     .katalog-banner-box { position: relative; z-index: 5; }
-    .katalog-slide-item { min-height: 180px; }
-    @media (min-width: 768px) { .katalog-slide-item { min-height: 220px; } }
+    .katalog-slide-item { min-height: 150px; }
+    @media (min-width: 768px) { .katalog-slide-item { min-height: 185px; } }
     .katalog-slide-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .katalog-slide-img-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #080D1A 0%, #1E293B 50%, #1E3A8A 100%); z-index: 1; }
     .katalog-slide-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,13,26,0.92) 0%, rgba(8,13,26,0.76) 55%, rgba(8,13,26,0.42) 100%); z-index: 2; }
-    .katalog-slide-title { font-size: clamp(1.15rem, 2.2vw, 1.7rem); letter-spacing: -0.02em; }
-    .katalog-slider .carousel-indicators { margin-bottom: .75rem; z-index: 4; }
+    .katalog-slide-title { font-size: clamp(1.05rem, 1.9vw, 1.45rem); letter-spacing: -0.02em; }
+    .katalog-slider .carousel-indicators { margin-bottom: .5rem; z-index: 4; }
     .katalog-slider .carousel-indicators [data-bs-target] {
-        width: 26px; height: 5px; border-radius: 999px; margin: 0 4px;
+        width: 24px; height: 4px; border-radius: 999px; margin: 0 3px;
         background-color: rgba(255,255,255,0.45); border: none;
         transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer;
     }
     .katalog-slider .carousel-indicators [data-bs-target]:hover { background-color: rgba(255,255,255,0.9); }
-    .katalog-slider .carousel-indicators .active { background-color: var(--mbg-blue); width: 42px; }
+    .katalog-slider .carousel-indicators .active { background-color: var(--mbg-blue); width: 38px; }
     .katalog-slider .carousel-control-prev, .katalog-slider .carousel-control-next { display: none !important; }
-    .search-bar { background:rgba(255,255,255,.92); backdrop-filter:saturate(180%) blur(18px); -webkit-backdrop-filter:saturate(180%) blur(18px); border:1px solid rgba(255,255,255,.7); border-radius:var(--radius-xl); box-shadow:0 16px 48px -8px rgba(8,13,26,.14); padding:.7rem; }
-    .search-bar .form-control { border:none; background:transparent; font-size:1rem; padding:.7rem .5rem; box-shadow:none; }
-    .search-bar .search-icon { color:#94A3B8; padding-left:.9rem; display:flex; align-items:center; }
-    .search-bar .btn-filter-apply { padding:.7rem 1.6rem; }
+    .search-bar { background:rgba(255,255,255,.96); backdrop-filter:saturate(180%) blur(14px); -webkit-backdrop-filter:saturate(180%) blur(14px); border:1px solid var(--mbg-border); border-radius:var(--radius-lg); box-shadow:0 8px 28px -6px rgba(8,13,26,.12); padding:.42rem .55rem; }
+    .search-bar .form-control { border:none; background:transparent; font-size:.9rem; padding:.4rem .5rem; min-height:36px; box-shadow:none; }
+    .search-bar .search-icon { color:var(--mbg-text-light); padding-left:.65rem; display:flex; align-items:center; }
+    .search-bar .btn-filter-apply { height:36px; padding:0 1.15rem; font-size:.84rem; }
     @media (min-width:1200px) {
-        .katalog-hero > .container, .search-wrap.container, main#katalog.container { max-width:1360px; }
+        .katalog-hero > .container, .search-wrap.container, main#katalog.container { max-width:var(--container-max); }
     }
-    #katalog .card-car-title { min-height:2.85rem; }
-    #katalog .car-desc { min-height:3.8rem; }
+    #katalog .card-car-title { min-height:2.55rem; }
+    #katalog .car-desc { min-height:2.3rem; }
 
-    /* ── Panel filter ── */
+    /* ── Panel filter (compact sidebar) ── */
     .filter-sticky { position:relative; }
-    .filter-card { background:#fff; border:1px solid #E2E8F0; border-radius:var(--radius-lg); padding:1.4rem; box-shadow:var(--shadow-card); width:100%; }
-    .filter-card .filter-title { font-size:1rem; font-weight:800; color:var(--mbg-navy); }
-    .filter-group { margin-bottom:1.05rem; }
-    .filter-card .form-select, .filter-card .form-control { padding:.55rem .8rem; }
+    .filter-card { background:#fff; border:1px solid var(--mbg-border); border-radius:var(--radius-lg); padding:1rem; box-shadow:var(--shadow-card); width:100%; }
+    .filter-card .filter-title { font-size:.92rem; font-weight:700; color:var(--mbg-navy); }
+    .filter-group { margin-bottom:.68rem; }
+    .filter-card .form-select, .filter-card .form-control { min-height:36px; padding:.36rem .68rem; font-size:.82rem; border-radius:var(--radius-sm); }
     @media (min-width:992px) {
-        .filter-sticky { position:sticky; top:96px; }
+        .filter-sticky { position:sticky; top:76px; }
         .offcanvas-lg .offcanvas-body { overflow:visible; }
     }
     @media (max-width:991.98px) {
         .filter-card { border:none; box-shadow:none; padding:0; }
-        #filterPanel { max-width:92vw; }
+        #filterPanel { max-width:90vw; }
     }
 
     /* ── Toolbar & chip ── */
-    .result-count { font-size:.92rem; color:#475569; }
+    .result-count { font-size:.86rem; color:#475569; }
     .result-count strong { color:var(--mbg-navy); }
-    .chip-aktif { display:inline-flex; align-items:center; gap:.4rem; font-size:.76rem; font-weight:600; padding:.32rem .5rem .32rem .8rem; border-radius:999px; background:rgba(37,99,235,.08); color:var(--mbg-blue); border:1px solid rgba(37,99,235,.2); text-decoration:none; transition:all .2s ease; }
+    .chip-aktif { display:inline-flex; align-items:center; gap:.35rem; font-size:.74rem; font-weight:600; padding:.26rem .45rem .26rem .7rem; border-radius:999px; background:var(--mbg-blue-soft); color:var(--mbg-blue); border:1px solid rgba(37,99,235,.2); text-decoration:none; transition:all .18s ease; }
     .chip-aktif:hover { background:var(--mbg-blue); color:#fff; border-color:var(--mbg-blue); }
-    .chip-aktif .x { width:18px; height:18px; display:grid; place-items:center; border-radius:50%; background:rgba(37,99,235,.14); font-size:.62rem; }
+    .chip-aktif .x { width:16px; height:16px; display:grid; place-items:center; border-radius:50%; background:rgba(37,99,235,.14); font-size:.6rem; }
     .chip-aktif:hover .x { background:rgba(255,255,255,.25); }
-    .link-reset { font-size:.78rem; font-weight:700; color:#64748B; text-decoration:none; }
+    .link-reset { font-size:.76rem; font-weight:700; color:var(--mbg-text-muted); text-decoration:none; }
     .link-reset:hover { color:var(--mbg-red); }
 
     /* ── Pagination ── */
-    .pagination-mbg { gap:.35rem; flex-wrap:wrap; justify-content:center; }
-    .pagination-mbg .page-link { border:1.5px solid #E2E8F0; border-radius:12px !important; min-width:42px; height:42px; display:inline-grid; place-items:center; padding:0 .8rem; color:#334155; font-weight:700; font-size:.88rem; background:#fff; transition:all .2s ease; }
-    .pagination-mbg .page-link:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); background:rgba(37,99,235,.05); }
-    .pagination-mbg .page-item.active .page-link { background:var(--mbg-blue); border-color:var(--mbg-blue); color:#fff; box-shadow:0 4px 14px var(--mbg-blue-glow); }
-    .pagination-mbg .page-item.disabled .page-link { background:#F1F5F9; color:#94A3B8; }
+    .pagination-mbg { gap:.3rem; flex-wrap:wrap; justify-content:center; }
+    .pagination-mbg .page-link { border:1px solid var(--mbg-border); border-radius:var(--radius-sm) !important; min-width:36px; height:36px; display:inline-grid; place-items:center; padding:0 .65rem; color:#334155; font-weight:600; font-size:.84rem; background:#fff; transition:all .18s ease; }
+    .pagination-mbg .page-link:hover { border-color:var(--mbg-blue); color:var(--mbg-blue); background:var(--mbg-blue-soft); }
+    .pagination-mbg .page-item.active .page-link { background:var(--mbg-blue); border-color:var(--mbg-blue); color:#fff; }
+    .pagination-mbg .page-item.disabled .page-link { background:var(--mbg-surface-alt); color:var(--mbg-text-light); }
     .pagination-mbg .page-link:focus-visible { outline:2px solid var(--mbg-blue); outline-offset:2px; box-shadow:none; }
 </style>
 {% endblock %}
@@ -217,8 +217,8 @@
     </div>
 </section>
 
-<main class="container py-5" id="katalog">
-    <div class="row g-4">
+<main class="container py-4" id="katalog">
+    <div class="row g-3 g-lg-4">
 
         {# ═══ SIDEBAR FILTER (desktop) / OFFCANVAS (smartphone) ═══ #}
         <aside class="col-lg-3" aria-label="Filter mobil">
@@ -355,7 +355,7 @@
             {% endif %}
 
             {# Grid kartu #}
-            <div class="row g-4">
+            <div class="row g-3">
                 {% for mobil in mobil_list %}
                 <div class="col-12 col-md-6 col-xl-4">
                     <article class="card-product-premium">
