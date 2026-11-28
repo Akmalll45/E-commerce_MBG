@@ -210,7 +210,7 @@
                             {% else %}
                                 <span class="d-block text-secondary">Dibayar setelah pengajuan disetujui admin.</span>
                             {% endif %}
-                            Angsuran 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun</strong> selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                            Angsuran 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun</strong> selama {{ rincian_kredit.tenor_tahun }} tahun, dengan angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
                             <span class="d-block text-secondary">Simulasi tanpa bunga tambahan. Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.</span>
                         </dd>
                         {% endif %}
@@ -313,7 +313,7 @@
                             <span class="payment-total-value fw-bold text-dark">Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}</span>
                         </div>
                         <div class="alert alert-info small mb-0">
-                            Tidak ada pembayaran sekarang. Pengajuan harus disetujui admin; DP dibayar setelah persetujuan.
+                            Tidak ada pembayaran sekarang. Pengajuan harus disetujui admin, dan DP dibayar setelah persetujuan.
                             Simulasi {{ rincian_kredit.tenor_tahun }} tahun tanpa bunga tambahan.
                         </div>
                         {% else %}

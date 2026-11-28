@@ -287,7 +287,7 @@
                                     <small class="text-muted method-option-description">
                                         {% if radio.data.value == 'cash' %}
                                             {% if jenis_pembelian == 'booking' %}
-                                                Booking Fee dibayar sekarang; pelunasan menyusul.
+                                                Booking Fee dibayar sekarang, pelunasan menyusul.
                                             {% else %}
                                                 Bayar penuh sesuai kanal pembayaran yang dipilih.
                                             {% endif %}
@@ -305,12 +305,12 @@
                             <ul class="mb-2 mt-2">
                                 <li>DP awal {{ rincian_kredit.persentase_dp }}%: Rp {{ rincian_kredit.nominal_dp|intcomma }}.</li>
                                 {% if jenis_pembelian == 'booking' %}
-                                <li>Booking Fee dihitung sebagai bagian DP; sisa DP setelah Booking Fee: Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.</li>
+                                <li>Booking Fee dihitung sebagai bagian DP. Sisa DP setelah Booking Fee: Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.</li>
                                 {% else %}
-                                <li>DP dibayar setelah pengajuan kredit disetujui admin MBG; tidak ada pembayaran saat pengajuan.</li>
+                                <li>DP dibayar setelah pengajuan kredit disetujui Mitra Pembiayaan (Simulasi). Tidak ada pembayaran saat pengajuan.</li>
                                 {% endif %}
                                 <li>Sisa pokok setelah DP: Rp {{ rincian_kredit.saldo_setelah_dp|intcomma }}.</li>
-                                <li>Angsuran tahunan {{ rincian_kredit.persentase_angsuran_tahunan }}% harga OTR: Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} selama {{ rincian_kredit.tenor_tahun }} tahun; angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.</li>
+                                <li>Angsuran tahunan {{ rincian_kredit.persentase_angsuran_tahunan }}% harga OTR: Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} selama {{ rincian_kredit.tenor_tahun }} tahun, dengan angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.</li>
                             </ul>
                             Pengajuan ditinjau Mitra Pembiayaan (Simulasi). Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                         </div>
@@ -329,9 +329,9 @@
                         </div>
                         <p class="text-muted small mb-3">
                             {% if jenis_pembelian == 'booking' %}
-                                Pilih kanal Booking Fee. Midtrans mengunci unit otomatis setelah pembayaran terkonfirmasi; transfer menunggu persetujuan admin.
+                                Pilih kanal Booking Fee. Midtrans mengunci unit otomatis setelah pembayaran terkonfirmasi, sedangkan transfer menunggu persetujuan admin.
                             {% else %}
-                                Pilih kanal pembayaran harga penuh. Midtrans dikonfirmasi otomatis; transfer bank diverifikasi admin.
+                                Pilih kanal pembayaran harga penuh. Midtrans dikonfirmasi otomatis, sedangkan transfer bank diverifikasi admin.
                             {% endif %}
                         </p>
                         <div class="row g-3 mb-4">
@@ -485,7 +485,7 @@
                             <div class="d-flex gap-2">
                                 <i class="fa-solid fa-shield-halved text-primary mt-1"></i>
                                 <div class="small text-secondary">
-                                    <strong>Ketentuan Garasi MBG:</strong> Booking Fee adalah bagian harga kendaraan dan mengurangi sisa tagihan. Midtrans mengunci unit setelah pembayaran terkonfirmasi; transfer bank setelah disetujui admin.
+                                    <strong>Ketentuan Garasi MBG:</strong> Booking Fee adalah bagian harga kendaraan dan mengurangi sisa tagihan. Midtrans mengunci unit setelah pembayaran terkonfirmasi, sedangkan transfer bank setelah disetujui admin.
                                 </div>
                             </div>
                         </div>

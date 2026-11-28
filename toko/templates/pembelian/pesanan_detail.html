@@ -126,8 +126,8 @@
                         <dt class="col-sm-4 text-secondary">Status Pengajuan</dt>
                         <dd class="col-sm-8 text-dark">
                             {% if pesanan.status == 'menunggu_kredit' %}Menunggu peninjauan Mitra Pembiayaan (Simulasi). DP hanya dibayar setelah disetujui.
-                            {% elif pesanan.status == 'menunggu_dp_kredit' %}Disetujui Mitra Pembiayaan (Simulasi); menunggu pembayaran DP 20%.
-                            {% elif pesanan.status == 'kredit_aktif' %}DP terverifikasi; angsuran dicatat secara manual oleh admin.
+                            {% elif pesanan.status == 'menunggu_dp_kredit' %}Disetujui Mitra Pembiayaan (Simulasi), menunggu pembayaran DP 20%.
+                            {% elif pesanan.status == 'kredit_aktif' %}DP terverifikasi, angsuran dicatat secara manual oleh admin.
                             {% else %}Menunggu informasi lanjutan dari staf MBG.{% endif %}
                             Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                         </dd>
@@ -135,7 +135,7 @@
                         <dd class="col-sm-8 text-dark">
                             DP 20% Rp {{ rincian_kredit.nominal_dp|intcomma }}.
                             {% if pesanan.jenis_pembelian == 'booking' %}Sisa DP setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.{% else %}DP dibayar setelah pengajuan disetujui Mitra Pembiayaan (Simulasi).{% endif %}
-                            Angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
+                            Angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun, dengan angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
                             Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                         </dd>
                         {% endif %}
@@ -206,13 +206,13 @@
                         </span>
                         <span id="bookingFeePaymentState" class="fw-bold {% if pembayaran_booking_fee.status == 'terverifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}text-success{% elif pembayaran_booking_fee.status == 'ditolak' %}text-danger{% else %}text-secondary{% endif %}">
                             {% if pesanan.status == 'menunggu_kredit' %}
-                                Menunggu peninjauan admin; belum ada tagihan
+                                Menunggu peninjauan admin, belum ada tagihan
                             {% elif pembayaran_booking_fee.status == 'ditolak' %}
                                 Ditolak, silakan bayar kembali
                             {% elif pesanan.status == 'menunggu_dp_kredit' %}
                                 Disetujui, menunggu pembayaran DP
                             {% elif pesanan.status == 'kredit_aktif' %}
-                                DP terverifikasi; kredit aktif
+                                DP terverifikasi, kredit aktif
                             {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
                                 {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu validasi pembayaran penuh{% else %}Diterima, menunggu verifikasi admin{% endif %}
                             {% elif pembayaran_booking_fee.status == 'terverifikasi' %}
@@ -270,7 +270,7 @@
 
                     {% if pesanan.status == 'menunggu_kredit' %}
                     <div class="alert alert-info small mb-3">
-                        Pengajuan sedang ditinjau admin. Belum ada pembayaran yang harus dilakukan; DP 20% baru dibayar setelah disetujui.
+                        Pengajuan sedang ditinjau Mitra Pembiayaan (Simulasi). Belum ada pembayaran yang harus dilakukan, dan DP 20% baru dibayar setelah disetujui.
                     </div>
                     {% endif %}
 
