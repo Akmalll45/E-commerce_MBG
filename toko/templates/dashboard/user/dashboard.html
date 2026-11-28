@@ -169,9 +169,10 @@
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-radius: var(--radius-lg);
-            padding: 1.35rem;
+            padding: 1.1rem 1.25rem;
             box-shadow: var(--shadow-card);
             transition: transform 0.25s, box-shadow 0.25s;
+            height: 100%;
         }
 
         .stat-card:hover {
@@ -180,26 +181,28 @@
         }
 
         .stat-icon {
-            width: 48px; height: 48px;
+            width: 46px; height: 46px;
+            min-width: 46px;
             border-radius: var(--radius-md);
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.25rem;
+            font-size: 1.15rem;
         }
 
         .stat-value {
             font-family: 'Montserrat', sans-serif;
-            font-size: 1.65rem;
+            font-size: 1.55rem;
             font-weight: 800;
             color: var(--mbg-navy);
-            line-height: 1.2;
+            line-height: 1.1;
         }
 
         .stat-label {
-            font-size: 0.78rem;
-            font-weight: 600;
+            font-size: 0.72rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: #64748B;
+            margin-top: 1px;
         }
 
         /* Content Card */
@@ -376,11 +379,11 @@
                             {{ user.first_name.0|default:user.username.0|upper }}
                         {% endif %}
                     </div>
-                    <h5 class="fw-bold mb-1">
+                    <h5 class="fw-bold mb-0">{{ user.get_full_name|default:user.username }}</h5>
                     <p class="text-muted small mb-3">@{{ user.username }}</p>
 
                     <div class="d-flex align-items-center justify-content-center gap-1 mb-4">
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill small">
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill small">
                             <i class="fa-solid fa-circle-check me-1"></i> Pelanggan Terverifikasi
                         </span>
                     </div>
@@ -405,9 +408,9 @@
                 </div>
 
                 <!-- Bantuan CS Box -->
-                <div class="content-card p-3.5 bg-light border-0">
+                <div class="content-card p-3 bg-light border-0">
                     <div class="d-flex align-items-center gap-3">
-                        <div class="brand-icon" style="width: 38px; height: 38px; font-size: 1rem; border-radius: 10px;">
+                        <div class="brand-icon" style="width: 38px; height: 38px; font-size: 1rem; border-radius: 10px; flex-shrink:0;">
                             <i class="fa-solid fa-headset"></i>
                         </div>
                         <div>
@@ -449,22 +452,22 @@
 
                 <!-- 4 Quick Stat Cards -->
                 <div class="row g-3 mb-4">
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                            <div class="stat-icon bg-primary bg-opacity-10 text-primary flex-shrink-0">
                                 <i class="fa-solid fa-cart-shopping"></i>
                             </div>
-                            <div>
+                            <div class="overflow-hidden">
                                 <div class="stat-value">{{ total_pesanan_pembelian }}</div>
-                                <div class="stat-label">Pesanan Kendaraan</div>
-                                <small class="text-muted d-block mt-1">Booking: {{ total_booking_pembelian }} · Langsung: {{ total_pembelian_langsung }}</small>
+                                <div class="stat-label">Pesanan</div>
+                                <small class="text-muted d-block mt-1 text-truncate">Booking: {{ total_booking_pembelian }} · Langsung: {{ total_pembelian_langsung }}</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-info bg-opacity-10 text-info">
+                            <div class="stat-icon bg-info bg-opacity-10 text-info flex-shrink-0">
                                 <i class="fa-solid fa-calendar-check"></i>
                             </div>
                             <div>
@@ -474,22 +477,22 @@
                         </div>
                     </div>
 
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning flex-shrink-0">
                                 <i class="fa-solid fa-hand-holding-dollar"></i>
                             </div>
-                            <div>
+                            <div class="overflow-hidden">
                                 <div class="stat-value">{{ total_titip_jual }}</div>
                                 <div class="stat-label">Titip-Jual C2C</div>
-                                <small class="text-muted d-block mt-1">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan</small>
+                                <small class="text-muted d-block mt-1 text-truncate">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                            <div class="stat-icon bg-success bg-opacity-10 text-success flex-shrink-0">
                                 <i class="fa-solid fa-receipt"></i>
                             </div>
                             <div>
