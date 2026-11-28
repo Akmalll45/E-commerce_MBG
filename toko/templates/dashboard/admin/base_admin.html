@@ -122,7 +122,6 @@
         <div class="row g-4">
             <div class="col-lg-2">
                 <div class="admin-sidebar">
-                    {% if user.is_superuser or not perms.toko.view_kredit_pesananpembelian or perms.toko.change_produk or perms.toko.view_titipjual %}
                     <div class="side-section-title mt-0">Navigasi Utama</div>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'dashboard_admin' %}active{% endif %}" href="{% url 'dashboard_admin' %}">
                         <span><i class="fa-solid fa-chart-line text-warning"></i> Ikhtisar Bisnis</span>
@@ -145,14 +144,11 @@
                             <span class="badge bg-danger rounded-pill small">{{ pembayaran_pesanan_menunggu_verifikasi }}</span>
                         {% endif %}
                     </a>
-                    {% endif %}
                     {% if user.is_superuser or perms.toko.view_kredit_pesananpembelian %}
-                    <div class="side-section-title">Pembiayaan (Simulasi)</div>
-                    <a class="admin-side-item {% if 'pengajuan_kredit' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'admin_pengajuan_kredit' %}">
-                        <span><i class="fa-solid fa-file-invoice-dollar text-info"></i> Pengajuan Kredit</span>
+                    <a class="admin-side-item {% if 'pengajuan_kredit' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'mitra_pengajuan_kredit' %}">
+                        <span><i class="fa-solid fa-file-invoice-dollar text-info"></i> Portal Mitra Kredit</span>
                     </a>
                     {% endif %}
-                    {% if user.is_superuser or not perms.toko.view_kredit_pesananpembelian or perms.toko.change_produk or perms.toko.view_titipjual %}
                     <button class="admin-side-item admin-side-toggle w-100 border-0 {% if 'titip_jual' in request.resolver_match.url_name or 'inquiry_c2c' in request.resolver_match.url_name %}active{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menuTitipJualC2C" aria-expanded="{% if 'titip_jual' in request.resolver_match.url_name or 'inquiry_c2c' in request.resolver_match.url_name %}true{% else %}false{% endif %}" aria-controls="menuTitipJualC2C">
                         <span><i class="fa-solid fa-hand-holding-dollar text-info"></i> Titip-Jual C2C</span>
                         <i class="fa-solid fa-chevron-down small"></i>
@@ -196,10 +192,6 @@
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'admin_pengaturan' %}active{% endif %}" href="{% url 'admin_pengaturan' %}">
                         <span><i class="fa-solid fa-sliders text-primary"></i> Pengaturan Website</span>
                     </a>
-                    {% endif %}
-                    {% if not user.is_superuser and perms.toko.view_kredit_pesananpembelian and not perms.toko.change_produk and not perms.toko.view_titipjual %}
-                    <div class="side-section-title">Akun Saya</div>
-                    {% endif %}
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'profil_admin' %}active{% endif %}" href="{% url 'profil_admin' %}"><span><i class="fa-solid fa-user-gear"></i> Profil Admin</span></a>
                     <a class="admin-side-item {% if request.resolver_match.url_name == 'ubah_password_admin' %}active{% endif %}" href="{% url 'ubah_password_admin' %}"><span><i class="fa-solid fa-key"></i> Ubah Password</span></a>
                     <a class="admin-side-item text-danger border-top mt-2 pt-2" href="{% url 'logout' %}"><span><i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar</span></a>

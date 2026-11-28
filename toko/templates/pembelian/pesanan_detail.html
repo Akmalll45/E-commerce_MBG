@@ -125,8 +125,8 @@
                         {% if pesanan.metode_pembayaran == 'kredit' %}
                         <dt class="col-sm-4 text-secondary">Status Pengajuan</dt>
                         <dd class="col-sm-8 text-dark">
-                            {% if pesanan.status == 'menunggu_kredit' %}Menunggu peninjauan Admin Pembiayaan (Simulasi). DP hanya dibayar setelah disetujui.
-                            {% elif pesanan.status == 'menunggu_dp_kredit' %}Disetujui Admin Pembiayaan (Simulasi); menunggu pembayaran DP 20%.
+                            {% if pesanan.status == 'menunggu_kredit' %}Menunggu peninjauan Mitra Pembiayaan (Simulasi). DP hanya dibayar setelah disetujui.
+                            {% elif pesanan.status == 'menunggu_dp_kredit' %}Disetujui Mitra Pembiayaan (Simulasi); menunggu pembayaran DP 20%.
                             {% elif pesanan.status == 'kredit_aktif' %}DP terverifikasi; angsuran dicatat secara manual oleh admin.
                             {% else %}Menunggu informasi lanjutan dari staf MBG.{% endif %}
                             Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
@@ -134,7 +134,7 @@
                         <dt class="col-sm-4 text-secondary">Simulasi Kredit</dt>
                         <dd class="col-sm-8 text-dark">
                             DP 20% Rp {{ rincian_kredit.nominal_dp|intcomma }}.
-                            {% if pesanan.jenis_pembelian == 'booking' %}Sisa DP setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.{% else %}DP dibayar setelah pengajuan disetujui Admin Pembiayaan (Simulasi).{% endif %}
+                            {% if pesanan.jenis_pembelian == 'booking' %}Sisa DP setelah Booking Fee Rp {{ rincian_kredit.nominal_dp_tambahan|intcomma }}.{% else %}DP dibayar setelah pengajuan disetujui Mitra Pembiayaan (Simulasi).{% endif %}
                             Angsuran 5% OTR Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
                             Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                         </dd>

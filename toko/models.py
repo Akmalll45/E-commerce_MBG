@@ -1610,7 +1610,8 @@ def akhir_masa_booking(waktu_verifikasi):
     return lokal.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
-ROLE_ADMIN_PEMBIAYAAN = 'Admin Pembiayaan (Simulasi)'
+ROLE_MITRA_PEMBIAYAAN = 'Mitra Pembiayaan (Simulasi)'
+ROLE_ADMIN_PEMBIAYAAN = ROLE_MITRA_PEMBIAYAAN
 
 
 def _pastikan_staf(user):
@@ -1624,14 +1625,11 @@ def _pastikan_peninjau_kredit(user):
         and user.is_authenticated
         and (
             user.is_superuser
-            or (
-                user.is_staff
-                and user.has_perm('toko.review_kredit_pesananpembelian')
-            )
+            or user.has_perm('toko.review_kredit_pesananpembelian')
         )
     ):
         raise PermissionError(
-            'Hanya Admin Pembiayaan (Simulasi) atau Superuser yang berwenang meninjau pengajuan kredit.'
+            'Hanya Mitra Pembiayaan (Simulasi) yang berwenang atau Superuser yang dapat meninjau pengajuan kredit.'
         )
 
 
@@ -1858,8 +1856,8 @@ class PesananPembelian(models.Model):
         verbose_name = "Pesanan Pembelian"
         verbose_name_plural = "Pesanan Pembelian"
         permissions = [
-            ('view_kredit_pesananpembelian', 'Can view credit applications (Admin Pembiayaan)'),
-            ('review_kredit_pesananpembelian', 'Can approve or reject credit applications (Admin Pembiayaan)'),
+            ('view_kredit_pesananpembelian', 'Can view credit applications (Mitra Pembiayaan)'),
+            ('review_kredit_pesananpembelian', 'Can approve or reject credit applications (Mitra Pembiayaan)'),
         ]
 
     def __str__(self):
@@ -2228,7 +2226,7 @@ class PesananPembelian(models.Model):
                     raise ValueError('Kendaraan tidak tersedia; pengajuan kredit tidak dapat disetujui.')
                 pesanan._pindah_status(
                     'menunggu_dp_kredit', oleh_user,
-                    'Pengajuan kredit disetujui oleh Admin Pembiayaan (Simulasi). Pelanggan dapat membayar DP 20% melalui transfer bank.',
+                    'Pengajuan kredit disetujui oleh Mitra Pembiayaan (Simulasi). Pelanggan dapat membayar DP 20% melalui transfer bank.',
                 )
             else:
                 alasan = _alasan_wajib(alasan, 'Alasan penolakan pengajuan kredit wajib dicatat.')

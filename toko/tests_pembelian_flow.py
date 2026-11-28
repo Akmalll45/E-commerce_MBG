@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from toko.models import (
     PembayaranPesanan, Produk, PengaturanPembelian, PesananPembelian, RiwayatPesanan,
-    ROLE_ADMIN_PEMBIAYAAN,
+    ROLE_MITRA_PEMBIAYAAN,
 )
 
 _urutan = itertools.count(100)
@@ -74,14 +74,20 @@ class CustomerPurchaseFlowTests(TestCase):
             password='Password123!',
             is_staff=True,
         )
-        self.admin_pembiayaan = pengguna.create_user(
-            username='admin_pembiayaan',
-            email='pembiayaan@mbg.test',
+        self.mitra_pembiayaan = pengguna.create_user(
+            username='mitra_pembiayaan',
+            email='mitra@pembiayaan.test',
             password='Password123!',
-            is_staff=True,
+            is_staff=False,
+            is_superuser=False,
         )
-        grup_pembiayaan = Group.objects.get(name=ROLE_ADMIN_PEMBIAYAAN)
-        self.admin_pembiayaan.groups.add(grup_pembiayaan)
+        grup_mitra = Group.objects.get(name=ROLE_MITRA_PEMBIAYAAN)
+        self.mitra_pembiayaan.groups.add(grup_mitra)
+        self.superuser = pengguna.create_superuser(
+            username='superadmin_mbg',
+            email='super@mbg.test',
+            password='Password123!',
+        )
 
         pengaturan = PengaturanPembelian.ambil()
         pengaturan.persentase_booking_fee = Decimal('2.00')
@@ -513,24 +519,25 @@ class CustomerPurchaseFlowTests(TestCase):
         )
         self.assertFalse(pesanan.pembayaran.exists())
 
-        # Staf biasa tanpa permission review kredit tidak boleh meninjau pengajuan kredit
+        # Staf biasa tanpa permission mitra tidak boleh meninjau pengajuan kredit
         client_staf = Client()
         client_staf.login(username='staf_mbg', password='Password123!')
         staf_forbidden = client_staf.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'setujui'},
         )
         self.assertEqual(staf_forbidden.status_code, 403)
         pesanan.refresh_from_db()
         self.assertEqual(pesanan.status, 'menunggu_kredit')
 
-        client_pembiayaan = Client()
-        client_pembiayaan.login(username='admin_pembiayaan', password='Password123!')
-        approved = client_pembiayaan.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+        # Mitra Pembiayaan (is_staff=False) menyetujui pengajuan kredit
+        client_mitra = Client()
+        client_mitra.login(username='mitra_pembiayaan', password='Password123!')
+        approved = client_mitra.post(
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'setujui'},
         )
-        self.assertRedirects(approved, reverse('admin_pengajuan_kredit'))
+        self.assertRedirects(approved, reverse('mitra_pengajuan_kredit'))
         pesanan.refresh_from_db()
         self.assertEqual(pesanan.status, 'menunggu_dp_kredit')
         self.produk_ready.refresh_from_db()
@@ -604,22 +611,22 @@ class CustomerPurchaseFlowTests(TestCase):
             jenis_pembelian='beli_langsung',
             saluran_pembayaran='transfer',
         )
-        client_pembiayaan = Client()
-        client_pembiayaan.login(username='admin_pembiayaan', password='Password123!')
+        client_mitra = Client()
+        client_mitra.login(username='mitra_pembiayaan', password='Password123!')
 
-        response = client_pembiayaan.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+        response = client_mitra.post(
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'tolak', 'alasan': 'Dokumen belum lengkap'},
         )
 
-        self.assertRedirects(response, reverse('admin_pengajuan_kredit'))
+        self.assertRedirects(response, reverse('mitra_pengajuan_kredit'))
         pesanan.refresh_from_db()
         self.produk_ready.refresh_from_db()
         self.assertEqual(pesanan.status, 'dibatalkan')
         self.assertEqual(self.produk_ready.status_stok, 'ready')
         self.assertEqual(pesanan.riwayat.latest('created_at').catatan, 'Dokumen belum lengkap')
 
-    def test_isolasi_akses_admin_pembiayaan_dan_peninjauan_ulang(self):
+    def test_isolasi_akses_mitra_pembiayaan_dan_peninjauan_ulang(self):
         pesanan = PesananPembelian.buat_dari_produk(
             produk=self.produk_ready,
             pelanggan=self.pelanggan,
@@ -630,65 +637,93 @@ class CustomerPurchaseFlowTests(TestCase):
             saluran_pembayaran='transfer',
         )
 
-        # Customer tidak bisa mengakses daftar maupun endpoint review kredit
+        # 1. Customer tidak bisa mengakses portal maupun endpoint review kredit
         self.assertEqual(
-            self.client_auth.get(reverse('admin_pengajuan_kredit')).status_code,
+            self.client_auth.get(reverse('mitra_pengajuan_kredit')).status_code,
             403,
         )
         self.assertEqual(
             self.client_auth.post(
-                reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+                reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
                 {'aksi': 'setujui'},
             ).status_code,
             403,
         )
 
-        # Staf biasa tidak bisa membuka halaman review kredit
+        # 2. Staf/Admin MBG tanpa role mitra tidak bisa membuka portal atau mereview kredit
         client_staf = Client()
         client_staf.login(username='staf_mbg', password='Password123!')
         self.assertEqual(
-            client_staf.get(reverse('admin_pengajuan_kredit')).status_code,
+            client_staf.get(reverse('mitra_pengajuan_kredit')).status_code,
+            403,
+        )
+        self.assertEqual(
+            client_staf.post(
+                reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
+                {'aksi': 'setujui'},
+            ).status_code,
             403,
         )
 
-        # Admin Pembiayaan dapat membuka daftar & detail, namun ditolak di katalog/pengguna/pesanan penuh
-        client_pembiayaan = Client()
-        client_pembiayaan.login(username='admin_pembiayaan', password='Password123!')
-        list_resp = client_pembiayaan.get(reverse('admin_pengajuan_kredit'))
+        # 3. Mitra Pembiayaan (is_staff=False) login -> diarahkan ke dashboard mitra,
+        # meskipun parameter ?next=/panel/ diberikan
+        client_mitra = Client()
+        login_resp = client_mitra.post(
+            reverse('login'),
+            {
+                'username_or_email': 'mitra_pembiayaan',
+                'password': 'Password123!',
+                'next': reverse('dashboard_admin'),
+            },
+        )
+        self.assertRedirects(login_resp, reverse('mitra_pengajuan_kredit'))
+
+        # 4. Mitra dapat membuka daftar & detail pengajuan kredit
+        list_resp = client_mitra.get(reverse('mitra_pengajuan_kredit'))
         self.assertEqual(list_resp.status_code, 200)
         self.assertContains(
             list_resp,
             'Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.',
         )
-        detail_resp = client_pembiayaan.get(
-            reverse('admin_pengajuan_kredit_detail', args=[pesanan.id])
+        detail_resp = client_mitra.get(
+            reverse('mitra_pengajuan_kredit_detail', args=[pesanan.id])
         )
         self.assertEqual(detail_resp.status_code, 200)
         self.assertContains(detail_resp, pesanan.nomor_pesanan)
 
-        for forbidden_url in (
+        # 5. Mitra tidak dapat mengakses dashboard admin MBG, katalog, pengguna, pesanan umum, atau C2C
+        for blocked_url in (
+            reverse('dashboard_admin'),
             reverse('admin_katalog'),
             reverse('admin_katalog_tambah'),
             reverse('admin_pengguna'),
             reverse('admin_pesanan_pembelian'),
+            reverse('admin_titip_jual'),
         ):
-            self.assertEqual(client_pembiayaan.get(forbidden_url).status_code, 403)
+            resp = client_mitra.get(blocked_url)
+            self.assertEqual(resp.status_code, 403, f'Seharusnya 403 untuk {blocked_url}')
 
-        # Setelah disetujui, pengajuan tidak dapat ditolak/diproses ulang
-        client_pembiayaan.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+        # 6. Setelah disetujui, pengajuan tidak dapat ditolak/diproses ulang
+        client_mitra.post(
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'setujui'},
         )
         pesanan.refresh_from_db()
         self.assertEqual(pesanan.status, 'menunggu_dp_kredit')
 
-        re_review = client_pembiayaan.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+        re_review = client_mitra.post(
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'tolak', 'alasan': 'Coba ubah keputusan'},
         )
-        self.assertRedirects(re_review, reverse('admin_pengajuan_kredit'))
+        self.assertRedirects(re_review, reverse('mitra_pengajuan_kredit'))
         pesanan.refresh_from_db()
         self.assertEqual(pesanan.status, 'menunggu_dp_kredit')
+
+        # 7. Superuser tetap dapat mengakses seluruh sistem (admin MBG & portal mitra)
+        client_super = Client()
+        client_super.login(username='superadmin_mbg', password='Password123!')
+        self.assertEqual(client_super.get(reverse('dashboard_admin')).status_code, 200)
+        self.assertEqual(client_super.get(reverse('mitra_pengajuan_kredit')).status_code, 200)
 
     def test_booking_checkout_jenisnya_ditentukan_url_bukan_input_post(self):
         url_checkout = (

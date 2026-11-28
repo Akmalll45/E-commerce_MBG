@@ -125,15 +125,27 @@ urlpatterns = [
         views.admin_selesaikan_pesanan_pembelian,
         name='admin_selesaikan_pesanan_pembelian',
     ),
-    path('panel/pengajuan-kredit/', views.admin_pengajuan_kredit, name='admin_pengajuan_kredit'),
+    # Portal Pihak Ketiga: Mitra Pembiayaan (Simulasi)
+    path('mitra/pembiayaan/', views.mitra_pengajuan_kredit, name='mitra_pengajuan_kredit'),
+    path(
+        'mitra/pembiayaan/<int:pesanan_id>/',
+        views.mitra_pengajuan_kredit_detail,
+        name='mitra_pengajuan_kredit_detail',
+    ),
+    path(
+        'mitra/pembiayaan/<int:pesanan_id>/tinjau/',
+        views.mitra_tinjau_pengajuan_kredit,
+        name='mitra_tinjau_pengajuan_kredit',
+    ),
+    path('panel/pengajuan-kredit/', views.mitra_pengajuan_kredit, name='admin_pengajuan_kredit'),
     path(
         'panel/pengajuan-kredit/<int:pesanan_id>/',
-        views.admin_pengajuan_kredit_detail,
+        views.mitra_pengajuan_kredit_detail,
         name='admin_pengajuan_kredit_detail',
     ),
     path(
         'panel/pesanan-pembelian/<int:pesanan_id>/tinjau-kredit/',
-        views.admin_tinjau_pengajuan_kredit,
+        views.mitra_tinjau_pengajuan_kredit,
         name='admin_tinjau_pengajuan_kredit',
     ),
     path(

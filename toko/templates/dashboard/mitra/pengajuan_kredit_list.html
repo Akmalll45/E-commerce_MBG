@@ -1,0 +1,147 @@
+{% extends 'dashboard/mitra/base_mitra.html' %}
+{% load humanize %}
+
+{% block title %}Daftar Pengajuan Kredit (Simulasi){% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">Daftar Pengajuan Kredit</h1>
+            <p class="text-muted small mb-0">Tinjau pengajuan pembiayaan dari pelanggan MBG sebagai aktor pihak ketiga (simulasi).</p>
+        </div>
+        <span class="badge bg-warning text-dark rounded-pill px-3 py-2">{{ jumlah_menunggu }} Menunggu Review</span>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm small mb-4">
+        <i class="fa-solid fa-circle-info me-2"></i>
+        <strong>Simulasi Akademik:</strong> Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="mitra-card p-3 mb-0 h-100">
+                <div class="small text-muted text-uppercase fw-bold">Menunggu Review</div>
+                <div class="fs-4 fw-bold text-warning mt-1">{{ jumlah_menunggu }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="mitra-card p-3 mb-0 h-100">
+                <div class="small text-muted text-uppercase fw-bold">Disetujui (Menunggu DP)</div>
+                <div class="fs-4 fw-bold text-primary mt-1">{{ jumlah_disetujui }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="mitra-card p-3 mb-0 h-100">
+                <div class="small text-muted text-uppercase fw-bold">Kredit Aktif</div>
+                <div class="fs-4 fw-bold text-success mt-1">{{ jumlah_aktif }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="mitra-card p-3 mb-0 h-100">
+                <div class="small text-muted text-uppercase fw-bold">Ditolak / Dibatalkan</div>
+                <div class="fs-4 fw-bold text-danger mt-1">{{ jumlah_ditolak }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mitra-card">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}">Semua</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_kredit' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=menunggu_kredit">Menunggu Review ({{ jumlah_menunggu }})</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_dp_kredit' %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=menunggu_dp_kredit">Disetujui / Menunggu DP ({{ jumlah_disetujui }})</a>
+            <a class="btn btn-sm {% if filter_status == 'kredit_aktif' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=kredit_aktif">Kredit Aktif ({{ jumlah_aktif }})</a>
+            <a class="btn btn-sm {% if filter_status == 'dibatalkan' %}btn-danger{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=dibatalkan">Ditolak / Batal ({{ jumlah_ditolak }})</a>
+            <a class="btn btn-sm {% if filter_status == 'selesai' %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=selesai">Selesai</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Pesanan &amp; Tanggal</th>
+                        <th>Customer</th>
+                        <th>Kendaraan &amp; Harga</th>
+                        <th>DP 20% &amp; Nilai Pembiayaan</th>
+                        <th>Status &amp; Riwayat Keputusan</th>
+                        <th class="text-end">Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pesanan in pengajuan_list %}
+                    <tr>
+                        <td>
+                            <a class="fw-bold text-decoration-none" href="{% url 'mitra_pengajuan_kredit_detail' pesanan.id %}">{{ pesanan.nomor_pesanan }}</a>
+                            <div class="small text-muted">{{ pesanan.created_at|date:"d M Y, H:i" }} WITA</div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ pesanan.nama_pelanggan }}</div>
+                            <div class="small text-muted">{{ pesanan.no_whatsapp }}</div>
+                            {% if pesanan.email %}<div class="small text-muted">{{ pesanan.email }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ pesanan.nama_kendaraan }}</div>
+                            <div class="small text-muted">{{ pesanan.sku_kendaraan }} · {{ pesanan.plat_nomor }}</div>
+                            <div class="small fw-semibold text-dark">Harga: Rp {{ pesanan.harga_kendaraan|intcomma }}</div>
+                        </td>
+                        <td>
+                            <div class="small">DP 20%: <strong>Rp {{ pesanan.rincian_kredit.nominal_dp|intcomma }}</strong></div>
+                            <div class="small text-muted">Nilai Pembiayaan: Rp {{ pesanan.rincian_kredit.saldo_setelah_dp|intcomma }}</div>
+                            <div class="small text-muted">Tenor {{ pesanan.rincian_kredit.tenor_tahun }} tahun · Rp {{ pesanan.rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun</div>
+                        </td>
+                        <td>
+                            {% if pesanan.status == 'menunggu_kredit' %}
+                                <span class="badge bg-warning text-dark rounded-pill">Menunggu Review</span>
+                            {% elif pesanan.status == 'menunggu_dp_kredit' %}
+                                <span class="badge bg-primary rounded-pill">Disetujui (Menunggu DP)</span>
+                            {% elif pesanan.status == 'kredit_aktif' %}
+                                <span class="badge bg-success rounded-pill">Kredit Aktif</span>
+                            {% elif pesanan.status == 'selesai' %}
+                                <span class="badge bg-dark rounded-pill">Selesai</span>
+                            {% else %}
+                                <span class="badge bg-danger rounded-pill">{{ pesanan.get_status_display }}</span>
+                            {% endif %}
+                            {% if pesanan.riwayat_keputusan %}
+                                <div class="small text-muted mt-1">
+                                    Oleh: {{ pesanan.riwayat_keputusan.diubah_oleh.get_full_name|default:pesanan.riwayat_keputusan.diubah_oleh.username|default:"Sistem" }}
+                                    ({{ pesanan.riwayat_keputusan.created_at|date:"d M Y, H:i" }})
+                                </div>
+                                {% if pesanan.riwayat_keputusan.catatan %}
+                                    <div class="small text-muted">{{ pesanan.riwayat_keputusan.catatan|truncatechars:90 }}</div>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary rounded-pill px-3 mb-1" href="{% url 'mitra_pengajuan_kredit_detail' pesanan.id %}">Detail</a>
+                            {% if pesanan.status == 'menunggu_kredit' and boleh_review_kredit %}
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
+                                </form>
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" type="submit" name="aksi" value="tolak">Tolak Pengajuan</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-5">Belum ada pengajuan kredit untuk ditampilkan.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Navigasi daftar pengajuan kredit">
+            <ul class="pagination justify-content-end mb-0">
+                {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Sebelumnya</a></li>{% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_status %}&status={{ filter_status }}{% endif %}">Berikutnya</a></li>{% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+{% endblock %}

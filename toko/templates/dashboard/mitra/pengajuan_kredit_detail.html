@@ -1,0 +1,125 @@
+{% extends 'dashboard/mitra/base_mitra.html' %}
+{% load humanize %}
+
+{% block title %}Detail Pengajuan {{ pesanan.nomor_pesanan }}{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <a href="{% url 'mitra_pengajuan_kredit' %}" class="text-decoration-none small text-muted"><i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar Pengajuan Kredit</a>
+            <h1 class="h3 fw-bold text-dark mt-1 mb-0">Detail Pengajuan Kredit {{ pesanan.nomor_pesanan }}</h1>
+        </div>
+        <div>
+            {% if pesanan.status == 'menunggu_kredit' %}
+                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Menunggu Review Mitra Pembiayaan</span>
+            {% elif pesanan.status == 'menunggu_dp_kredit' %}
+                <span class="badge bg-primary rounded-pill px-3 py-2">Disetujui (Menunggu Pembayaran DP)</span>
+            {% elif pesanan.status == 'kredit_aktif' %}
+                <span class="badge bg-success rounded-pill px-3 py-2">Kredit Aktif</span>
+            {% elif pesanan.status == 'selesai' %}
+                <span class="badge bg-dark rounded-pill px-3 py-2">Selesai</span>
+            {% else %}
+                <span class="badge bg-danger rounded-pill px-3 py-2">{{ pesanan.get_status_display }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm small mb-4">
+        <i class="fa-solid fa-circle-info me-2"></i>
+        Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="mitra-card">
+                <h2 class="h5 fw-bold text-dark mb-3">Ringkasan Pengajuan Kredit</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-5 text-secondary">Nomor Pesanan</dt>
+                    <dd class="col-sm-7 fw-bold">{{ pesanan.nomor_pesanan }}</dd>
+
+                    <dt class="col-sm-5 text-secondary">Tanggal Pengajuan</dt>
+                    <dd class="col-sm-7">{{ pesanan.created_at|date:"d M Y, H:i" }} WITA</dd>
+
+                    <dt class="col-sm-5 text-secondary">Nama Customer</dt>
+                    <dd class="col-sm-7 fw-semibold">{{ pesanan.nama_pelanggan }}</dd>
+
+                    <dt class="col-sm-5 text-secondary">WhatsApp / Email</dt>
+                    <dd class="col-sm-7">{{ pesanan.no_whatsapp }}{% if pesanan.email %} · {{ pesanan.email }}{% endif %}</dd>
+
+                    <dt class="col-sm-5 text-secondary">Mobil yang Diajukan</dt>
+                    <dd class="col-sm-7 fw-semibold">{{ pesanan.nama_kendaraan }} ({{ pesanan.sku_kendaraan }} · {{ pesanan.plat_nomor }})</dd>
+
+                    <dt class="col-sm-5 text-secondary">Harga Kendaraan</dt>
+                    <dd class="col-sm-7 fw-bold">Rp {{ pesanan.harga_kendaraan|intcomma }}</dd>
+
+                    <dt class="col-sm-5 text-secondary">DP ({{ rincian_kredit.persentase_dp }}%)</dt>
+                    <dd class="col-sm-7 fw-bold text-primary">Rp {{ rincian_kredit.nominal_dp|intcomma }}</dd>
+
+                    <dt class="col-sm-5 text-secondary">Nilai Pembiayaan</dt>
+                    <dd class="col-sm-7 fw-bold">Rp {{ rincian_kredit.saldo_setelah_dp|intcomma }}</dd>
+
+                    <dt class="col-sm-5 text-secondary">Tenor &amp; Cicilan (Simulasi)</dt>
+                    <dd class="col-sm-7">
+                        {{ rincian_kredit.tenor_tahun }} tahun · Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun
+                        (cicilan terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }})
+                    </dd>
+
+                    <dt class="col-sm-5 text-secondary">Status Pengajuan</dt>
+                    <dd class="col-sm-7">{{ pesanan.get_status_display }}</dd>
+                </dl>
+            </div>
+
+            <div class="mitra-card">
+                <h2 class="h5 fw-bold text-dark mb-3">Riwayat Status &amp; Keputusan</h2>
+                <div class="list-group list-group-flush">
+                    {% for item in riwayat_keputusan %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold small">{{ item.get_status_ke_display }}</span>
+                            <span class="small text-muted">{{ item.created_at|date:"d M Y, H:i" }} WITA</span>
+                        </div>
+                        {% if item.diubah_oleh %}
+                        <div class="small text-muted">Diproses oleh: {{ item.diubah_oleh.get_full_name|default:item.diubah_oleh.username }}</div>
+                        {% endif %}
+                        {% if item.catatan %}
+                        <div class="small text-dark mt-1">{{ item.catatan }}</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="small text-muted mb-0">Belum ada riwayat keputusan.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="mitra-card">
+                <h2 class="h5 fw-bold text-dark mb-3">Keputusan Mitra Pembiayaan (Simulasi)</h2>
+                {% if dapat_ditinjau %}
+                    <p class="small text-muted">Persetujuan kredit akan mengubah status menjadi <strong>Kredit Disetujui (Menunggu DP)</strong>. Pelanggan selanjutnya membayar DP 20% dan diverifikasi oleh staf MBG sebelum unit dikunci.</p>
+                    <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button class="btn btn-success w-100 rounded-pill fw-bold" type="submit" name="aksi" value="setujui">
+                            <i class="fa-solid fa-circle-check me-1"></i> Setujui Pengajuan
+                        </button>
+                    </form>
+                    <hr>
+                    <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <label class="form-label small fw-bold" for="alasanPenolakan">Alasan Penolakan (wajib diisi)</label>
+                        <textarea id="alasanPenolakan" name="alasan" class="form-control mb-2" rows="3" placeholder="Tuliskan alasan penolakan pengajuan kredit..." required></textarea>
+                        <button class="btn btn-outline-danger w-100 rounded-pill fw-bold" type="submit" name="aksi" value="tolak">
+                            <i class="fa-solid fa-circle-xmark me-1"></i> Tolak Pengajuan
+                        </button>
+                    </form>
+                {% elif pesanan.status == 'menunggu_kredit' %}
+                    <div class="alert alert-warning small mb-0">Anda memiliki akses melihat pengajuan kredit, tetapi tidak memiliki izin untuk menyetujui atau menolak pengajuan.</div>
+                {% else %}
+                    <div class="alert alert-secondary small mb-0">Pengajuan kredit ini sudah diputuskan (status saat ini: <strong>{{ pesanan.get_status_display }}</strong>) dan tidak dapat diproses ulang.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
