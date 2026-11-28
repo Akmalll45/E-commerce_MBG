@@ -5,16 +5,16 @@
 {% block offcanvas_artikel_aktif %}active{% endblock %}
 
 {% block title %}
-{% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}
+{% if kategori_aktif %}{{ kategori_aktif.nama }} | Artikel MBG{% else %}Artikel & Berita | Mobil Bekas Garasi{% endif %}
 {% endblock %}
 
 {% block meta_description %}
-{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}
+{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }}: tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}
 {% endblock %}
-{% block og_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}{% endblock %}
-{% block og_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}{% endblock %}
-{% block twitter_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} — Artikel MBG{% else %}Artikel & Berita — Mobil Bekas Garasi{% endif %}{% endblock %}
-{% block twitter_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }} — tips, berita, dan informasi otomotif dari MBG Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari MBG Makassar.{% endif %}{% endblock %}
+{% block og_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} | Artikel MBG{% else %}Artikel & Berita | Mobil Bekas Garasi{% endif %}{% endblock %}
+{% block og_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }}: tips, berita, dan informasi otomotif dari Mobil Bekas Garasi Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari Mobil Bekas Garasi (MBG) Makassar.{% endif %}{% endblock %}
+{% block twitter_title %}{% if kategori_aktif %}{{ kategori_aktif.nama }} | Artikel MBG{% else %}Artikel & Berita | Mobil Bekas Garasi{% endif %}{% endblock %}
+{% block twitter_description %}{% if kategori_aktif %}Artikel MBG kategori {{ kategori_aktif.nama }}: tips, berita, dan informasi otomotif dari MBG Makassar.{% else %}Artikel, tips, dan berita otomotif terbaru dari MBG Makassar.{% endif %}{% endblock %}
 {% block schema_jsonld %}
 <script type="application/ld+json">
 {

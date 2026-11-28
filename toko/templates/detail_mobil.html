@@ -5,10 +5,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ produk.nama }} ({{ produk.tahun }}) — Mobil Bekas Garasi Makassar</title>
+    <title>{{ produk.nama }} ({{ produk.tahun }}) | Mobil Bekas Garasi Makassar</title>
     <meta name="description" content="Beli {{ produk.nama }} tahun {{ produk.tahun }} warna {{ produk.warna }}, transmisi {{ produk.get_transmisi_display }}, jarak tempuh {{ produk.jarak_tempuh|intcomma }} km di Garasi MBG {{ produk.lokasi }}. Harga OTR Rp {{ produk.harga|intcomma }}. {{ produk.deskripsi_singkat|truncatechars:90 }}">
     <meta name="keywords" content="{{ produk.nama }}, {{ produk.merek }} bekas makassar, {{ produk.kategori }} bekas makassar, mobil bekas {{ produk.tahun }}, beli mobil bekas makassar, MBG Makassar">
-    <meta name="author" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta name="author" content="MBG | Mobil Bekas Garasi Makassar">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#080D1A">
     <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'detail_produk' produk.id %}">
@@ -16,15 +16,15 @@
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:locale" content="id_ID">
     <meta property="og:type" content="product">
-    <meta property="og:site_name" content="MBG — Mobil Bekas Garasi Makassar">
-    <meta property="og:title" content="{{ produk.nama }} ({{ produk.tahun }}) — Rp {{ produk.harga|intcomma }} | MBG Makassar">
+    <meta property="og:site_name" content="MBG | Mobil Bekas Garasi Makassar">
+    <meta property="og:title" content="{{ produk.nama }} ({{ produk.tahun }}) - Rp {{ produk.harga|intcomma }} | MBG Makassar">
     <meta property="og:description" content="{{ produk.nama }} tahun {{ produk.tahun }}, {{ produk.get_transmisi_display }}, {{ produk.jarak_tempuh|intcomma }} km. {{ produk.deskripsi_singkat|truncatechars:120 }}">
     <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{% url 'detail_produk' produk.id %}">
     <meta property="og:image" content="{% if produk.gambar_utama %}{{ produk.gambar_utama.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ mbg_logo_default }}{% endif %}">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ produk.nama }} ({{ produk.tahun }}) — Rp {{ produk.harga|intcomma }}">
+    <meta name="twitter:title" content="{{ produk.nama }} ({{ produk.tahun }}) - Rp {{ produk.harga|intcomma }}">
     <meta name="twitter:description" content="{{ produk.nama }} tahun {{ produk.tahun }}, {{ produk.get_transmisi_display }}, {{ produk.jarak_tempuh|intcomma }} km di Garasi MBG Makassar.">
     <meta name="twitter:image" content="{% if produk.gambar_utama %}{{ produk.gambar_utama.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ mbg_logo_default }}{% endif %}">
 
@@ -690,7 +690,7 @@
             "availability": "{% if produk.status_stok == 'ready' and unit_dapat_dipesan %}https://schema.org/InStock{% elif produk.status_stok == 'sold' %}https://schema.org/SoldOut{% else %}https://schema.org/LimitedAvailability{% endif %}",
             "seller": {
                 "@type": "AutoDealer",
-                "name": "MBG — Mobil Bekas Garasi Makassar"
+                "name": "MBG | Mobil Bekas Garasi Makassar"
             }
         }
     }

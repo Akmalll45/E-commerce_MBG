@@ -1,9 +1,9 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
-{% block title %}Katalog Mobil Bekas{% if page_obj.number > 1 %} — Halaman {{ page_obj.number }}{% endif %} | MBG Makassar{% endblock %}
+{% block title %}Katalog Mobil Bekas{% if page_obj.number > 1 %} (Halaman {{ page_obj.number }}){% endif %} | MBG Makassar{% endblock %}
 {% block meta_description %}Telusuri {{ total_unit_tayang }} mobil bekas lulus 150 titik inspeksi di Garasi MBG Makassar. Cari, filter, dan bandingkan harga transparan.{% endblock %}
-{% block og_title %}Katalog Mobil Bekas{% if page_obj.number > 1 %} — Halaman {{ page_obj.number }}{% endif %} | MBG Makassar{% endblock %}
+{% block og_title %}Katalog Mobil Bekas{% if page_obj.number > 1 %} (Halaman {{ page_obj.number }}){% endif %} | MBG Makassar{% endblock %}
 {% block og_description %}Telusuri {{ total_unit_tayang }} mobil bekas lulus 150 titik inspeksi di Garasi MBG Makassar. Cari, filter, dan bandingkan harga transparan.{% endblock %}
 {% block twitter_title %}Katalog Mobil Bekas | MBG Makassar{% endblock %}
 {% block twitter_description %}Telusuri {{ total_unit_tayang }} mobil bekas lulus 150 titik inspeksi di Garasi MBG Makassar.{% endblock %}

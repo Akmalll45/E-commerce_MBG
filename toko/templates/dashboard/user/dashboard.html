@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pelanggan — MBG Makassar</title>
+    <title>Dashboard Pelanggan | MBG Makassar</title>
 
     <!-- Google Fonts: Montserrat & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -612,13 +612,13 @@
                                     {% if p.status == 'menunggu_kredit' %}
                                         <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Review Kredit</span>
                                     {% elif p.status == 'menunggu_dp_kredit' %}
-                                        <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle rounded-pill">Disetujui — Menunggu DP</span>
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle rounded-pill">Disetujui (Menunggu DP)</span>
                                     {% elif p.status == 'menunggu_booking_fee' %}
                                         <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Pembayaran</span>
                                     {% elif p.status == 'kredit_aktif' %}
-                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Kredit Aktif — Unit Dikunci</span>
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Kredit Aktif (Unit Dikunci)</span>
                                     {% elif p.status == 'booking_aktif' %}
-                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Lunas — Serah Terima</span>
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill">Lunas (Serah Terima)</span>
                                     {% elif p.status == 'selesai' %}
                                         <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded-pill">Selesai</span>
                                     {% elif p.status == 'dibatalkan' %}

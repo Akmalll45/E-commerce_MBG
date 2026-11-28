@@ -4,13 +4,13 @@
 {% block offcanvas_artikel_aktif %}active{% endblock %}
 {% load humanize %}
 
-{% block title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+{% block title %}{{ artikel.meta_title|default:artikel.judul }} | MBG{% endblock %}
 
 {% block meta_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
 {% block og_type %}article{% endblock %}
-{% block og_title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+{% block og_title %}{{ artikel.meta_title|default:artikel.judul }} | MBG{% endblock %}
 {% block og_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
-{% block twitter_title %}{{ artikel.meta_title|default:artikel.judul }} — MBG{% endblock %}
+{% block twitter_title %}{{ artikel.meta_title|default:artikel.judul }} | MBG{% endblock %}
 {% block twitter_description %}{{ artikel.meta_description|default:artikel.ringkasan|truncatechars:160 }}{% endblock %}
 {% if artikel.gambar_utama %}
 {% block og_image %}{{ artikel.gambar_utama.url }}{% endblock %}
@@ -32,7 +32,7 @@
     },
     "publisher": {
         "@type": "Organization",
-        "name": "MBG — Mobil Bekas Garasi Makassar"
+        "name": "MBG | Mobil Bekas Garasi Makassar"
     }
 }
 </script>

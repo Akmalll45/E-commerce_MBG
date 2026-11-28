@@ -7,10 +7,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive</title>
+    <title>MBG | Mobil Bekas Garasi Makassar - Katalog &amp; Test Drive</title>
     <meta name="description" content="Showroom mobil bekas berkualitas di Makassar. Seluruh unit 100% lulus 150 titik inspeksi transparan, bergaransi, bebas banjir &amp; tabrak, siap test drive dan kredit DP ringan di Garasi MBG Makassar.">
     <meta name="keywords" content="mobil bekas makassar, jual beli mobil bekas makassar, showroom mobil bekas makassar, mobil bekas bergaransi makassar, kredit mobil bekas makassar, titip jual mobil makassar, MBG Makassar">
-    <meta name="author" content="MBG — Mobil Bekas Garasi Makassar">
+    <meta name="author" content="MBG | Mobil Bekas Garasi Makassar">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#080D1A">
     <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}">
@@ -18,15 +18,15 @@
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:locale" content="id_ID">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="MBG — Mobil Bekas Garasi Makassar">
-    <meta property="og:title" content="MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive">
+    <meta property="og:site_name" content="MBG | Mobil Bekas Garasi Makassar">
+    <meta property="og:title" content="MBG | Mobil Bekas Garasi Makassar - Katalog &amp; Test Drive">
     <meta property="og:description" content="Showroom mobil bekas berkualitas di Makassar. 100% lulus 150 titik inspeksi transparan, harga jujur tanpa mark-up, bergaransi &amp; siap test drive.">
     <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}">
     <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_hero_default }}{% endif %}">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="MBG — Mobil Bekas Garasi Makassar | Katalog &amp; Test Drive">
+    <meta name="twitter:title" content="MBG | Mobil Bekas Garasi Makassar - Katalog &amp; Test Drive">
     <meta name="twitter:description" content="Showroom mobil bekas berkualitas di Makassar. 100% lulus 150 titik inspeksi transparan, harga jujur &amp; bergaransi.">
     <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_hero_default }}{% endif %}">
 
@@ -1104,7 +1104,7 @@
     {
         "@context": "https://schema.org",
         "@type": "AutoDealer",
-        "name": "{{ pengaturan.nama_toko|default:'MBG — Mobil Bekas Garasi Makassar'|escapejs }}",
+        "name": "{{ pengaturan.nama_toko|default:'MBG | Mobil Bekas Garasi Makassar'|escapejs }}",
         "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'beranda' %}",
         "logo": "{{ request.scheme }}://{{ request.get_host }}{% if pengaturan.logo %}{{ pengaturan.logo.url }}{% else %}{{ mbg_logo_default }}{% endif %}",
         "image": "{{ request.scheme }}://{{ request.get_host }}{{ mbg_hero_default }}",
@@ -1375,7 +1375,7 @@
     <!-- 3. HERO -->
     <header class="hero position-relative">
         <div class="hero-image-container" aria-hidden="true">
-            <img src="{{ STATIC_PREFIX }}toko/images/hero-mbg-latest.png" alt="Showroom Mobil Bekas Garasi Makassar — Unit Berkualitas Lulus Inspeksi" class="hero-image-bg" fetchpriority="high">
+            <img src="{{ STATIC_PREFIX }}toko/images/hero-mbg-latest.png" alt="Showroom Mobil Bekas Garasi Makassar, Unit Berkualitas Lulus Inspeksi" class="hero-image-bg" fetchpriority="high">
             <div class="hero-image-overlay"></div>
         </div>
 
@@ -1427,7 +1427,7 @@
             <div>
                 <span class="section-label"><i class="fa-solid fa-badge-check"></i> Unit Terverifikasi MBG</span>
                 <h2 class="section-heading mt-1 mb-1">Rekomendasi Mobil Bekas Pilihan</h2>
-                <p class="text-muted mb-0" style="font-size:.9rem;">Unit terbaik di Garasi Makassar — 100% lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
+                <p class="text-muted mb-0" style="font-size:.9rem;">Unit terbaik di Garasi Makassar, 100% lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
             </div>
             <div class="mt-3 mt-md-0">
                 <a href="{% url 'katalog' %}" class="btn btn-outline-primary rounded-pill px-4 fw-bold btn-sm">
@@ -1704,7 +1704,7 @@
                         <select id="pilihMobilKredit" class="form-select" style="height:auto;padding:.75rem 1rem;">
                             <option value="">Pilih unit untuk mengisi harga otomatis</option>
                             {% for mobil in katalog_mobil %}
-                            <option value="{{ mobil.harga }}">{{ mobil.nama }} — Rp {{ mobil.harga|intcomma }}</option>
+                            <option value="{{ mobil.harga }}">{{ mobil.nama }} (Rp {{ mobil.harga|intcomma }})</option>
                             {% endfor %}
                         </select>
                     </div>
