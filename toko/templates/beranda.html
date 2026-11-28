@@ -560,7 +560,9 @@
 
         @media (prefers-reduced-motion: reduce) {
             .gradient-text-animated { animation: none !important; }
-            .mbg-showcase-card, .mbg-preview-layer { transition: none !important; }
+            .card-product-premium,
+            .mbg-layered-card-wrap::before,
+            .mbg-layered-card-wrap::after { transition: none !important; }
         }
 
         /* ── Search forms ──────────────────────────────────────────── */
@@ -602,275 +604,155 @@
             color: var(--mbg-navy); line-height: 1.25;
         }
 
-        /* ── Showcase Card Grid (Static Layered Deck, No Auto-Carousel) ── */
-        .mbg-showcase-grid {
+        /* ── Product Card Grid & Layered Card Effect (MBG Identity) ─── */
+        .mbg-product-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1.75rem;
-            padding: 8px 0 12px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 2.35rem 2rem;
+            padding: 20px 14px 16px;
         }
-        .mbg-showcase-card {
-            background: var(--mbg-card);
-            border: 1px solid #E2E8F0;
-            border-radius: 20px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            box-shadow: 0 4px 20px -4px rgba(8, 13, 26, 0.06);
-            transition: transform .32s var(--transition-snappy),
-                        box-shadow .32s var(--transition-snappy),
-                        border-color .32s ease;
-        }
-        .mbg-showcase-card:hover {
-            transform: translateY(-4px);
-            border-color: #CBD5E1;
-            box-shadow: 0 20px 40px -12px rgba(8, 13, 26, 0.14);
-        }
-        .mbg-showcase-card--featured {
-            grid-column: 1 / -1;
-            display: grid;
-            grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-            align-items: stretch;
-        }
-
-        /* Layered 3-Photo Interactive Preview Stage */
-        .mbg-preview-stage {
+        .mbg-layered-card-wrap {
             position: relative;
-            background: linear-gradient(145deg, #F1F5F9 0%, #E2E8F0 100%);
-            padding: 3.1rem 1.5rem 1.35rem;
-            min-height: 270px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            border-bottom: 1px solid #E2E8F0;
-        }
-        .mbg-showcase-card--featured .mbg-preview-stage {
-            min-height: 340px;
-            padding: 3.25rem 2rem 1.75rem;
-            border-bottom: none;
-            border-right: 1px solid #E2E8F0;
-        }
-        .mbg-preview-deck {
-            position: relative;
-            width: 100%;
-            max-width: 440px;
-            height: 205px;
-            margin: 0 auto;
-        }
-        .mbg-showcase-card--featured .mbg-preview-deck {
-            max-width: 500px;
-            height: 255px;
-        }
-        .mbg-preview-layer {
-            position: absolute;
-            inset: 0;
-            margin: auto;
-            border-radius: 14px;
-            overflow: hidden;
-            background: #0F172A;
-            border: 2px solid rgba(255, 255, 255, 0.92);
-            box-shadow: 0 12px 26px -8px rgba(8, 13, 26, 0.28);
-            transition: transform .38s cubic-bezier(.22, 1, .36, 1),
-                        box-shadow .38s ease,
-                        opacity .32s ease,
-                        z-index 0s;
-            cursor: pointer;
-            outline: none;
-        }
-        .mbg-preview-layer img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        /* Layer 1: Front Center */
-        .mbg-preview-layer--front {
-            width: 78%;
-            height: 100%;
-            z-index: 3;
-            transform: translate3d(0, 0, 0) scale(1);
-        }
-        /* Layer 2: Back Left */
-        .mbg-preview-layer--left {
-            width: 72%;
-            height: 88%;
-            z-index: 2;
-            opacity: 0.92;
-            filter: brightness(0.84);
-            transform: translate3d(-16%, 4px, 0) scale(0.95);
-        }
-        /* Layer 3: Back Right */
-        .mbg-preview-layer--right {
-            width: 72%;
-            height: 88%;
             z-index: 1;
-            opacity: 0.92;
-            filter: brightness(0.84);
-            transform: translate3d(16%, 4px, 0) scale(0.95);
-        }
-        /* Hover / Focus interactive fan-out & bring-to-front */
-        .mbg-showcase-card:hover .mbg-preview-layer--left {
-            transform: translate3d(-20%, 2px, 0) rotate(-1.5deg) scale(0.96);
-        }
-        .mbg-showcase-card:hover .mbg-preview-layer--right {
-            transform: translate3d(20%, 2px, 0) rotate(1.5deg) scale(0.96);
-        }
-        .mbg-preview-layer:hover,
-        .mbg-preview-layer:focus-visible {
-            z-index: 6 !important;
-            opacity: 1 !important;
-            filter: brightness(1) !important;
-            transform: translate3d(0, -6px, 0) scale(1.03) !important;
-            box-shadow: 0 22px 40px -10px rgba(8, 13, 26, 0.38);
-            border-color: var(--mbg-blue);
-        }
-        .mbg-preview-layer:focus-visible {
-            outline: 3px solid rgba(37, 99, 235, 0.45);
-            outline-offset: 2px;
-        }
-
-        /* Content Container */
-        .mbg-card-content {
-            padding: 1.45rem 1.6rem 1.55rem;
             display: flex;
-            flex-direction: column;
-            flex: 1 1 auto;
+            height: 100%;
             min-width: 0;
         }
-        .mbg-showcase-card--featured .mbg-card-content {
-            padding: 1.75rem 2rem;
+        /* Layer 2 (tengah, di belakang card utama): soft ice blue */
+        .mbg-layered-card-wrap::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: 8px;
+            background: linear-gradient(145deg, #DBEAFE 0%, #EFF6FF 100%);
+            border: 1px solid #BFDBFE;
+            border-radius: 20px;
+            box-shadow: 0 10px 24px -8px rgba(37, 99, 235, 0.16);
+            z-index: 0;
+            pointer-events: none;
+            transition: transform .35s var(--transition-snappy),
+                        box-shadow .35s var(--transition-snappy);
         }
-        .mbg-card-title {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: var(--mbg-navy);
-            line-height: 1.3;
-            margin-bottom: .5rem;
+        /* Layer 3 (paling belakang): soft slate white */
+        .mbg-layered-card-wrap::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: -15px;
+            right: -15px;
+            bottom: 16px;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 22px;
+            box-shadow: 0 4px 14px -4px rgba(8, 13, 26, 0.07);
+            z-index: -1;
+            pointer-events: none;
+            transition: transform .35s var(--transition-snappy),
+                        box-shadow .35s var(--transition-snappy);
         }
-        .mbg-showcase-card--featured .mbg-card-title {
-            font-size: 1.4rem;
-        }
-        .mbg-card-title a {
-            color: inherit;
-            text-decoration: none;
-            transition: color .2s ease;
-        }
-        .mbg-card-title a:hover {
-            color: var(--mbg-blue);
-        }
-        .mbg-card-desc {
-            font-size: .88rem;
-            color: #475569;
-            line-height: 1.55;
-            margin-bottom: 1rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+        .card-product-premium {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            background: var(--mbg-card);
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-lg);
             overflow: hidden;
-        }
-        .mbg-showcase-card--featured .mbg-card-desc {
-            -webkit-line-clamp: 3;
-        }
-
-        /* Tag Pills (Specs & Trust) */
-        .mbg-tag-list {
-            list-style: none;
-            padding: 0;
-            margin: 0 0 1.15rem 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: .45rem;
-        }
-        .mbg-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            font-size: .75rem;
-            font-weight: 600;
-            padding: .32rem .72rem;
-            border-radius: 9999px;
-            line-height: 1.2;
-        }
-        .mbg-tag--spec {
-            background: #EFF6FF;
-            color: #1D4ED8;
-            border: 1px solid #DBEAFE;
-        }
-        .mbg-tag--trust {
-            background: #ECFDF5;
-            color: #065F46;
-            border: 1px solid #A7F3D0;
-        }
-        .mbg-tag--warn {
-            background: #FFFBEB;
-            color: #92400E;
-            border: 1px solid #FDE68A;
-        }
-
-        /* Price & Actions Footer */
-        .mbg-card-footer {
-            margin-top: auto;
-            padding-top: 1rem;
-            border-top: 1px solid #E2E8F0;
             display: flex;
             flex-direction: column;
-            gap: .9rem;
+            height: 100%;
+            box-shadow: 0 14px 32px -10px rgba(8, 13, 26, 0.14),
+                        0 4px 12px -2px rgba(8, 13, 26, 0.06);
+            transition: transform .35s var(--transition-snappy),
+                        box-shadow .35s var(--transition-snappy),
+                        border-color .35s ease;
         }
-        .mbg-card-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: .65rem;
+        .mbg-layered-card-wrap:hover .card-product-premium {
+            transform: translateY(-6px);
+            border-color: #CBD5E1;
+            box-shadow: 0 22px 44px -12px rgba(8, 13, 26, 0.2),
+                        0 8px 18px -4px rgba(37, 99, 235, 0.1);
         }
-        .mbg-card-actions .btn-cta-booking,
-        .mbg-card-actions .btn-cta-wa {
-            width: 100%;
-            justify-content: center;
-            padding: .68rem .85rem;
-            font-size: .84rem;
+        .mbg-layered-card-wrap:hover::before {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 28px -8px rgba(37, 99, 235, 0.22);
         }
-
+        .mbg-layered-card-wrap:hover::after {
+            transform: translateY(-1px);
+        }
         @media (max-width: 991.98px) {
-            .mbg-showcase-grid {
-                grid-template-columns: 1fr;
-                gap: 1.35rem;
+            .mbg-product-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 2rem 1.5rem;
+                padding: 18px 12px 12px;
             }
-            .mbg-showcase-card--featured {
-                grid-template-columns: 1fr;
+            .mbg-layered-card-wrap::before {
+                top: -6px;
+                left: -6px;
+                right: -6px;
+                bottom: 6px;
             }
-            .mbg-showcase-card--featured .mbg-preview-stage {
-                min-height: 260px;
-                border-right: none;
-                border-bottom: 1px solid #E2E8F0;
-            }
-            .mbg-showcase-card--featured .mbg-preview-deck {
-                height: 205px;
+            .mbg-layered-card-wrap::after {
+                top: -12px;
+                left: -12px;
+                right: -12px;
+                bottom: 12px;
             }
         }
         @media (max-width: 575.98px) {
-            .mbg-preview-stage {
-                min-height: 235px;
-                padding: 2.9rem 1rem 1.15rem;
-            }
-            .mbg-preview-deck {
-                height: 175px;
-            }
-            .mbg-card-content,
-            .mbg-showcase-card--featured .mbg-card-content {
-                padding: 1.2rem 1.15rem 1.3rem;
-            }
-            .mbg-card-actions {
+            .mbg-product-grid {
                 grid-template-columns: 1fr;
+                gap: 1.85rem;
+                padding: 16px 10px 12px;
             }
+            .mbg-layered-card-wrap::before {
+                top: -5px;
+                left: -5px;
+                right: -5px;
+                bottom: 5px;
+                border-radius: 18px;
+            }
+            .mbg-layered-card-wrap::after {
+                top: -10px;
+                left: -10px;
+                right: -10px;
+                bottom: 10px;
+                border-radius: 20px;
+            }
+        }
+
+        /* Foto Mobil: Satu Foto Normal, Rasio Proporsional & Sudut Melengkung Atas */
+        .card-product-img-wrapper {
+            position: relative;
+            width: 100%; height: 215px;
+            overflow: hidden;
+            border-top-left-radius: var(--radius-lg);
+            border-top-right-radius: var(--radius-lg);
+            background: #0C1222;
+        }
+        .card-product-img-wrapper img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform .5s var(--transition-snappy);
+        }
+        .mbg-layered-card-wrap:hover .card-product-img-wrapper img {
+            transform: scale(1.05);
+        }
+        .card-product-img-wrapper::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 60px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+            pointer-events: none;
         }
         .no-photo-placeholder {
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             background: linear-gradient(135deg, #1E293B, #0F172A);
-            color: #94A3B8;
+            color: #64748B;
         }
 
         /* Badge Promo: "Subsidi DP" Melayang di Sudut Gambar */
@@ -1630,92 +1512,92 @@
             </div>
         </div>
 
-        <!-- Showcase Grid Statis: Kartu berlapis interaktif (tanpa auto-carousel berjalan) -->
-        <div class="mbg-showcase-grid">
+        <!-- Grid Produk Statis dengan Efek Layered Card (layer dekoratif di belakang keseluruhan card) -->
+        <div class="mbg-product-grid">
             {% for mobil in katalog_mobil %}
-            <article class="mbg-showcase-card {% if forloop.first and not katalog_mobil|length|divisibleby:'2' %}mbg-showcase-card--featured{% endif %}" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:2|yesno:'0,100' }}">
+            <div class="mbg-layered-card-wrap" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
 
-                <!-- 1. Preview Stage Berlapis (3 Lapisan Foto Interaktif) -->
-                <div class="mbg-preview-stage">
-                    <div class="badge-promo-floating">
-                        <i class="fa-solid fa-fire-flame-curved"></i> Subsidi DP
-                    </div>
-                    <div class="badge-seller-floating">
-                        <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display|default:"Garasi MBG" }}
-                    </div>
+                <!-- SATU KOTAK MOBIL (PRODUCT CARD) ELEGAN, MODERN & HIGH-TRUST -->
+                <div class="card-product-premium">
 
-                    {% if mobil.gambar_utama %}
-                    <div class="mbg-preview-deck">
-                        {% with galeri=mobil.galeri_foto.all %}
-                        <a href="{% url 'detail_produk' mobil.id %}" class="mbg-preview-layer mbg-preview-layer--front" aria-label="Lihat detail {{ mobil.nama }}">
-                            <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy">
-                        </a>
-                        <div class="mbg-preview-layer mbg-preview-layer--left" tabindex="0" role="img" aria-label="Sudut tampilan {{ mobil.nama }}">
-                            {% if galeri.0 %}
-                                <img src="{{ galeri.0.gambar.url }}" alt="{{ galeri.0.keterangan|default:mobil.nama }}" loading="lazy">
-                            {% else %}
-                                <img src="{{ mobil.gambar_utama.url }}" alt="Eksterior {{ mobil.nama }}" loading="lazy">
-                            {% endif %}
-                        </div>
-                        <div class="mbg-preview-layer mbg-preview-layer--right" tabindex="0" role="img" aria-label="Galeri {{ mobil.nama }}">
-                            {% if galeri.1 %}
-                                <img src="{{ galeri.1.gambar.url }}" alt="{{ galeri.1.keterangan|default:mobil.nama }}" loading="lazy">
-                            {% elif galeri.0 %}
-                                <img src="{{ galeri.0.gambar.url }}" alt="{{ galeri.0.keterangan|default:mobil.nama }}" loading="lazy">
-                            {% else %}
-                                <img src="{{ mobil.gambar_utama.url }}" alt="Detail {{ mobil.nama }}" loading="lazy">
-                            {% endif %}
-                        </div>
-                        {% endwith %}
-                    </div>
-                    {% else %}
-                    <div class="mbg-preview-deck">
-                        <div class="mbg-preview-layer mbg-preview-layer--front">
+                    <!-- 1. Foto Mobil: Satu Foto Normal & Sudut Melengkung Halus Bagian Atas -->
+                    <div class="card-product-img-wrapper">
+                        {% if mobil.gambar_utama %}
+                            <a href="{% url 'detail_produk' mobil.id %}">
+                                <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy">
+                            </a>
+                        {% else %}
                             <div class="no-photo-placeholder">
-                                <i class="fa-regular fa-image" style="font-size:2.4rem;margin-bottom:.5rem;"></i>
+                                <i class="fa-regular fa-image" style="font-size:2.5rem;margin-bottom:.5rem;"></i>
                                 <span style="font-size:.82rem;">Foto unit dalam proses</span>
                             </div>
+                        {% endif %}
+
+                        <!-- Badge Promo: Label kecil "Subsidi DP" melayang di sudut gambar -->
+                        <div class="badge-promo-floating">
+                            <i class="fa-solid fa-fire-flame-curved"></i> Subsidi DP
+                        </div>
+
+                        <!-- Tag Garasi MBG Certified / Tipe Penjual -->
+                        <div class="badge-seller-floating">
+                            <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display|default:"Garasi MBG" }}
                         </div>
                     </div>
-                    {% endif %}
-                </div>
 
-                <!-- 2. Konten Bodi Card -->
-                <div class="mbg-card-content">
-                    <h3 class="mbg-card-title" title="{{ mobil.nama }}">
-                        <a href="{% url 'detail_produk' mobil.id %}">
-                            {{ mobil.nama }}
-                        </a>
-                    </h3>
+                    <!-- 2. Konten Bodi Card -->
+                    <div class="card-body-content">
 
-                    <p class="mbg-card-desc">
-                        {{ mobil.deskripsi_singkat }}
-                    </p>
-
-                    <ul class="mbg-tag-list">
-                        <li class="mbg-tag mbg-tag--spec">
-                            <i class="fa-regular fa-calendar"></i> {{ mobil.tahun }}
-                        </li>
-                        <li class="mbg-tag mbg-tag--spec">
-                            <i class="fa-solid fa-gears"></i> {{ mobil.get_transmisi_display }}
-                        </li>
-                        <li class="mbg-tag mbg-tag--spec">
-                            <i class="fa-solid fa-gauge-high"></i> {{ mobil.jarak_tempuh|intcomma }} km
-                        </li>
-                        {% if mobil.has_inspection_result %}
-                        <li class="mbg-tag mbg-tag--trust">
-                            <i class="fa-solid fa-shield-check"></i> Lulus Inspeksi
-                        </li>
-                        {% endif %}
                         {% if mobil.sedang_dipesan %}
-                        <li class="mbg-tag mbg-tag--warn">
-                            <i class="fa-solid fa-clock"></i> Unit Sedang Diproses
-                        </li>
+                        <div class="mb-2">
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                <i class="fa-solid fa-clock me-1"></i>Unit sedang diproses
+                            </span>
+                        </div>
                         {% endif %}
-                    </ul>
 
-                    <div class="mbg-card-footer">
-                        <div class="card-price-block">
+                        <!-- Teks: Nama / Merek Mobil (Tebal & Jelas) -->
+                        <h3 class="card-car-title mb-2" title="{{ mobil.nama }}">
+                            <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">
+                                {{ mobil.nama }}
+                            </a>
+                        </h3>
+
+                        <!-- Info Singkat: Baris Kecil untuk Tahun, Transmisi (AT/MT), dan Jarak Tempuh -->
+                        <div class="specs-mini-bar">
+                            <div class="specs-mini-item">
+                                <i class="fa-regular fa-calendar"></i>
+                                <span>Tahun: <strong>{{ mobil.tahun }}</strong></span>
+                            </div>
+                            <span class="text-secondary opacity-50">|</span>
+                            <div class="specs-mini-item">
+                                <i class="fa-solid fa-gears"></i>
+                                <span><strong>{{ mobil.get_transmisi_display }}</strong></span>
+                            </div>
+                            <span class="text-secondary opacity-50">|</span>
+                            <div class="specs-mini-item">
+                                <i class="fa-solid fa-gauge-high"></i>
+                                <span><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Deskripsi Singkat Mobil -->
+                        <p class="car-desc mb-1">
+                            {{ mobil.deskripsi_singkat }}
+                        </p>
+
+                        <div class="inspection-badge-slot">
+                            {% if mobil.has_inspection_result %}
+                            <span class="badge-inspeksi-exclusive">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Lulus inspeksi</span>
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <hr class="card-divider card-divider-after-inspection">
+
+                        <!-- Teks: Harga Normal (Jelas & Menonjol) -->
+                        <div class="card-price-block mb-3">
                             <span class="price-label d-block">Harga OTR Makassar:</span>
                             <div class="price-value">
                                 Rp {{ mobil.harga|intcomma }}
@@ -1732,14 +1614,16 @@
                             </div>
                         </div>
 
-                        <div class="mbg-card-actions">
+                        <!-- Tombol Call-to-Action (CTA) Penuh: Arahkan ke {% url 'detail_produk' mobil.id %} -->
+                        <div class="d-flex flex-column gap-2 mt-auto">
                             {% if mobil.sedang_dipesan %}
                             <button type="button" class="btn-cta-booking" disabled>
                                 <i class="fa-solid fa-clock"></i>
                                 <span>Unit Sedang Diproses</span>
                             </button>
                             {% else %}
-                            <a href="{% url 'detail_produk' mobil.id %}" class="btn-cta-booking">
+                            <a href="{% url 'detail_produk' mobil.id %}"
+                               class="btn-cta-booking">
                                 <i class="fa-solid fa-calendar-check"></i>
                                 <span>Booking Cek Unit</span>
                             </a>
@@ -1749,12 +1633,14 @@
                                target="_blank"
                                class="btn-cta-wa">
                                 <i class="fa-brands fa-whatsapp"></i>
-                                <span>Tanya via WA</span>
+                                <span>Tanya Detail Unit via WA</span>
                             </a>
                         </div>
+
                     </div>
                 </div>
-            </article>
+
+            </div>
             {% empty %}
             <div style="grid-column: 1 / -1;">
                 <div class="empty-state text-center">
