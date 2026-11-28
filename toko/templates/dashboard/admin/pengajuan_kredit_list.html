@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
             <h1 class="h3 fw-bold text-dark mb-1">Peninjauan Pengajuan Kredit (Simulasi)</h1>
-            <p class="text-muted small mb-0">Panel khusus Admin Pembiayaan (Simulasi) dan Superuser untuk meninjau, menyetujui, atau menolak pengajuan kredit.</p>
+            <p class="text-muted small mb-0">Panel khusus Superuser dan Mitra Pembiayaan (Simulasi) untuk meninjau, menyetujui, atau menolak pengajuan kredit.</p>
         </div>
         <span class="badge bg-warning text-dark rounded-pill px-3 py-2">{{ jumlah_menunggu }} Menunggu Review</span>
     </div>
@@ -46,12 +46,12 @@
 
     <div class="content-card">
         <div class="d-flex flex-wrap gap-2 mb-3">
-            <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}">Semua</a>
-            <a class="btn btn-sm {% if filter_status == 'menunggu_kredit' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}?status=menunggu_kredit">Menunggu Review ({{ jumlah_menunggu }})</a>
-            <a class="btn btn-sm {% if filter_status == 'menunggu_dp_kredit' %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}?status=menunggu_dp_kredit">Disetujui / Menunggu DP ({{ jumlah_disetujui }})</a>
-            <a class="btn btn-sm {% if filter_status == 'kredit_aktif' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}?status=kredit_aktif">Kredit Aktif ({{ jumlah_aktif }})</a>
-            <a class="btn btn-sm {% if filter_status == 'dibatalkan' %}btn-danger{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}?status=dibatalkan">Ditolak / Batal ({{ jumlah_ditolak }})</a>
-            <a class="btn btn-sm {% if filter_status == 'selesai' %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'admin_pengajuan_kredit' %}?status=selesai">Selesai</a>
+            <a class="btn btn-sm {% if not filter_status %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}">Semua</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_kredit' %}btn-warning{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=menunggu_kredit">Menunggu Review ({{ jumlah_menunggu }})</a>
+            <a class="btn btn-sm {% if filter_status == 'menunggu_dp_kredit' %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=menunggu_dp_kredit">Disetujui / Menunggu DP ({{ jumlah_disetujui }})</a>
+            <a class="btn btn-sm {% if filter_status == 'kredit_aktif' %}btn-success{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=kredit_aktif">Kredit Aktif ({{ jumlah_aktif }})</a>
+            <a class="btn btn-sm {% if filter_status == 'dibatalkan' %}btn-danger{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=dibatalkan">Ditolak / Batal ({{ jumlah_ditolak }})</a>
+            <a class="btn btn-sm {% if filter_status == 'selesai' %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill" href="{% url 'mitra_pengajuan_kredit' %}?status=selesai">Selesai</a>
         </div>
 
         <div class="table-responsive">
@@ -70,7 +70,7 @@
                     {% for pesanan in pengajuan_list %}
                     <tr>
                         <td>
-                            <a class="fw-bold text-decoration-none" href="{% url 'admin_pengajuan_kredit_detail' pesanan.id %}">{{ pesanan.nomor_pesanan }}</a>
+                            <a class="fw-bold text-decoration-none" href="{% url 'mitra_pengajuan_kredit_detail' pesanan.id %}">{{ pesanan.nomor_pesanan }}</a>
                             <div class="small text-muted">{{ pesanan.created_at|date:"d M Y, H:i" }} WITA</div>
                         </td>
                         <td>
@@ -111,14 +111,14 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            <a class="btn btn-sm btn-outline-primary rounded-pill px-3 mb-1" href="{% url 'admin_pengajuan_kredit_detail' pesanan.id %}">Detail</a>
+                            <a class="btn btn-sm btn-outline-primary rounded-pill px-3 mb-1" href="{% url 'mitra_pengajuan_kredit_detail' pesanan.id %}">Detail</a>
                             {% if pesanan.status == 'menunggu_kredit' and boleh_review_kredit %}
-                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-1">
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-1">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                     <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
                                 </form>
-                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                     <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>

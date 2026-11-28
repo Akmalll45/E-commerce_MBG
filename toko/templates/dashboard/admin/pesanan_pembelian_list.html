@@ -93,12 +93,12 @@
                         <td class="text-end pe-3">
                             {% if pesanan.status == 'menunggu_kredit' %}
                                 {% if user.is_superuser or perms.toko.review_kredit_pesananpembelian %}
-                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                     <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
                                 </form>
-                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mt-1">
+                                <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}" class="mt-1">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                     <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>

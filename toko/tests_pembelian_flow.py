@@ -502,7 +502,7 @@ class CustomerPurchaseFlowTests(TestCase):
         self.assertEqual(self.produk_ready.status_stok, 'ready')
 
         forbidden_review = self.client_auth.post(
-            reverse('admin_tinjau_pengajuan_kredit', args=[pesanan.id]),
+            reverse('mitra_tinjau_pengajuan_kredit', args=[pesanan.id]),
             {'aksi': 'setujui'},
         )
         self.assertIn(forbidden_review.status_code, (302, 403))

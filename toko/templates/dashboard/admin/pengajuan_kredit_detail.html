@@ -6,12 +6,12 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
-            <a href="{% url 'admin_pengajuan_kredit' %}" class="text-decoration-none small text-muted"><i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar Pengajuan Kredit</a>
+            <a href="{% url 'mitra_pengajuan_kredit' %}" class="text-decoration-none small text-muted"><i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar Pengajuan Kredit</a>
             <h1 class="h3 fw-bold text-dark mt-1 mb-0">Detail Pengajuan Kredit {{ pesanan.nomor_pesanan }}</h1>
         </div>
         <div>
             {% if pesanan.status == 'menunggu_kredit' %}
-                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Menunggu Review Admin Pembiayaan</span>
+                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Menunggu Review Mitra Pembiayaan</span>
             {% elif pesanan.status == 'menunggu_dp_kredit' %}
                 <span class="badge bg-primary rounded-pill px-3 py-2">Disetujui (Menunggu Pembayaran DP)</span>
             {% elif pesanan.status == 'kredit_aktif' %}
@@ -94,10 +94,10 @@
 
         <div class="col-lg-5">
             <div class="content-card">
-                <h2 class="h5 fw-bold text-dark mb-3">Keputusan Admin Pembiayaan (Simulasi)</h2>
+                <h2 class="h5 fw-bold text-dark mb-3">Keputusan Mitra Pembiayaan (Simulasi)</h2>
                 {% if dapat_ditinjau %}
                     <p class="small text-muted">Persetujuan kredit akan mengubah status menjadi <strong>Kredit Disetujui (Menunggu DP)</strong>. Pelanggan tetap harus membayar DP 20% dan melalui verifikasi pembayaran oleh staf MBG sebelum unit dikunci.</p>
-                    <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-3">
+                    <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}" class="mb-3">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <button class="btn btn-success w-100 rounded-pill fw-bold" type="submit" name="aksi" value="setujui">
@@ -105,7 +105,7 @@
                         </button>
                     </form>
                     <hr>
-                    <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
+                    <form method="post" action="{% url 'mitra_tinjau_pengajuan_kredit' pesanan.id %}">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         <label class="form-label small fw-bold" for="alasanPenolakan">Alasan Penolakan (wajib diisi)</label>

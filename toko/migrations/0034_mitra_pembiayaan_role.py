@@ -47,9 +47,13 @@ def migrate_to_mitra_pembiayaan_role(apps, schema_editor):
     # Jika grup lama Admin Pembiayaan (Simulasi) ada, pindahkan anggotanya ke grup baru lalu hapus izinnya.
     old_group = Group.objects.using(database).filter(name=OLD_ADMIN_PEMBIAYAAN_ROLE).first()
     if old_group:
+        User = apps.get_model('toko', 'CustomUser')
         for user in old_group.user_set.db_manager(database).all():
             user.groups.db_manager(database).add(mitra_group)
             user.groups.db_manager(database).remove(old_group)
+            # Mitra Pembiayaan bukan staf MBG — set is_staff=False kecuali superuser.
+            if not user.is_superuser and user.is_staff:
+                User.objects.using(database).filter(pk=user.pk).update(is_staff=False)
         old_group.permissions.db_manager(database).clear()
         old_group.delete(using=database)
 

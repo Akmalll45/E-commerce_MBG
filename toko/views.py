@@ -1528,14 +1528,15 @@ GALERI_MAKS_SEKALI_UNGGAH = 8    # jumlah foto per sekali unggah
 
 
 def _is_mitra_pembiayaan(user):
-    """True jika user adalah akun pihak ketiga Mitra Pembiayaan (Simulasi), bukan superuser."""
+    """
+    True jika user adalah akun pihak ketiga Mitra Pembiayaan (Simulasi).
+    Superuser TIDAK dianggap mitra — mereka adalah administrator penuh.
+    Deteksi hanya berdasarkan keanggotaan grup, bukan permission langsung,
+    agar staf MBG yang kebetulan memiliki permission kredit tidak salah diklasifikasi.
+    """
     if not (user and user.is_authenticated and not user.is_superuser):
         return False
-    return (
-        user.groups.filter(name=ROLE_MITRA_PEMBIAYAAN).exists()
-        or user.has_perm('toko.view_kredit_pesananpembelian')
-        or user.has_perm('toko.review_kredit_pesananpembelian')
-    )
+    return user.groups.filter(name=ROLE_MITRA_PEMBIAYAAN).exists()
 
 
 def staf_required(view):
@@ -2920,11 +2921,6 @@ def mitra_tinjau_pengajuan_kredit(request, pesanan_id):
             ),
         )
     return redirect(target_redirect)
-
-
-admin_pengajuan_kredit = mitra_pengajuan_kredit
-admin_pengajuan_kredit_detail = mitra_pengajuan_kredit_detail
-admin_tinjau_pengajuan_kredit = mitra_tinjau_pengajuan_kredit
 
 
 @staf_required
