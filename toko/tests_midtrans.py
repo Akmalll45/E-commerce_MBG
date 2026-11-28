@@ -513,7 +513,7 @@ class MidtransSnapServiceTests(TestCase):
         success_page = customer.get(
             reverse('pesanan_berhasil', args=[self.pesanan.nomor_pesanan])
         )
-        self.assertContains(success_page, 'Booking Aktif — Unit Dikunci')
+        self.assertContains(success_page, 'Booking Aktif (Unit Dikunci)')
 
         self.pesanan.refresh_from_db()
         self.produk.refresh_from_db()
@@ -560,7 +560,7 @@ class MidtransSnapServiceTests(TestCase):
         customer = Client()
         customer.login(username='pembeli_midtrans', password='Password123!')
         detail = customer.get(reverse('pesanan_detail', args=[pesanan.nomor_pesanan]))
-        self.assertContains(detail, 'Lunas — Menunggu Serah Terima')
+        self.assertContains(detail, 'Lunas (Menunggu Serah Terima)')
         self.assertNotContains(detail, 'directPurchaseSuccessModalDetail')
 
         admin = Client()

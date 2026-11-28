@@ -80,7 +80,7 @@
         <div><strong>{{ inspeksi.get_status_display }}</strong> <small class="text-muted">· {{ inspeksi.tanggal_waktu|date:"d M Y, H:i" }}</small></div>
         {% if inspeksi.harga_rekomendasi %}<div>Rekomendasi saat pemeriksaan: Rp {{ inspeksi.harga_rekomendasi|intcomma }}</div>{% endif %}
         {% if inspeksi.catatan %}<p class="small text-muted mb-1">{{ inspeksi.catatan }}</p>{% endif %}
-        <ul class="small mb-0">{% for hasil in inspeksi.hasil_checklist.all %}<li>{{ hasil.poin.nama }}: {{ hasil.get_hasil_display }}{% if hasil.catatan %} — {{ hasil.catatan }}{% endif %}</li>{% endfor %}</ul>
+        <ul class="small mb-0">{% for hasil in inspeksi.hasil_checklist.all %}<li>{{ hasil.poin.nama }}: {{ hasil.get_hasil_display }}{% if hasil.catatan %} ({{ hasil.catatan }}){% endif %}</li>{% endfor %}</ul>
     </div>
     {% endfor %}
 </div>
@@ -137,7 +137,7 @@
         {% if transaksi.catatan_verifikasi %}<div class="small text-muted">Tanggapan MBG: {{ transaksi.catatan_verifikasi }}</div>{% endif %}
         {% if transaksi.status == 'terverifikasi' %}<div class="small text-muted">Laporan terverifikasi; menunggu serah-terima dan penyelesaian administrasi.</div>{% endif %}
         {% if transaksi.status == 'selesai' %}<div class="small text-success">Penjualan selesai pada {{ transaksi.tanggal_selesai|date:"d M Y, H:i" }}.</div>{% endif %}
-        {% for event in transaksi.riwayat.all %}<div class="small text-muted">{{ event.get_status_ke_display }} · {{ event.created_at|date:"d M Y, H:i" }}{% if event.catatan %} — {{ event.catatan }}{% endif %}</div>{% endfor %}
+        {% for event in transaksi.riwayat.all %}<div class="small text-muted">{{ event.get_status_ke_display }} · {{ event.created_at|date:"d M Y, H:i" }}{% if event.catatan %} · {{ event.catatan }}{% endif %}</div>{% endfor %}
     </div>
     {% endfor %}
 </div>

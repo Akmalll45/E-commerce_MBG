@@ -1,7 +1,7 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
-{% block title %}Detail Pesanan {{ pesanan.nomor_pesanan }} — MBG Makassar{% endblock %}
+{% block title %}Detail Pesanan {{ pesanan.nomor_pesanan }} | MBG Makassar{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
@@ -24,7 +24,7 @@
                     <span id="pesananStatusBadge" class="badge {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill fw-bold fs-6">
                         {% if pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
                             <i class="fa-solid fa-clock me-1"></i>
-                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Diterima — Menunggu Verifikasi Admin{% else %}Booking Fee Diterima — Menunggu Verifikasi{% endif %}
+                            {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Diterima (Menunggu Verifikasi Admin){% else %}Booking Fee Diterima (Menunggu Verifikasi){% endif %}
                         {% else %}
                             <i class="fa-solid fa-clock me-1"></i>{% if pesanan.jenis_pembelian == 'beli_langsung' %} Menunggu Pembayaran Penuh{% else %} Menunggu Booking Fee{% endif %}
                         {% endif %}
@@ -34,10 +34,10 @@
                         <i class="fa-solid fa-clock me-1"></i> Pengajuan Kredit Menunggu Review Admin
                     </span>
                 {% elif pembayaran_booking_fee.status == 'ditolak' %}
-                    Pembayaran ditolak — silakan periksa detail dan kirim ulang transfer
+                    Pembayaran ditolak, silakan periksa detail dan kirim ulang transfer
                 {% elif pesanan.status == 'menunggu_dp_kredit' %}
                     <span id="pesananStatusBadge" class="badge bg-info text-dark px-3 py-2 rounded-pill fw-bold fs-6">
-                        <i class="fa-solid fa-circle-check me-1"></i> Kredit Disetujui — Menunggu DP
+                        <i class="fa-solid fa-circle-check me-1"></i> Kredit Disetujui (Menunggu DP)
                     </span>
                 {% elif pesanan.status == 'menunggu_booking_fee' %}
                     <span id="pesananStatusBadge" class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold fs-6">
@@ -46,11 +46,11 @@
                 {% elif pesanan.status == 'booking_aktif' %}
                     <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
                         <i class="fa-solid fa-lock me-1"></i>
-                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — Menunggu Serah Terima{% else %}Booking Aktif (Unit Dikunci){% endif %}
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas (Menunggu Serah Terima){% else %}Booking Aktif (Unit Dikunci){% endif %}
                     </span>
                 {% elif pesanan.status == 'kredit_aktif' %}
                     <span class="badge bg-success px-3 py-2 rounded-pill fw-bold fs-6">
-                        <i class="fa-solid fa-lock me-1"></i> Kredit Aktif — Unit Dikunci
+                        <i class="fa-solid fa-lock me-1"></i> Kredit Aktif (Unit Dikunci)
                     </span>
                 {% elif pesanan.status == 'selesai' %}
                     <span class="badge bg-primary px-3 py-2 rounded-pill fw-bold fs-6">
@@ -208,15 +208,15 @@
                             {% if pesanan.status == 'menunggu_kredit' %}
                                 Menunggu peninjauan admin; belum ada tagihan
                             {% elif pembayaran_booking_fee.status == 'ditolak' %}
-                                Ditolak — silakan bayar kembali
+                                Ditolak, silakan bayar kembali
                             {% elif pesanan.status == 'menunggu_dp_kredit' %}
-                                Disetujui — menunggu pembayaran DP
+                                Disetujui, menunggu pembayaran DP
                             {% elif pesanan.status == 'kredit_aktif' %}
                                 DP terverifikasi; kredit aktif
                             {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
-                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu validasi pembayaran penuh{% else %}Diterima — menunggu verifikasi admin{% endif %}
+                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu validasi pembayaran penuh{% else %}Diterima, menunggu verifikasi admin{% endif %}
                             {% elif pembayaran_booking_fee.status == 'terverifikasi' %}
-                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas — terverifikasi otomatis{% else %}Terverifikasi{% endif %}
+                                {% if pesanan.jenis_pembelian == 'beli_langsung' %}Lunas (terverifikasi otomatis){% else %}Terverifikasi{% endif %}
                             {% else %}
                                 {% if pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu pembayaran penuh{% else %}Menunggu Booking Fee{% endif %}
                             {% endif %}
@@ -316,7 +316,7 @@
                             {% csrf_token %}
                             <label class="form-label small fw-semibold" for="{{ form_konfirmasi_transfer.nomor_referensi.id_for_label }}">
                                 {% if jenis_pembayaran_transfer == 'dp' %}Saya sudah transfer DP{% elif jenis_pembayaran_transfer == 'angsuran' %}Saya sudah transfer angsuran{% else %}Saya sudah transfer{% endif %}
-                                Rp {{ nominal_pembayaran_transfer|intcomma }} — nomor referensi
+                                Rp {{ nominal_pembayaran_transfer|intcomma }}, nomor referensi
                             </label>
                             {{ form_konfirmasi_transfer.nomor_referensi }}
                             {% if form_konfirmasi_transfer.nomor_referensi.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.nomor_referensi.errors.0 }}</div>{% endif %}
@@ -420,7 +420,7 @@
             if (data.purchase_type === 'beli_langsung' && data.payment_status === 'terverifikasi') {
                 if (paymentState) {
                     paymentState.className = 'fw-bold text-success';
-                    paymentState.textContent = 'Lunas — terverifikasi otomatis';
+                    paymentState.textContent = 'Lunas (terverifikasi otomatis)';
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Pembayaran Penuh Terverifikasi';
@@ -430,21 +430,21 @@
                 if (orderBadge) {
                     orderBadge.className = 'badge bg-info text-dark px-3 py-2 rounded-pill fw-bold fs-6';
                     orderBadge.textContent = data.purchase_type === 'beli_langsung'
-                        ? 'Pembayaran Diterima — Menunggu Verifikasi Admin'
-                        : 'Booking Fee Diterima — Menunggu Verifikasi Admin';
+                        ? 'Pembayaran Diterima (Menunggu Verifikasi Admin)'
+                        : 'Booking Fee Diterima (Menunggu Verifikasi Admin)';
                 }
                 if (paymentState) {
                     paymentState.className = 'fw-bold text-info';
                     paymentState.textContent = data.purchase_type === 'beli_langsung'
-                        ? 'Pembayaran diterima — menunggu verifikasi admin'
-                        : 'Diterima — menunggu verifikasi admin';
+                        ? 'Pembayaran diterima, menunggu verifikasi admin'
+                        : 'Diterima, menunggu verifikasi admin';
                 }
                 btn.disabled = true;
                 btnText.textContent = 'Menunggu Verifikasi Booking Fee';
             } else if (data.payment_status === 'ditolak') {
                 if (paymentState) {
                     paymentState.className = 'fw-bold text-danger';
-                    paymentState.textContent = 'Ditolak — silakan bayar kembali';
+                    paymentState.textContent = 'Ditolak, silakan bayar kembali';
                 }
             }
         }

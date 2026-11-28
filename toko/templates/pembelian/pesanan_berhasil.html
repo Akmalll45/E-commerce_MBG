@@ -1,7 +1,7 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
-{% block title %}Status Pesanan {{ pesanan.nomor_pesanan }} — MBG Makassar{% endblock %}
+{% block title %}Status Pesanan {{ pesanan.nomor_pesanan }} | MBG Makassar{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block extra_css %}
@@ -127,11 +127,11 @@
             <h1 class="h3 fw-bold text-dark font-heading mb-2">
                 {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}
                     {% if pesanan.status == 'menunggu_kredit' %}Pengajuan Kredit Tercatat
-                    {% elif pesanan.status == 'menunggu_dp_kredit' %}Pengajuan Disetujui — Menunggu DP
-                    {% elif pesanan.status == 'kredit_aktif' %}Kredit Aktif — Pesanan Diproses
+                    {% elif pesanan.status == 'menunggu_dp_kredit' %}Pengajuan Disetujui, Menunggu DP
+                    {% elif pesanan.status == 'kredit_aktif' %}Kredit Aktif, Pesanan Diproses
                     {% else %}Status Pengajuan Kredit{% endif %}
                 {% elif pesanan.status == 'booking_aktif' or pesanan.status == 'kredit_aktif' or pesanan.status == 'selesai' %}
-                    Pembayaran Terkonfirmasi — Pesanan Diajukan
+                    Pembayaran Terkonfirmasi, Pesanan Diajukan
                 {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
                     Konfirmasi Pembayaran Diajukan
                 {% else %}
@@ -169,16 +169,16 @@
                 <span class="badge {% if pesanan.status == 'booking_aktif' or pesanan.status == 'kredit_aktif' or pesanan.status == 'selesai' %}bg-success{% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}bg-info text-dark{% elif pembayaran_booking_fee.status == 'ditolak' or pesanan.status == 'dibatalkan' or pesanan.status == 'kedaluwarsa' %}bg-danger{% else %}bg-warning text-dark{% endif %} py-2 px-3 rounded-pill fw-bold">
                     <i class="fa-solid fa-clock me-1"></i>
                     {% if pesanan.status == 'booking_aktif' %}
-                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Lunas — Menunggu Serah Terima{% else %}Booking Aktif — Unit Dikunci{% endif %}
-                    {% elif pesanan.status == 'kredit_aktif' %}DP Terverifikasi — Kredit Aktif, Unit Dikunci
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran Lunas (Menunggu Serah Terima){% else %}Booking Aktif (Unit Dikunci){% endif %}
+                    {% elif pesanan.status == 'kredit_aktif' %}DP Terverifikasi (Kredit Aktif, Unit Dikunci)
                     {% elif pesanan.status == 'selesai' %}Pembelian Selesai
                     {% elif pesanan.status == 'dibatalkan' %}Pesanan Dibatalkan
                     {% elif pesanan.status == 'kedaluwarsa' %}Masa Booking Berakhir
                     {% elif pesanan.status == 'menunggu_kredit' %}Menunggu Peninjauan Admin
-                    {% elif pembayaran_booking_fee.status == 'ditolak' %}Pembayaran ditolak — silakan periksa status dan coba kembali
-                    {% elif pesanan.status == 'menunggu_dp_kredit' %}Pengajuan Disetujui — Menunggu DP
+                    {% elif pembayaran_booking_fee.status == 'ditolak' %}Pembayaran ditolak, silakan periksa status dan coba kembali
+                    {% elif pesanan.status == 'menunggu_dp_kredit' %}Pengajuan Disetujui, Menunggu DP
                     {% elif pembayaran_booking_fee.status == 'menunggu_verifikasi' %}
-                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran diterima — perlu tindak lanjut admin{% else %}Booking Fee diterima — menunggu verifikasi admin{% endif %}
+                        {% if pesanan.jenis_pembelian == 'beli_langsung' %}Pembayaran diterima, perlu tindak lanjut admin{% else %}Booking Fee diterima, menunggu verifikasi admin{% endif %}
                     {% elif pesanan.saluran_pembayaran == 'transfer' %}
                         {% if pesanan.jenis_pembelian == 'beli_langsung' and pesanan.metode_pembayaran == 'kredit' %}Pengajuan Kredit{% elif pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu Transfer Pembayaran Penuh{% else %}Menunggu Transfer Booking Fee{% endif %}
                     {% elif pesanan.jenis_pembelian == 'beli_langsung' %}Menunggu Pembayaran Penuh Midtrans
@@ -269,7 +269,7 @@
                         {% csrf_token %}
                         <label class="form-label small fw-semibold" for="{{ form_konfirmasi_transfer.nomor_referensi.id_for_label }}">
                             {% if jenis_pembayaran_transfer == 'dp' %}Saya sudah transfer DP{% elif jenis_pembayaran_transfer == 'angsuran' %}Saya sudah transfer angsuran{% else %}Saya sudah transfer{% endif %}
-                            Rp {{ nominal_pembayaran_transfer|intcomma }} — nomor referensi
+                            Rp {{ nominal_pembayaran_transfer|intcomma }}, nomor referensi
                         </label>
                         {{ form_konfirmasi_transfer.nomor_referensi }}
                         {% if form_konfirmasi_transfer.nomor_referensi.errors %}<div class="text-danger small mt-1">{{ form_konfirmasi_transfer.nomor_referensi.errors.0 }}</div>{% endif %}

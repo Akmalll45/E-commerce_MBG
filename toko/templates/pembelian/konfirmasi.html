@@ -1,7 +1,7 @@
 {% extends 'base_publik.html' %}
 {% load humanize %}
 
-{% block title %}Konfirmasi Pesanan — {{ produk.nama }} — MBG Makassar{% endblock %}
+{% block title %}Konfirmasi Pesanan {{ produk.nama }} | MBG Makassar{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block extra_css %}
@@ -174,7 +174,7 @@
                             {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Beli Langsung</span>
                             {% else %}
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Booking — Booking Fee {{ persentase_booking_fee }}% OTR</span>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Booking (Booking Fee {{ persentase_booking_fee }}% OTR)</span>
                             {% endif %}
                         </dd>
 
@@ -196,7 +196,7 @@
                             {% if checkout_data.jenis_pembelian == 'beli_langsung' and checkout_data.metode_pembayaran == 'kredit' %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Transfer Bank Manual setelah persetujuan admin</span>
                             {% elif checkout_data.saluran_pembayaran == 'transfer' %}
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Transfer Bank — verifikasi admin</span>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1">Transfer Bank (verifikasi admin)</span>
                             {% else %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Midtrans</span>
                             {% endif %}
