@@ -211,7 +211,7 @@
                                 <span class="d-block text-secondary">Dibayar setelah pengajuan disetujui admin.</span>
                             {% endif %}
                             Angsuran 5% OTR: <strong>Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }}/tahun</strong> selama {{ rincian_kredit.tenor_tahun }} tahun; terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}.
-                            <span class="d-block text-secondary">Simulasi tanpa bunga tambahan; belum terhubung ke bank/leasing.</span>
+                            <span class="d-block text-secondary">Simulasi tanpa bunga tambahan. Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.</span>
                         </dd>
                         {% endif %}
 
@@ -242,9 +242,9 @@
                             <ul class="text-secondary small mb-0 ps-3">
                                 {% if checkout_data.jenis_pembelian == 'beli_langsung' %}
                                     {% if checkout_data.metode_pembayaran == 'kredit' %}
-                                        <li class="mb-1">Pengajuan kredit ditinjau admin terlebih dahulu. Tidak ada pembayaran saat pengajuan.</li>
+                                        <li class="mb-1">Pengajuan kredit ditinjau Admin Pembiayaan (Simulasi) terlebih dahulu. Tidak ada pembayaran saat pengajuan.</li>
                                         <li class="mb-1">Setelah disetujui, DP 20% dibayar melalui transfer bank manual dan diverifikasi admin. Unit baru dikunci setelah DP diverifikasi.</li>
-                                        <li class="mb-1">Angsuran tahunan 5% dari harga OTR dicatat admin; belum ada integrasi leasing atau penagihan otomatis.</li>
+                                        <li class="mb-1">Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.</li>
                                     {% elif checkout_data.saluran_pembayaran == 'midtrans' %}
                                         <li class="mb-1">Pembayaran penuh 100% harga OTR diproses melalui Midtrans dan otomatis disahkan setelah notifikasi Midtrans tervalidasi.</li>
                                         <li class="mb-1">Setelah pembayaran sah, unit dikunci untuk proses administrasi dan serah terima tanpa verifikasi manual.</li>

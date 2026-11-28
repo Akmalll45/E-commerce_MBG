@@ -41,7 +41,7 @@ from .models import (
     KategoriArtikel, Artikel, HalamanWebsite, HeroSlide, Mitra, PengaturanWebsite,
     PesananPembelian, PembayaranPesanan, PengaturanPembelian, RiwayatPesanan,
     RefundPesanan, PERSENTASE_DP_KREDIT, PERSENTASE_ANGSURAN_KREDIT_TAHUNAN,
-    normalisasi_whatsapp,
+    ROLE_ADMIN_PEMBIAYAAN, normalisasi_whatsapp,
 )
 from .forms import (
     LoginForm, RegisterForm, UserProfileForm, AdminProfileForm, AdminUserForm, UbahPasswordForm,
@@ -698,6 +698,8 @@ def login_view(request):
     Mendukung username atau email, dan redirect otomatis berdasarkan peran akun.
     """
     if request.user.is_authenticated:
+        if _is_hanya_admin_pembiayaan(request.user):
+            return redirect('admin_pengajuan_kredit')
         if request.user.is_staff or request.user.is_superuser:
             return redirect('dashboard_admin')
         return redirect('dashboard_user')
@@ -715,6 +717,8 @@ def login_view(request):
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
             
+            if _is_hanya_admin_pembiayaan(user):
+                return redirect('admin_pengajuan_kredit')
             if user.is_staff or user.is_superuser:
                 return redirect('dashboard_admin')
             return redirect('dashboard_user')
@@ -735,6 +739,8 @@ def register_view(request):
     Mendaftar sebagai pengguna biasa (bukan staf/admin).
     """
     if request.user.is_authenticated:
+        if _is_hanya_admin_pembiayaan(request.user):
+            return redirect('admin_pengajuan_kredit')
         if request.user.is_staff or request.user.is_superuser:
             return redirect('dashboard_admin')
         return redirect('dashboard_user')
@@ -1363,6 +1369,8 @@ def dashboard_admin(request):
     if not (request.user.is_staff or request.user.is_superuser):
         messages.error(request, "Akses ditolak. Halaman Dashboard Admin hanya dapat diakses oleh staf atau pengelola MBG.")
         return redirect('dashboard_user')
+    if _is_hanya_admin_pembiayaan(request.user):
+        return redirect('admin_pengajuan_kredit')
 
     # 1. Statistik Katalog Kendaraan
     total_katalog = Produk.objects.count()
@@ -1510,16 +1518,54 @@ GALERI_MAKS_FOTO = 12            # total foto galeri per mobil
 GALERI_MAKS_SEKALI_UNGGAH = 8    # jumlah foto per sekali unggah
 
 
+def _is_hanya_admin_pembiayaan(user):
+    """True jika user hanya berperan sebagai Admin Pembiayaan (Simulasi), tanpa akses admin MBG lain."""
+    if not (user and user.is_authenticated and user.is_staff and not user.is_superuser):
+        return False
+    has_kredit_perm = (
+        user.has_perm('toko.view_kredit_pesananpembelian')
+        or user.has_perm('toko.review_kredit_pesananpembelian')
+    )
+    if not has_kredit_perm:
+        return False
+    if user.groups.exclude(name=ROLE_ADMIN_PEMBIAYAAN).exists():
+        return False
+    if user.user_permissions.exclude(
+        codename__in=('view_kredit_pesananpembelian', 'review_kredit_pesananpembelian')
+    ).exists():
+        return False
+    return True
+
+
 def staf_required(view):
-    """Hanya staf/superuser. Pengguna biasa diarahkan ke dashboard mereka (sama seperti panel yang sudah ada)."""
+    """Hanya staf penuh/superuser. Admin Pembiayaan (Simulasi) khusus tidak boleh mengakses modul admin MBG lain."""
     @wraps(view)
     @login_required(login_url='login')
     def pembungkus(request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser):
             messages.error(request, "Akses ditolak. Halaman ini hanya untuk staf atau pengelola MBG.")
             return redirect('dashboard_user')
+        if _is_hanya_admin_pembiayaan(request.user):
+            raise PermissionDenied
         return view(request, *args, **kwargs)
     return pembungkus
+
+
+def kredit_permission_required(permission):
+    """Batasi akses peninjauan pengajuan kredit hanya untuk Admin Pembiayaan (Simulasi) atau Superuser."""
+    def decorator(view):
+        @wraps(view)
+        @login_required(login_url='login')
+        def pembungkus(request, *args, **kwargs):
+            if not (request.user.is_staff or request.user.is_superuser):
+                raise PermissionDenied
+            if not request.user.is_superuser and not request.user.has_perm(
+                f'toko.{permission}_kredit_pesananpembelian'
+            ):
+                raise PermissionDenied
+            return view(request, *args, **kwargs)
+        return pembungkus
+    return decorator
 
 
 def c2c_permission_required(permission):
@@ -2759,20 +2805,102 @@ def admin_pesanan_pembelian(request):
     })
 
 
-@staf_required
+@kredit_permission_required('view')
+def admin_pengajuan_kredit(request):
+    """Daftar pengajuan pembelian kredit (Simulasi) khusus Admin Pembiayaan / Superuser."""
+    daftar = (
+        PesananPembelian.objects.filter(
+            jenis_pembelian='beli_langsung',
+            metode_pembayaran='kredit',
+        )
+        .select_related('pelanggan', 'produk')
+        .prefetch_related('riwayat__diubah_oleh', 'pembayaran')
+        .order_by('-created_at', '-pk')
+    )
+    jumlah_menunggu = daftar.filter(status='menunggu_kredit').count()
+    jumlah_disetujui = daftar.filter(status='menunggu_dp_kredit').count()
+    jumlah_aktif = daftar.filter(status='kredit_aktif').count()
+    jumlah_ditolak = daftar.filter(status='dibatalkan').count()
+
+    filter_status = request.GET.get('status', '').strip()
+    status_valid = ('menunggu_kredit', 'menunggu_dp_kredit', 'kredit_aktif', 'dibatalkan', 'selesai')
+    if filter_status in status_valid:
+        daftar = daftar.filter(status=filter_status)
+
+    page_obj = Paginator(daftar, 20).get_page(request.GET.get('page'))
+    for pesanan in page_obj.object_list:
+        pesanan.rincian_kredit = _rincian_simulasi_kredit(pesanan.harga_kendaraan, Decimal('0'))
+        pesanan.riwayat_keputusan = next(
+            (r for r in pesanan.riwayat.all() if r.status_dari == 'menunggu_kredit'),
+            None,
+        )
+
+    return render(request, 'dashboard/admin/pengajuan_kredit_list.html', {
+        'page_obj': page_obj,
+        'pengajuan_list': page_obj.object_list,
+        'total_hasil': page_obj.paginator.count,
+        'filter_status': filter_status,
+        'jumlah_menunggu': jumlah_menunggu,
+        'jumlah_disetujui': jumlah_disetujui,
+        'jumlah_aktif': jumlah_aktif,
+        'jumlah_ditolak': jumlah_ditolak,
+        'boleh_review_kredit': (
+            request.user.is_superuser
+            or request.user.has_perm('toko.review_kredit_pesananpembelian')
+        ),
+    })
+
+
+@kredit_permission_required('view')
+def admin_pengajuan_kredit_detail(request, pesanan_id):
+    """Detail pengajuan kredit (Simulasi) dan riwayat keputusan untuk Admin Pembiayaan / Superuser."""
+    pesanan = get_object_or_404(
+        PesananPembelian.objects.select_related('pelanggan', 'produk')
+        .prefetch_related('riwayat__diubah_oleh', 'pembayaran'),
+        pk=pesanan_id,
+        jenis_pembelian='beli_langsung',
+        metode_pembayaran='kredit',
+    )
+    rincian_kredit = _rincian_simulasi_kredit(pesanan.harga_kendaraan, Decimal('0'))
+    dapat_ditinjau = (
+        pesanan.status == 'menunggu_kredit'
+        and (
+            request.user.is_superuser
+            or request.user.has_perm('toko.review_kredit_pesananpembelian')
+        )
+    )
+    return render(request, 'dashboard/admin/pengajuan_kredit_detail.html', {
+        'pesanan': pesanan,
+        'rincian_kredit': rincian_kredit,
+        'dapat_ditinjau': dapat_ditinjau,
+        'riwayat_keputusan': pesanan.riwayat.all(),
+    })
+
+
+@kredit_permission_required('review')
 @require_POST
 def admin_tinjau_pengajuan_kredit(request, pesanan_id):
     pesanan = get_object_or_404(PesananPembelian, pk=pesanan_id)
-    disetujui = request.POST.get('aksi') == 'setujui'
-    if request.POST.get('aksi') not in ('setujui', 'tolak'):
+    next_url = request.POST.get('next', '').strip()
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        target_redirect = next_url
+    else:
+        target_redirect = reverse('admin_pengajuan_kredit')
+
+    aksi = request.POST.get('aksi')
+    if aksi not in ('setujui', 'tolak'):
         messages.error(request, 'Tindakan peninjauan pengajuan kredit tidak valid.')
-        return redirect('admin_pesanan_pembelian')
+        return redirect(target_redirect)
+
+    disetujui = aksi == 'setujui'
     try:
         pesanan.tinjau_pengajuan_kredit(
             oleh_user=request.user,
             disetujui=disetujui,
             alasan=request.POST.get('alasan', ''),
         )
+    except PermissionError as exc:
+        raise PermissionDenied(str(exc))
     except ValueError as exc:
         messages.error(request, str(exc))
     else:
@@ -2785,7 +2913,7 @@ def admin_tinjau_pengajuan_kredit(request, pesanan_id):
                 else f'Pengajuan kredit pesanan {pesanan.nomor_pesanan} ditolak dan unit tersedia kembali.'
             ),
         )
-    return redirect('admin_pesanan_pembelian')
+    return redirect(target_redirect)
 
 
 @staf_required

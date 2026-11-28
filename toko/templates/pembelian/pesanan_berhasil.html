@@ -221,7 +221,7 @@
                         {% else %}
                             Pengajuan ini belum memiliki tagihan. Setelah disetujui admin, DP 20% dapat dibayar melalui transfer bank manual dan diverifikasi admin.
                         {% endif %}
-                        Simulasi tanpa bunga tambahan; belum ada integrasi leasing.
+                        Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                     </div>
                     {% elif pesanan.saluran_pembayaran == 'midtrans' %}
                     <div class="alert alert-primary small mb-3" role="status">
@@ -248,7 +248,7 @@
                         Setelah DP, angsuran {{ rincian_kredit.persentase_angsuran_tahunan }}% harga OTR adalah
                         Rp {{ rincian_kredit.nominal_angsuran_tahunan|intcomma }} per tahun selama {{ rincian_kredit.tenor_tahun }} tahun
                         (angsuran terakhir Rp {{ rincian_kredit.nominal_angsuran_terakhir|intcomma }}).
-                        Ini estimasi untuk ditinjau tim MBG; belum ada integrasi leasing atau penagihan otomatis.
+                        Fitur pembiayaan ini merupakan simulasi untuk keperluan proyek akademik dan tidak terhubung dengan lembaga pembiayaan nyata.
                     </div>
                     {% endif %}
 

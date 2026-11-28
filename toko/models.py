@@ -1610,9 +1610,29 @@ def akhir_masa_booking(waktu_verifikasi):
     return lokal.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
+ROLE_ADMIN_PEMBIAYAAN = 'Admin Pembiayaan (Simulasi)'
+
+
 def _pastikan_staf(user):
     if not (user and (user.is_staff or user.is_superuser)):
         raise ValueError('Tindakan ini hanya dapat dilakukan oleh staf MBG.')
+
+
+def _pastikan_peninjau_kredit(user):
+    if not (
+        user
+        and user.is_authenticated
+        and (
+            user.is_superuser
+            or (
+                user.is_staff
+                and user.has_perm('toko.review_kredit_pesananpembelian')
+            )
+        )
+    ):
+        raise PermissionError(
+            'Hanya Admin Pembiayaan (Simulasi) atau Superuser yang berwenang meninjau pengajuan kredit.'
+        )
 
 
 def _alasan_wajib(teks, pesan):
@@ -1837,6 +1857,10 @@ class PesananPembelian(models.Model):
         ]
         verbose_name = "Pesanan Pembelian"
         verbose_name_plural = "Pesanan Pembelian"
+        permissions = [
+            ('view_kredit_pesananpembelian', 'Can view credit applications (Admin Pembiayaan)'),
+            ('review_kredit_pesananpembelian', 'Can approve or reject credit applications (Admin Pembiayaan)'),
+        ]
 
     def __str__(self):
         return f'{self.nomor_pesanan} — {self.nama_kendaraan} [{self.get_status_display()}]'
@@ -2192,7 +2216,7 @@ class PesananPembelian(models.Model):
         return refund
 
     def tinjau_pengajuan_kredit(self, oleh_user, disetujui, alasan=''):
-        _pastikan_staf(oleh_user)
+        _pastikan_peninjau_kredit(oleh_user)
         if self.jenis_pembelian != 'beli_langsung' or self.metode_pembayaran != 'kredit':
             raise ValueError('Tindakan ini hanya berlaku untuk pengajuan Kredit Beli Langsung.')
         with transaction.atomic():
@@ -2204,7 +2228,7 @@ class PesananPembelian(models.Model):
                     raise ValueError('Kendaraan tidak tersedia; pengajuan kredit tidak dapat disetujui.')
                 pesanan._pindah_status(
                     'menunggu_dp_kredit', oleh_user,
-                    'Pengajuan kredit disetujui. Pelanggan dapat membayar DP 20% melalui transfer bank.',
+                    'Pengajuan kredit disetujui oleh Admin Pembiayaan (Simulasi). Pelanggan dapat membayar DP 20% melalui transfer bank.',
                 )
             else:
                 alasan = _alasan_wajib(alasan, 'Alasan penolakan pengajuan kredit wajib dicatat.')

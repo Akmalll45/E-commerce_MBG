@@ -92,15 +92,21 @@
                         </td>
                         <td class="text-end pe-3">
                             {% if pesanan.status == 'menunggu_kredit' %}
-                            <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
-                            </form>
-                            <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mt-1">
-                                {% csrf_token %}
-                                <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>
-                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" type="submit" name="aksi" value="tolak">Tolak Pengajuan</button>
-                            </form>
+                                {% if user.is_superuser or perms.toko.review_kredit_pesananpembelian %}
+                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="btn btn-sm btn-success rounded-pill px-3" type="submit" name="aksi" value="setujui">Setujui Pengajuan</button>
+                                </form>
+                                <form method="post" action="{% url 'admin_tinjau_pengajuan_kredit' pesanan.id %}" class="mt-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input class="form-control form-control-sm mb-1" name="alasan" placeholder="Alasan penolakan" required>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" type="submit" name="aksi" value="tolak">Tolak Pengajuan</button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Menunggu Admin Pembiayaan (Simulasi)</span>
+                                {% endif %}
                             {% endif %}
                             {% for pembayaran in pesanan.pembayaran.all %}
                                 {% if pembayaran.status == 'menunggu_verifikasi' %}
