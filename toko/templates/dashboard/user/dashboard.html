@@ -164,45 +164,60 @@
             font-size: 1rem;
         }
 
-        /* Stat Cards */
+        /* Stat Cards — Minimalist & Uniform */
         .stat-card {
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-radius: var(--radius-lg);
-            padding: 1.1rem 1.25rem;
-            box-shadow: var(--shadow-card);
-            transition: transform 0.25s, box-shadow 0.25s;
+            padding: 1.15rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(8, 13, 26, 0.04);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0.55rem;
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
             box-shadow: var(--shadow-hover);
+            border-color: #CBD5E1;
         }
 
         .stat-icon {
-            width: 46px; height: 46px;
-            min-width: 46px;
-            border-radius: var(--radius-md);
+            width: 36px; height: 36px;
+            min-width: 36px;
+            border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.15rem;
+            font-size: 0.95rem;
         }
 
         .stat-value {
             font-family: 'Montserrat', sans-serif;
-            font-size: 1.55rem;
+            font-size: 1.75rem;
             font-weight: 800;
             color: var(--mbg-navy);
             line-height: 1.1;
+            letter-spacing: -0.02em;
         }
 
         .stat-label {
             font-size: 0.72rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
             color: #64748B;
-            margin-top: 1px;
+            line-height: 1.2;
+        }
+
+        .stat-sub {
+            font-size: 0.74rem;
+            color: #94A3B8;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Content Card */
@@ -452,53 +467,55 @@
 
                 <!-- 4 Quick Stat Cards -->
                 <div class="row g-3 mb-4">
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-primary bg-opacity-10 text-primary flex-shrink-0">
-                                <i class="fa-solid fa-cart-shopping"></i>
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="stat-label">Pesanan</span>
+                                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                    <i class="fa-solid fa-cart-shopping"></i>
+                                </div>
                             </div>
-                            <div class="overflow-hidden">
-                                <div class="stat-value">{{ total_pesanan_pembelian }}</div>
-                                <div class="stat-label">Pesanan</div>
-                                <small class="text-muted d-block mt-1 text-truncate">Booking: {{ total_booking_pembelian }} · Langsung: {{ total_pembelian_langsung }}</small>
-                            </div>
+                            <div class="stat-value">{{ total_pesanan_pembelian }}</div>
+                            <div class="stat-sub">{{ total_booking_pembelian }} booking · {{ total_pembelian_langsung }} langsung</div>
                         </div>
                     </div>
 
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-info bg-opacity-10 text-info flex-shrink-0">
-                                <i class="fa-solid fa-calendar-check"></i>
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="stat-label">Cek Unit</span>
+                                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                </div>
                             </div>
-                            <div>
-                                <div class="stat-value">{{ total_booking }}</div>
-                                <div class="stat-label">Booking Cek Unit</div>
-                            </div>
+                            <div class="stat-value">{{ total_booking }}</div>
+                            <div class="stat-sub">Jadwal kunjungan</div>
                         </div>
                     </div>
 
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-warning bg-opacity-10 text-warning flex-shrink-0">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="stat-label">Titip-Jual</span>
+                                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                                </div>
                             </div>
-                            <div class="overflow-hidden">
-                                <div class="stat-value">{{ total_titip_jual }}</div>
-                                <div class="stat-label">Titip-Jual C2C</div>
-                                <small class="text-muted d-block mt-1 text-truncate">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} dititipkan</small>
-                            </div>
+                            <div class="stat-value">{{ total_titip_jual }}</div>
+                            <div class="stat-sub">{{ titip_jual_dalam_proses }} proses · {{ titip_jual_dititipkan }} tayang</div>
                         </div>
                     </div>
 
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="stat-card d-flex align-items-center gap-3">
-                            <div class="stat-icon bg-success bg-opacity-10 text-success flex-shrink-0">
-                                <i class="fa-solid fa-receipt"></i>
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <span class="stat-label">Transaksi</span>
+                                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                    <i class="fa-solid fa-receipt"></i>
+                                </div>
                             </div>
-                            <div>
-                                <div class="stat-value">{{ total_transaksi }}</div>
-                                <div class="stat-label">Transaksi O2O</div>
-                            </div>
+                            <div class="stat-value">{{ total_transaksi }}</div>
+                            <div class="stat-sub">Pembayaran O2O</div>
                         </div>
                     </div>
                 </div>
