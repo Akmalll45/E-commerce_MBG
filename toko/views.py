@@ -185,7 +185,7 @@ def beranda(request):
             output_field=BooleanField(),
         ),
     ).filter(status_stok='ready', sedang_dipesan=False)
-    katalog_mobil = unit_tayang.order_by('-created_at', '-id')
+    katalog_mobil = unit_tayang.prefetch_related('galeri_foto').order_by('-created_at', '-id')
 
     # Total unit di katalog (termasuk unit yang sedang di-booking) untuk tombol navigasi ke katalog
     total_katalog = produk_tayang(termasuk_in_review=True).count()
