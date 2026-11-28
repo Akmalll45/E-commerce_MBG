@@ -1156,9 +1156,11 @@
                             Rp {{ produk.harga|intcomma }}
                         </div>
                         {% if produk.harga_promo %}
-                            <div class="px-2.5 py-2 rounded-3 bg-danger bg-opacity-10 border border-danger-subtle text-danger fw-bold mb-2 d-flex align-items-center justify-content-between gap-2 flex-wrap" style="font-size:0.8rem;">
-                                <span><i class="fa-solid fa-tag me-1"></i> Subsidi DP Khusus</span>
-                                <span class="text-nowrap">Rp {{ produk.harga_promo|intcomma }}</span>
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap" style="padding:5px 10px; border-radius:6px; background:#FEF2F2; border:1px solid #FECACA;">
+                                <span style="font-size:0.73rem; font-weight:700; color:#DC2626; letter-spacing:0.01em;">
+                                    <i class="fa-solid fa-tag me-1"></i> Subsidi DP Khusus
+                                </span>
+                                <span class="text-nowrap" style="font-size:0.8rem; font-weight:800; color:#DC2626;">Rp {{ produk.harga_promo|intcomma }}</span>
                             </div>
                         {% endif %}
                         <small class="text-muted d-block" style="font-size:0.76rem; line-height:1.45;">*Harga transparan tanpa mark-up tersembunyi. Beli Langsung menggunakan Cash, sedangkan Booking tersedia dengan rencana Cash atau pengajuan Kredit.</small>
