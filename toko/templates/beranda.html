@@ -560,9 +560,7 @@
 
         @media (prefers-reduced-motion: reduce) {
             .gradient-text-animated { animation: none !important; }
-            .card-product-premium,
-            .mbg-layered-card-wrap::before,
-            .mbg-layered-card-wrap::after { transition: none !important; }
+            .scc-card { transition: none !important; }
         }
 
         /* ── Search forms ──────────────────────────────────────────── */
@@ -604,150 +602,274 @@
             color: var(--mbg-navy); line-height: 1.25;
         }
 
-        /* ── Product Card Grid & Layered Card Effect (MBG Identity) ─── */
-        .mbg-product-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 2.35rem 2rem;
-            padding: 20px 14px 16px;
+        /* ══════════════════════════════════════════════════
+           STACKED CARD CAROUSEL — MBG Homepage Featured Units
+           ══════════════════════════════════════════════════ */
+        .scc-section {
+            padding: 2rem 0 3rem;
+            /* soft light-blue gradient bg like reference */
+            background: linear-gradient(160deg, #EFF6FF 0%, #F8FAFC 55%, #EFF6FF 100%);
+            overflow: hidden;
         }
-        .mbg-layered-card-wrap {
+
+        /* Stage: the visible viewport for the carousel */
+        .scc-stage {
             position: relative;
-            z-index: 1;
-            display: flex;
-            height: 100%;
-            min-width: 0;
+            height: 520px;             /* desktop height */
+            perspective: 1800px;
+            perspective-origin: 50% 40%;
         }
-        /* Layer 2 (tengah, di belakang card utama): soft ice blue */
-        .mbg-layered-card-wrap::before {
-            content: '';
+
+        /* Each card slot — transforms applied by JS via data-pos */
+        .scc-card {
             position: absolute;
-            top: -8px;
-            left: -8px;
-            right: -8px;
-            bottom: 8px;
-            background: linear-gradient(145deg, #DBEAFE 0%, #EFF6FF 100%);
-            border: 1px solid #BFDBFE;
+            top: 50%;
+            left: 50%;
+            width: 230px;
+            /* center card is 290px wide — scaled via transform */
+            background: #fff;
             border-radius: 20px;
-            box-shadow: 0 10px 24px -8px rgba(37, 99, 235, 0.16);
-            z-index: 0;
-            pointer-events: none;
-            transition: transform .35s var(--transition-snappy),
-                        box-shadow .35s var(--transition-snappy);
-        }
-        /* Layer 3 (paling belakang): soft slate white */
-        .mbg-layered-card-wrap::after {
-            content: '';
-            position: absolute;
-            top: -15px;
-            left: -15px;
-            right: -15px;
-            bottom: 16px;
-            background: #F8FAFC;
             border: 1px solid #E2E8F0;
-            border-radius: 22px;
-            box-shadow: 0 4px 14px -4px rgba(8, 13, 26, 0.07);
-            z-index: -1;
-            pointer-events: none;
-            transition: transform .35s var(--transition-snappy),
-                        box-shadow .35s var(--transition-snappy);
-        }
-        .card-product-premium {
-            position: relative;
-            z-index: 2;
-            width: 100%;
-            background: var(--mbg-card);
-            border: 1px solid #E2E8F0;
-            border-radius: var(--radius-lg);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            height: 100%;
-            box-shadow: 0 14px 32px -10px rgba(8, 13, 26, 0.14),
-                        0 4px 12px -2px rgba(8, 13, 26, 0.06);
-            transition: transform .35s var(--transition-snappy),
-                        box-shadow .35s var(--transition-snappy),
-                        border-color .35s ease;
-        }
-        .mbg-layered-card-wrap:hover .card-product-premium {
-            transform: translateY(-6px);
-            border-color: #CBD5E1;
-            box-shadow: 0 22px 44px -12px rgba(8, 13, 26, 0.2),
-                        0 8px 18px -4px rgba(37, 99, 235, 0.1);
-        }
-        .mbg-layered-card-wrap:hover::before {
-            transform: translateY(-3px);
-            box-shadow: 0 14px 28px -8px rgba(37, 99, 235, 0.22);
-        }
-        .mbg-layered-card-wrap:hover::after {
-            transform: translateY(-1px);
-        }
-        @media (max-width: 991.98px) {
-            .mbg-product-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 2rem 1.5rem;
-                padding: 18px 12px 12px;
-            }
-            .mbg-layered-card-wrap::before {
-                top: -6px;
-                left: -6px;
-                right: -6px;
-                bottom: 6px;
-            }
-            .mbg-layered-card-wrap::after {
-                top: -12px;
-                left: -12px;
-                right: -12px;
-                bottom: 12px;
-            }
-        }
-        @media (max-width: 575.98px) {
-            .mbg-product-grid {
-                grid-template-columns: 1fr;
-                gap: 1.85rem;
-                padding: 16px 10px 12px;
-            }
-            .mbg-layered-card-wrap::before {
-                top: -5px;
-                left: -5px;
-                right: -5px;
-                bottom: 5px;
-                border-radius: 18px;
-            }
-            .mbg-layered-card-wrap::after {
-                top: -10px;
-                left: -10px;
-                right: -10px;
-                bottom: 10px;
-                border-radius: 20px;
-            }
+            cursor: pointer;
+            user-select: none;
+            transform-origin: center center;
+            transition: transform .48s cubic-bezier(.22,1,.36,1),
+                        box-shadow .48s cubic-bezier(.22,1,.36,1),
+                        opacity .4s ease,
+                        filter .4s ease;
+            will-change: transform, opacity;
         }
 
-        /* Foto Mobil: Satu Foto Normal, Rasio Proporsional & Sudut Melengkung Atas */
-        .card-product-img-wrapper {
-            position: relative;
-            width: 100%; height: 215px;
-            overflow: hidden;
-            border-top-left-radius: var(--radius-lg);
-            border-top-right-radius: var(--radius-lg);
-            background: #0C1222;
-        }
-        .card-product-img-wrapper img {
-            width: 100%; height: 100%;
-            object-fit: cover;
-            transition: transform .5s var(--transition-snappy);
-        }
-        .mbg-layered-card-wrap:hover .card-product-img-wrapper img {
-            transform: scale(1.05);
-        }
-        .card-product-img-wrapper::after {
-            content: '';
-            position: absolute; bottom: 0; left: 0; right: 0;
-            height: 60px;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+        /* Position classes written by JS */
+        /* pos -2  (far left) */
+        .scc-card[data-pos="-2"] {
+            transform: translate(-50%,-50%) translateX(-390px) rotate(-8deg) scale(0.68);
+            z-index: 1;
+            opacity: 0.55;
+            filter: brightness(0.88);
+            box-shadow: 0 8px 24px -6px rgba(8,13,26,.18);
             pointer-events: none;
         }
-        .no-photo-placeholder {
+        /* pos -1  (left) */
+        .scc-card[data-pos="-1"] {
+            transform: translate(-50%,-50%) translateX(-245px) rotate(-4deg) scale(0.80);
+            z-index: 2;
+            opacity: 0.82;
+            filter: brightness(0.92);
+            box-shadow: 0 12px 32px -8px rgba(8,13,26,.22);
+        }
+        /* pos  0  (center — ACTIVE) */
+        .scc-card[data-pos="0"] {
+            transform: translate(-50%,-50%) translateX(0) rotate(0deg) scale(1.14);
+            z-index: 5;
+            opacity: 1;
+            filter: brightness(1);
+            box-shadow: 0 28px 56px -12px rgba(8,13,26,.28),
+                        0 8px 20px -4px rgba(37,99,235,.14);
+        }
+        /* pos +1  (right) */
+        .scc-card[data-pos="1"] {
+            transform: translate(-50%,-50%) translateX(245px) rotate(4deg) scale(0.80);
+            z-index: 2;
+            opacity: 0.82;
+            filter: brightness(0.92);
+            box-shadow: 0 12px 32px -8px rgba(8,13,26,.22);
+        }
+        /* pos +2  (far right) */
+        .scc-card[data-pos="2"] {
+            transform: translate(-50%,-50%) translateX(390px) rotate(8deg) scale(0.68);
+            z-index: 1;
+            opacity: 0.55;
+            filter: brightness(0.88);
+            box-shadow: 0 8px 24px -6px rgba(8,13,26,.18);
+            pointer-events: none;
+        }
+        /* hidden beyond ±2 */
+        .scc-card[data-pos="-3"],.scc-card[data-pos="3"],
+        .scc-card[data-pos="-4"],.scc-card[data-pos="4"] {
+            transform: translate(-50%,-50%) translateX(0) scale(0.5);
+            z-index: 0; opacity: 0; pointer-events: none;
+        }
+
+        /* ── Card internals ── */
+        .scc-card-logo {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px 0;
+        }
+        .scc-logo-text {
+            font-family: 'Montserrat', sans-serif;
+            font-size: .82rem;
+            font-weight: 800;
+            color: var(--mbg-blue);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .scc-logo-text i { font-size: .95rem; }
+        .scc-badge-unggulan {
+            font-size: .66rem;
+            font-weight: 700;
+            color: var(--mbg-blue);
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 999px;
+            padding: 3px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .scc-card-name {
+            padding: 10px 14px 4px;
+        }
+        .scc-brand {
+            font-size: .72rem;
+            font-weight: 600;
+            color: #64748B;
+            margin: 0;
+        }
+        .scc-model {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--mbg-navy);
+            line-height: 1.15;
+            margin: 0;
+        }
+        .scc-card[data-pos="0"] .scc-model { font-size: 1.5rem; }
+        .scc-specs {
+            font-size: .72rem;
+            color: #94A3B8;
+            padding: 2px 14px 6px;
+            font-weight: 500;
+        }
+        .scc-img-wrap {
+            position: relative;
+            width: 100%;
+            height: 148px;
+            background: linear-gradient(170deg, #F1F5F9 0%, #E2E8F0 100%);
+            overflow: visible;        /* let car image "float" above card bottom */
+            flex-shrink: 0;
+        }
+        .scc-card[data-pos="0"] .scc-img-wrap { height: 172px; }
+        .scc-img-wrap img {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 108%;            /* slightly wider than card — classic automotive card look */
+            max-width: 310px;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 18px rgba(0,0,0,.22));
+        }
+        .scc-img-placeholder {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #CBD5E1; font-size: 2rem;
+        }
+        .scc-card-footer {
+            padding: 10px 14px 14px;
+            margin-top: auto;
+        }
+        .scc-price {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--mbg-blue);
+            margin-bottom: 8px;
+        }
+        .scc-card[data-pos="0"] .scc-price { font-size: 1.35rem; }
+        .scc-cta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 10px 0;
+            background: var(--mbg-blue);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: .82rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background .2s ease, transform .15s ease;
+        }
+        .scc-cta:hover { background: #1D4ED8; color: #fff; transform: translateY(-1px); }
+        .scc-card[data-pos="0"] .scc-cta { padding: 12px 0; font-size: .88rem; border-radius: 12px; }
+
+        /* ── Navigation arrows ── */
+        .scc-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .scc-nav-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            border: 2px solid #BFDBFE;
+            background: #fff;
+            color: var(--mbg-blue);
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, transform .2s;
+            box-shadow: 0 4px 12px -4px rgba(37,99,235,.18);
+        }
+        .scc-nav-btn:hover {
+            background: var(--mbg-blue);
+            border-color: var(--mbg-blue);
+            color: #fff;
+            transform: scale(1.08);
+        }
+        .scc-dots {
+            display: flex;
+            gap: .45rem;
+            align-items: center;
+        }
+        .scc-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #CBD5E1;
+            transition: background .3s, transform .3s;
+            cursor: pointer;
+        }
+        .scc-dot.active {
+            background: var(--mbg-blue);
+            transform: scale(1.35);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 991.98px) {
+            .scc-stage { height: 440px; }
+            .scc-card { width: 200px; }
+            .scc-card[data-pos="-2"] { transform: translate(-50%,-50%) translateX(-310px) rotate(-7deg) scale(0.65); opacity: 0.45; }
+            .scc-card[data-pos="-1"] { transform: translate(-50%,-50%) translateX(-195px) rotate(-3.5deg) scale(0.78); }
+            .scc-card[data-pos="0"]  { transform: translate(-50%,-50%) translateX(0) rotate(0deg) scale(1.1); }
+            .scc-card[data-pos="1"]  { transform: translate(-50%,-50%) translateX(195px) rotate(3.5deg) scale(0.78); }
+            .scc-card[data-pos="2"]  { transform: translate(-50%,-50%) translateX(310px) rotate(7deg) scale(0.65); opacity: 0.45; }
+        }
+        @media (max-width: 575.98px) {
+            .scc-stage { height: 400px; }
+            .scc-card { width: 185px; }
+            /* hide far cards on mobile to avoid overflow */
+            .scc-card[data-pos="-2"],
+            .scc-card[data-pos="2"]  { opacity: 0; pointer-events: none; }
+            .scc-card[data-pos="-1"] { transform: translate(-50%,-50%) translateX(-158px) rotate(-3deg) scale(0.75); }
+            .scc-card[data-pos="0"]  { transform: translate(-50%,-50%) translateX(0) rotate(0deg) scale(1.05); }
+            .scc-card[data-pos="1"]  { transform: translate(-50%,-50%) translateX(158px) rotate(3deg) scale(0.75); }
+        }
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -1493,178 +1615,185 @@
     </header>
 
     <!-- ╔══════════════════════════════════════════════════════════════════╗
-         ║  5. AREA KATALOG PRODUK: "Rekomendasi Mobil Bekas Pilihan"       ║
-         ║     (PRODUCT GRID DENGAN LOGIKA DJANGO 100% DIPERTAHANKAN)       ║
+         ║  5. STACKED CARD CAROUSEL — Unit Unggulan MBG                    ║
          ╚══════════════════════════════════════════════════════════════════╝ -->
-    <main class="container pt-4 pb-5" id="mobil-pilihan" style="scroll-margin-top: 85px;">
-        
-        <!-- Header Katalog -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-3 pb-2" style="border-bottom:1px solid #E2E8F0;" data-aos="fade-up">
-            <div>
-                <span class="section-label"><i class="fa-solid fa-badge-check"></i> Unit Terverifikasi MBG</span>
-                <h2 class="section-heading mt-1 mb-1">Rekomendasi Mobil Bekas Pilihan</h2>
-                <p class="text-muted mb-0" style="font-size:.9rem;">Unit terbaik di Garasi Makassar, 100% lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
-            </div>
-            <div class="mt-3 mt-md-0">
-                <a href="{% url 'katalog' %}" class="btn btn-outline-primary rounded-pill px-4 fw-bold btn-sm">
-                    Lihat Semua{% if total_unit_tayang %} ({{ total_unit_tayang }} Unit){% endif %} <i class="fa-solid fa-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </div>
+    <section class="scc-section" id="mobil-pilihan" style="scroll-margin-top: 85px;">
+        <div class="container">
 
-        <!-- Grid Produk Statis dengan Efek Layered Card (layer dekoratif di belakang keseluruhan card) -->
-        <div class="mbg-product-grid">
-            {% for mobil in katalog_mobil %}
-            <div class="mbg-layered-card-wrap" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|divisibleby:3|yesno:'0,100,200' }}">
-
-                <!-- SATU KOTAK MOBIL (PRODUCT CARD) ELEGAN, MODERN & HIGH-TRUST -->
-                <div class="card-product-premium">
-
-                    <!-- 1. Foto Mobil: Satu Foto Normal & Sudut Melengkung Halus Bagian Atas -->
-                    <div class="card-product-img-wrapper">
-                        {% if mobil.gambar_utama %}
-                            <a href="{% url 'detail_produk' mobil.id %}">
-                                <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy">
-                            </a>
-                        {% else %}
-                            <div class="no-photo-placeholder">
-                                <i class="fa-regular fa-image" style="font-size:2.5rem;margin-bottom:.5rem;"></i>
-                                <span style="font-size:.82rem;">Foto unit dalam proses</span>
-                            </div>
-                        {% endif %}
-
-                        <!-- Badge Promo: Label kecil "Subsidi DP" melayang di sudut gambar -->
-                        <div class="badge-promo-floating">
-                            <i class="fa-solid fa-fire-flame-curved"></i> Subsidi DP
-                        </div>
-
-                        <!-- Tag Garasi MBG Certified / Tipe Penjual -->
-                        <div class="badge-seller-floating">
-                            <i class="fa-solid fa-award text-warning"></i> {{ mobil.get_tipe_penjual_display|default:"Garasi MBG" }}
-                        </div>
-                    </div>
-
-                    <!-- 2. Konten Bodi Card -->
-                    <div class="card-body-content">
-
-                        {% if mobil.sedang_dipesan %}
-                        <div class="mb-2">
-                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                <i class="fa-solid fa-clock me-1"></i>Unit sedang diproses
-                            </span>
-                        </div>
-                        {% endif %}
-
-                        <!-- Teks: Nama / Merek Mobil (Tebal & Jelas) -->
-                        <h3 class="card-car-title mb-2" title="{{ mobil.nama }}">
-                            <a href="{% url 'detail_produk' mobil.id %}" class="text-decoration-none text-dark">
-                                {{ mobil.nama }}
-                            </a>
-                        </h3>
-
-                        <!-- Info Singkat: Baris Kecil untuk Tahun, Transmisi (AT/MT), dan Jarak Tempuh -->
-                        <div class="specs-mini-bar">
-                            <div class="specs-mini-item">
-                                <i class="fa-regular fa-calendar"></i>
-                                <span>Tahun: <strong>{{ mobil.tahun }}</strong></span>
-                            </div>
-                            <span class="text-secondary opacity-50">|</span>
-                            <div class="specs-mini-item">
-                                <i class="fa-solid fa-gears"></i>
-                                <span><strong>{{ mobil.get_transmisi_display }}</strong></span>
-                            </div>
-                            <span class="text-secondary opacity-50">|</span>
-                            <div class="specs-mini-item">
-                                <i class="fa-solid fa-gauge-high"></i>
-                                <span><strong>{{ mobil.jarak_tempuh|intcomma }} km</strong></span>
-                            </div>
-                        </div>
-
-                        <!-- Deskripsi Singkat Mobil -->
-                        <p class="car-desc mb-1">
-                            {{ mobil.deskripsi_singkat }}
-                        </p>
-
-                        <div class="inspection-badge-slot">
-                            {% if mobil.has_inspection_result %}
-                            <span class="badge-inspeksi-exclusive">
-                                <i class="fa-solid fa-shield-check"></i>
-                                <span>Lulus inspeksi</span>
-                            </span>
-                            {% endif %}
-                        </div>
-
-                        <hr class="card-divider card-divider-after-inspection">
-
-                        <!-- Teks: Harga Normal (Jelas & Menonjol) -->
-                        <div class="card-price-block mb-3">
-                            <span class="price-label d-block">Harga OTR Makassar:</span>
-                            <div class="price-value">
-                                Rp {{ mobil.harga|intcomma }}
-                            </div>
-                            <div class="card-promo-slot">
-                            {% if mobil.harga_promo %}
-                                <span class="card-promo-label">
-                                    <i class="fa-solid fa-tag me-1"></i> Promo DP
-                                </span>
-                                <span class="card-promo-value">Rp {{ mobil.harga_promo|intcomma }}</span>
-                            {% else %}
-                                <span class="price-note">*Tersedia opsi Cash / Kredit DP Ringan</span>
-                            {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Tombol Call-to-Action (CTA) Penuh: Arahkan ke {% url 'detail_produk' mobil.id %} -->
-                        <div class="d-flex flex-column gap-2 mt-auto">
-                            {% if mobil.sedang_dipesan %}
-                            <button type="button" class="btn-cta-booking" disabled>
-                                <i class="fa-solid fa-clock"></i>
-                                <span>Unit Sedang Diproses</span>
-                            </button>
-                            {% else %}
-                            <a href="{% url 'detail_produk' mobil.id %}"
-                               class="btn-cta-booking">
-                                <i class="fa-solid fa-calendar-check"></i>
-                                <span>Booking Cek Unit</span>
-                            </a>
-                            {% endif %}
-
-                            <a href="https://wa.me/{{ pengaturan.whatsapp }}?text=Halo%20Admin%20MBG,%20apakah%20unit%20{{ mobil.nama|urlencode }}%20(Harga:%20Rp%20{{ mobil.harga|intcomma }})%20masih%20tersedia?%20Bisa%20minta%20info%20detail%20dan%20laporan%20inspeksinya?"
-                               target="_blank"
-                               class="btn-cta-wa">
-                                <i class="fa-brands fa-whatsapp"></i>
-                                <span>Tanya Detail Unit via WA</span>
-                            </a>
-                        </div>
-
-                    </div>
+            <!-- Section Header -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4" data-aos="fade-up">
+                <div>
+                    <span class="section-label"><i class="fa-solid fa-star"></i> Unit Unggulan MBG</span>
+                    <h2 class="section-heading mt-1 mb-1">Mobil Bekas Pilihan Terbaik</h2>
+                    <p class="text-muted mb-0" style="font-size:.9rem;">Unit ready stock di Garasi Makassar, lolos inspeksi, siap cek fisik dan test drive hari ini.</p>
                 </div>
-
-            </div>
-            {% empty %}
-            <div style="grid-column: 1 / -1;">
-                <div class="empty-state text-center">
-                    <div class="empty-state-icon">
-                        <i class="fa-solid fa-car-side"></i>
-                    </div>
-                    <h4 class="fw-bold mb-2" style="color:var(--mbg-navy);">Katalog Masih Kosong</h4>
-                    <p class="text-muted mb-4 mx-auto" style="max-width:420px;">Belum ada unit yang tersedia saat ini di Garasi MBG. Silakan hubungi tim kami untuk memesan atau menitipkan mobil Anda.</p>
-                    <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
-                        <i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG Makassar
+                <div class="mt-3 mt-md-0">
+                    <a href="{% url 'katalog' %}" class="btn btn-outline-primary rounded-pill px-4 fw-bold btn-sm">
+                        Lihat Katalog Lengkap{% if total_unit_tayang %} ({{ total_unit_tayang }} Unit){% endif %} <i class="fa-solid fa-arrow-right ms-1"></i>
                     </a>
                 </div>
             </div>
-            {% endfor %}
-        </div>
 
-        {% if total_unit_tayang > katalog_mobil|length %}
-        <div class="text-center mt-5" data-aos="fade-up">
-            <a href="{% url 'katalog' %}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow-sm">
-                <i class="fa-solid fa-car me-2"></i>Lihat Semua {{ total_unit_tayang }} Mobil di Katalog
-            </a>
+            {% if katalog_mobil %}
+            <!-- Stacked Card Stage -->
+            <div class="scc-stage" id="sccStage" aria-label="Carousel unit unggulan MBG" role="region">
+                {% for mobil in katalog_mobil %}
+                <div class="scc-card"
+                     data-idx="{{ forloop.counter0 }}"
+                     data-pos="{{ forloop.counter0|add:'-0' }}"
+                     role="group"
+                     aria-label="Unit {{ forloop.counter }}: {{ mobil.nama }}">
+
+                    <!-- Logo row -->
+                    <div class="scc-card-logo">
+                        <span class="scc-logo-text">
+                            <i class="fa-solid fa-car-side"></i> MBG
+                        </span>
+                        {% if forloop.first %}
+                        <span class="scc-badge-unggulan">
+                            <i class="fa-solid fa-star"></i> Unit Unggulan
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Name -->
+                    <div class="scc-card-name">
+                        <p class="scc-brand">{{ mobil.merek }}</p>
+                        <p class="scc-model">{{ mobil.nama }}</p>
+                    </div>
+
+                    <!-- Specs -->
+                    <div class="scc-specs">
+                        {{ mobil.tahun }} &bull; {{ mobil.get_transmisi_display }}{% if mobil.jarak_tempuh %} &bull; {{ mobil.jarak_tempuh|intcomma }} km{% endif %}
+                    </div>
+
+                    <!-- Car image -->
+                    <div class="scc-img-wrap">
+                        {% if mobil.gambar_utama %}
+                            <img src="{{ mobil.gambar_utama.url }}" alt="{{ mobil.nama }}" loading="lazy" draggable="false">
+                        {% else %}
+                            <div class="scc-img-placeholder">
+                                <i class="fa-regular fa-image"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Price + CTA -->
+                    <div class="scc-card-footer">
+                        <div class="scc-price">Rp {{ mobil.harga|intcomma }}</div>
+                        <a href="{% url 'katalog' %}" class="scc-cta">
+                            Lihat Katalog <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Navigation -->
+            <div class="scc-nav" data-aos="fade-up">
+                <button class="scc-nav-btn" id="sccPrev" aria-label="Unit sebelumnya">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div class="scc-dots" id="sccDots">
+                    {% for mobil in katalog_mobil %}
+                    <div class="scc-dot{% if forloop.first %} active{% endif %}" data-goto="{{ forloop.counter0 }}" role="button" tabindex="0" aria-label="Pilih unit {{ forloop.counter }}"></div>
+                    {% endfor %}
+                </div>
+                <button class="scc-nav-btn" id="sccNext" aria-label="Unit berikutnya">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+
+            {% else %}
+            <!-- Empty state -->
+            <div class="text-center py-5">
+                <div class="empty-state-icon mb-3"><i class="fa-solid fa-car-side fa-2x text-muted"></i></div>
+                <h4 class="fw-bold mb-2" style="color:var(--mbg-navy);">Belum Ada Unit Tersedia</h4>
+                <p class="text-muted mb-4">Silakan hubungi tim kami untuk informasi lebih lanjut.</p>
+                <a href="https://wa.me/{{ pengaturan.whatsapp }}" target="_blank" class="btn btn-primary rounded-pill px-4 fw-bold">
+                    <i class="fa-brands fa-whatsapp me-2"></i>Hubungi Tim MBG
+                </a>
+            </div>
+            {% endif %}
+
         </div>
-        {% endif %}
-    </main>
+    </section>
+
+    <script>
+    (function () {
+        'use strict';
+        const stage = document.getElementById('sccStage');
+        if (!stage) return;
+
+        const cards = Array.from(stage.querySelectorAll('.scc-card'));
+        const dots  = Array.from(document.querySelectorAll('#sccDots .scc-dot'));
+        const total = cards.length;
+        let current = 0;
+        let startX = 0;
+        let isDragging = false;
+
+        function render() {
+            cards.forEach((card, i) => {
+                const pos = ((i - current) % total + total) % total;
+                // Map 0…n-1 to relative offsets centered at 0
+                let rel = pos > total / 2 ? pos - total : pos;
+                // Clamp beyond ±3 to hide
+                const attr = Math.max(-4, Math.min(4, rel));
+                card.setAttribute('data-pos', String(attr));
+            });
+            dots.forEach((d, i) => d.classList.toggle('active', i === current));
+        }
+
+        function prev() { current = (current - 1 + total) % total; render(); }
+        function next() { current = (current + 1) % total; render(); }
+
+        document.getElementById('sccPrev').addEventListener('click', prev);
+        document.getElementById('sccNext').addEventListener('click', next);
+
+        dots.forEach((d, i) => {
+            d.addEventListener('click', () => { current = i; render(); });
+            d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { current = i; render(); } });
+        });
+
+        // Click non-center card to bring it forward
+        cards.forEach((card) => {
+            card.addEventListener('click', () => {
+                const pos = parseInt(card.getAttribute('data-pos'), 10);
+                if (pos !== 0) {
+                    current = (current + pos + total) % total;
+                    render();
+                }
+            });
+        });
+
+        // Touch / swipe
+        stage.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isDragging = true; }, { passive: true });
+        stage.addEventListener('touchend', e => {
+            if (!isDragging) return;
+            const dx = e.changedTouches[0].clientX - startX;
+            if (Math.abs(dx) > 40) dx < 0 ? next() : prev();
+            isDragging = false;
+        }, { passive: true });
+
+        // Mouse drag
+        stage.addEventListener('mousedown', e => { startX = e.clientX; isDragging = true; });
+        window.addEventListener('mouseup', e => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+            isDragging = false;
+        });
+
+        // Keyboard
+        stage.setAttribute('tabindex', '0');
+        stage.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') prev();
+            if (e.key === 'ArrowRight') next();
+        });
+
+        render(); // initial layout
+    })();
+    </script>
 
     <!-- ╔══════════════════════════════════════════╗
          ║  6. VALUE PROPOSITION — 4 Keunggulan MBG  ║
